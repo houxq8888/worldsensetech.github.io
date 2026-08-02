@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RSSM状态空间模型详解：世界模型的核心引擎 - WorldSense 技术笔记</title>
+    <meta name="description" content="从数学原理到工程实现，深入理解RSSM（循环状态空间模型）的工作机制，以及它在DreamerV3世界模型中的核心作用。">
+    <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+    <header>
+        <div class="header-inner">
+            <a href="../index.html" class="site-title">WorldSense 技术笔记</a>
+            <nav>
+                <a href="../index.html">文章</a>
+                <a href="../about.html">关于</a>
+                <a href="https://github.com/worldsensetech" target="_blank">GitHub</a>
+            </nav>
+        </div>
+    </header>
+
+    <div class="article-header">
+        <h1>RSSM状态空间模型详解：世界模型的核心引擎</h1>
+        <div class="article-info">2026年8月2日 · 阅读约15分钟 · RSSM, 状态空间模型, DreamerV3</div>
+    </div>
+
+    <main class="article-content">
+        <p>上一篇文章我们聊了世界模型的基本概念和DreamerV3的整体架构。有读者反馈说，想更深入地了解RSSM到底是怎么工作的。这篇文章就来拆解这个Dreamer系列世界模型的核心组件。</p>
+
+        <p>我会尽量把数学讲清楚，但不会过度形式化。毕竟我们的目标是理解原理，而不是证明定理。</p>
+
+        <h2>为什么需要状态空间模型</h2>
+
+        <p>在讨论RSSM之前，先退一步想想：为什么我们需要状态空间模型？直接用RNN或者Transformer不行吗？</p>
+
+        <p>先说RNN。传统RNN的问题在于，它把所有信息压缩到一个确定性的隐状态向量里。这就像让你用一个数字来描述"今天天气怎么样"——不管你怎么选这个数字，都会丢失大量信息。更关键的是，RNN没有表达<strong>不确定性</strong>的能力。如果环境有随机因素（比如一阵风吹来），RNN无法表达"我不确定接下来会发生什么"。</p>
+
+        <p>再说Transformer。Transformer的注意力机制确实强大，但它有两个问题：一是计算复杂度随序列长度平方增长，对于需要长程记忆的机器人任务来说成本太高；二是它本质上是一个开环模型，没有显式的状态转移结构，不太适合做控制。</p>
+
+        <p>状态空间模型（SSM）是一个折中方案。它有显式的状态转移方程，能捕捉动态系统的本质；同时通过精心设计的状态表示，在表达能力和计算效率之间取得平衡。</p>
+
+        <h2>RSSM的核心思想：双轨状态</h2>
+
+        <p>RSSM的全称是Recurrent State-Space Model，循环状态空间模型。它的核心创新在于把隐状态拆成了两条轨道：</p>
+
+        <p><strong>确定性状态 hₜ（Deterministic State）</strong></p>
+
+        <p>这个状态类似于传统RNN的隐状态，通过一个GRU（门控循环单元）更新：</p>
+
+        <pre><code>hₜ = GRU(hₜ₋₁, zₜ₋₁, aₜ₋₁)</code></pre>
+
+        <p>它捕捉的是环境中的<strong>确定性规律</strong>——那些可以精确预测的部分。比如"如果机械臂向右移动10厘米，末端执行器的x坐标就增加10厘米"这种确定的物理关系。</p>
+
+        <p><strong>随机性状态 zₜ（Stochastic State）</strong></p>
+
+        <p>这个状态是从一个分布中采样得到的：</p>
+
+        <pre><code>zₜ ~ p(zₜ | hₜ)     # 先验（想象时）
+zₜ ~ q(zₜ | hₜ, oₜ)  # 后验（训练时）</code></pre>
+
+        <p>它捕捉的是环境中的<strong>不确定性</strong>——那些无法精确预测的部分。比如"两个表面之间的摩擦力可能在0.2到0.4之间"这种模糊的物理特性。</p>
+
+        <p>为什么要这样拆分？因为真实世界就是由确定性规律和不确定性因素共同构成的。把它们分开建模，模型就能更准确地理解环境。</p>
+
+        <h2>完整的状态转移过程</h2>
+
+        <p>让我们一步步走一遍RSSM的状态转移过程。假设在时刻t，我们有一个观测 oₜ（比如相机图像）和一个动作 aₜ（比如关节力矩）：</p>
+
+        <p><strong>第一步：更新确定性状态</strong></p>
+
+        <pre><code>hₜ = GRU(hₜ₋₁, zₜ₋₁, aₜ₋₁)</code></pre>
+
+        <p>把上一步的确定性状态hₜ₋₁、随机性状态zₜ₋₁和动作aₜ₋₁拼在一起，通过GRU得到新的确定性状态。这一步类似于传统RNN的更新。</p>
+
+        <p><strong>第二步：计算随机性状态</strong></p>
+
+        <p>这里有两种模式：</p>
+
+        <p>训练时（有真实观测），我们用<strong>后验分布</strong>：</p>
+
+        <pre><code>μₜ, σₜ = Encoder(hₜ, oₜ)
+zₜ = μₜ + σₜ * ε,  其中 ε ~ N(0, I)</code></pre>
+
+        <p>推理时（没有真实观测，在想象中），我们用<strong>先验分布</strong>：</p>
+
+        <pre><code>μₜ, σₜ = Prior(hₜ)
+zₜ = μₜ + σₜ * ε,  其中 ε ~ N(0, I)</code></pre>
+
+        <p>这个设计非常巧妙。训练时用后验分布，可以利用真实观测来修正预测，提高训练效率；推理时只用先验分布，模型可以纯粹基于内部状态进行预测，不需要外部观测。</p>
+
+        <p><strong>第三步：解码输出</strong></p>
+
+        <p>有了状态 (hₜ, zₜ)，就可以解码出各种输出：</p>
+
+        <pre><code>观测预测: ôₜ = Decoder(hₜ, zₜ)
+奖励预测: r̂ₜ = RewardHead(hₜ, zₜ)
+折扣预测: γ̂ₜ = DiscountHead(hₜ, zₜ)</code></pre>
+
+        <h3>训练损失</h3>
+
+        <p>RSSM的训练损失由三部分组成：</p>
+
+        <p><strong>1. 重建损失（Reconstruction Loss）</strong></p>
+
+        <pre><code>L_recon = -log p(oₜ | hₜ, zₜ)</code></pre>
+
+        <p>让模型预测的观测尽可能接近真实观测。这驱动模型学习环境的动态。</p>
+
+        <p><strong>2. KL散度损失（KL Divergence Loss）</strong></p>
+
+        <pre><code>L_kl = KL[q(zₜ|hₜ,oₜ) || p(zₜ|hₜ)]</code></pre>
+
+        <p>让后验分布接近先验分布。这个损失的作用是：确保模型在推理时（只用先验）也能表现良好。如果没有这个约束，后验和先验可能差距很大，导致训练时表现好但推理时崩溃。</p>
+
+        <p>实际实现中，通常会对KL散度加一个系数，并使用"free bits"技巧——当KL低于某个阈值（比如3 nat）时不再惩罚，避免模型过度压缩信息。</p>
+
+        <p><strong>3. 奖励/折扣损失</strong></p>
+
+        <pre><code>L_reward = -log p(rₜ | hₜ, zₜ)
+L_discount = -log p(γₜ | hₜ, zₜ)</code></pre>
+
+        <p>让模型准确预测奖励和终止条件。</p>
+
+        <h2>物理感知RSSM：一个改进思路</h2>
+
+        <p>标准的RSSM把状态当作一个"黑箱"向量，不关心它是否对应真实的物理量。但在机器人任务中，很多状态有明确的物理含义——位置、速度、力、温度等。</p>
+
+        <p>一个自然的改进方向是：<strong>让状态空间具有物理意义</strong>。</p>
+
+        <p>具体来说，可以这样做：</p>
+
+        <ul>
+            <li>将状态向量分成若干子空间，每个子空间对应一类物理量（位置、速度、力、热力学等）</li>
+            <li>在状态转移方程中引入物理约束（比如能量守恒、动量守恒）</li>
+            <li>使用物理先验来初始化某些参数（比如已知重力加速度为9.8 m/s²）</li>
+        </ul>
+
+        <p>这种"物理感知"的RSSM有几个好处：</p>
+
+        <ul>
+            <li><strong>更好的泛化</strong>：物理规律是普适的，基于物理建模的策略更容易迁移到新场景</li>
+            <li><strong>更强的约束</strong>：物理约束减少了模型需要学习的自由度，加速训练</li>
+            <li><strong>更好的可解释性</strong>：每个状态维度都有物理含义，方便调试和分析</li>
+        </ul>
+
+        <p>当然，这也增加了模型的复杂性，而且需要对任务有深入的物理理解。不是所有场景都适合这种改进。</p>
+
+        <h2>工程实现要点</h2>
+
+        <p>如果你打算自己实现RSSM，以下是一些实际工程中需要注意的点：</p>
+
+        <p><strong>1. 网络结构</strong></p>
+
+        <p>DreamerV3中RSSM的具体实现：</p>
+
+        <ul>
+            <li>确定性状态 h：维度1024，通过4层MLP的GRU更新</li>
+            <li>随机性状态 z：维度32（注意比h小很多），通过2层MLP的参数化高斯分布</li>
+            <li>先验和后验网络都是2层MLP，输出均值和对数标准差</li>
+        </ul>
+
+        <p><strong>2. 数值稳定性</strong></p>
+
+        <p>高斯分布的标准差如果太小，会导致KL散度爆炸；如果太大，模型无法做出精确预测。实践中通常对标准差做clamp：</p>
+
+        <pre><code>sigma = torch.clamp(sigma, min=1e-4, max=1.0)</code></pre>
+
+        <p><strong>3. 梯度传播</strong></p>
+
+        <p>在想象训练中，梯度需要通过世界模型反向传播到Actor网络。由于想象轨迹可能很长（15步），需要注意梯度消失/爆炸问题。DreamerV3使用了梯度裁剪（gradient clipping）来解决。</p>
+
+        <p><strong>4. 经验回放</strong></p>
+
+        <p>训练数据来自经验回放池（Replay Buffer）。实现时通常存储完整的episode序列，训练时随机采样64个序列片段。回放池的大小通常设置为100万步左右。</p>
+
+        <h2>与其他状态空间模型的对比</h2>
+
+        <p>为了更全面地理解RSSM，我们把它和其他几种常见的状态空间模型做个对比：</p>
+
+        <p><strong>RSSM vs 经典Kalman Filter</strong></p>
+
+        <p>Kalman Filter假设线性动态和高斯噪声，RSSM用神经网络来学习非线性动态。Kalman Filter的状态转移是矩阵乘法，RSSM是GRU+MLP。但核心思想是相似的：维护一个关于环境状态的信念（belief），通过观测来更新。</p>
+
+        <p><strong>RSSM vs Transformer</strong></p>
+
+        <p>Transformer通过注意力机制处理整个历史序列，RSSM通过递归状态压缩历史信息。Transformer的计算复杂度是O(n²)，RSSM是O(n)。对于需要长程记忆的机器人任务，RSSM更高效。但Transformer在捕捉长距离依赖方面更强。</p>
+
+        <p><strong>RSSM vs Mamba/S4</strong></p>
+
+        <p>Mamba和S4是近年来的新型状态空间模型，通过选择性机制和结构化参数提高了表达能力。它们主要用于序列建模（类似Transformer），而RSSM专注于控制场景。两者有互补的可能性——用Mamba的选择性机制来改进RSSM的状态更新，是一个值得探索的方向。</p>
+
+        <h2>小结</h2>
+
+        <p>RSSM的核心贡献在于：它提供了一种有效的方式来同时建模环境的确定性规律和不确定性因素。通过双轨状态设计，它既能像RNN一样处理序列数据，又能像概率模型一样表达不确定性。</p>
+
+        <p>在DreamerV3中，RSSM被证明可以在55款Atari游戏中用同一套参数达到高水平表现，也能在机器人操控任务中实现高效的策略学习。这说明RSSM的设计抓住了环境建模的一些本质特征。</p>
+
+        <p>如果你对RSSM的实现感兴趣，推荐看一下DreamerV3的官方代码（GitHub上可以搜到），重点看RSSM类的实现，代码量不大，但设计很精巧。</p>
+
+        <p>下一篇文章，我打算聊一个更偏实战的话题：Sim-to-Real迁移。世界模型在仿真中训练的策略，到底怎么部署到真实机器人上？这中间有哪些坑？我们下次见。</p>
+
+        <hr>
+
+        <p><em>作者是一名机器人AI工程师，西北工业大学硕士，专注于世界模型和Sim-to-Real方向。如果觉得有帮助，欢迎点赞收藏，也欢迎在评论区交流讨论。</em></p>
+    </main>
+
+    <div class="author-box">
+        <div class="author-avatar">W</div>
+        <div class="author-info">
+            <p class="author-name">WorldSense</p>
+            <p>机器人AI工程师，专注世界模型与Sim-to-Real方向。西北工业大学硕士。</p>
+        </div>
+    </div>
+
+    <footer>
+        <p>&copy; 2026 WorldSense · <a href="https://worldsensetech.com">worldsensetech.com</a></p>
+    </footer>
+</body>
+</html>
