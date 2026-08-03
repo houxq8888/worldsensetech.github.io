@@ -14,6 +14,7 @@ from datetime import datetime, date
 BLOG_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DRAFTS_DIR = os.path.join(BLOG_DIR, "_drafts")
 ARTICLES_DIR = os.path.join(BLOG_DIR, "articles")
+EN_ARTICLES_DIR = os.path.join(BLOG_DIR, "en", "articles")
 INDEX_CN = os.path.join(BLOG_DIR, "index.html")
 INDEX_EN = os.path.join(BLOG_DIR, "en", "index.html")
 
@@ -102,6 +103,17 @@ def publish_draft(filename):
     with open(dest_path, "w", encoding="utf-8") as f:
         f.write(clean_content)
     print(f"    -> articles/{slug}.html")
+
+    # Check for English draft in _drafts/en/
+    en_draft_path = os.path.join(DRAFTS_DIR, "en", filename)
+    if os.path.exists(en_draft_path):
+        with open(en_draft_path, "r", encoding="utf-8") as f:
+            en_content = f.read()
+        en_dest_path = os.path.join(EN_ARTICLES_DIR, f"{slug}.html")
+        with open(en_dest_path, "w", encoding="utf-8") as f:
+            f.write(en_content)
+        os.remove(en_draft_path)
+        print(f"    -> en/articles/{slug}.html (from en/ draft)")
 
     # Update Chinese index
     if cn_entry:

@@ -12,7 +12,7 @@ YYYY-MM-DD-article-slug.html
 
 ## 文件格式
 
-在 HTML 文件末尾（`</body>` 之前）加上这段注释，告诉脚本怎么更新首页：
+在 HTML 文件末尾（`</body>` 之后、`</html>` 之前）加上这段注释，告诉脚本怎么更新首页：
 
 ```html
 <!-- INDEX_ENTRY
@@ -42,9 +42,22 @@ YYYY-MM-DD-article-slug.html
 
 `EN_INDEX_ENTRY` 是可选的，没有的话英文版不会自动添加这篇文章。
 
+## 英文版文章
+
+如果有英文版，把对应的 HTML 文件放到 `_drafts/en/` 目录，文件名和中文版完全一样：
+
+```
+_drafts/
+  2026-08-05-article-slug.html        ← 中文版
+  en/
+    2026-08-05-article-slug.html      ← 英文版
+```
+
+发布时会自动移到 `en/articles/` 目录。
+
 ## 发布流程
 
-1. 把写好的 HTML 文件放到 `_drafts/`，文件名带日期
+1. 把写好的 HTML 文件放到 `_drafts/`（英文版放 `_drafts/en/`），文件名带日期
 2. `git push` 到 GitHub
 3. GitHub Actions 每天 UTC 00:00（北京时间 08:00）检查
 4. 到期自动发布：移到 `articles/`，更新中英文首页，提交推送
