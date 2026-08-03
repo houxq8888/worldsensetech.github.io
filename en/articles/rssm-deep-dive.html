@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deep Dive into RSSM: The Core Engine of World Models - WorldSense Tech Notes</title>
+    <meta name="description" content="From mathematical principles to engineering implementation, a deep understanding of the RSSM (Recurrent State-Space Model) and its central role in the DreamerV3 world model.">
+    <link rel="stylesheet" href="../style.css">
+
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-6EQ7ZKS9L8"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-6EQ7ZKS9L8');
+</script>
+
+<!-- Busuanzi Counter -->
+<script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+</head>
+<body>
+
+    <header>
+        <div class="header-inner">
+            <a href="../index.html" class="site-title">WorldSense Tech Notes</a>
+            <nav>
+                <a href="../index.html">Articles</a>
+                <a href="../about.html">About</a>
+                <a href="../../index.html">中文</a>
+                <a href="https://github.com/houxq8888/worldsensetech.github.io" target="_blank">GitHub</a>
+            </nav>
+        </div>
+    </header>
+
+    <div class="article-header">
+        <h1>Deep Dive into RSSM: The Core Engine of World Models</h1>
+        <div class="article-info">August 2, 2026 · ~15 min read · RSSM, State-Space Model, DreamerV3</div>
+    </div>
+
+    <main class="article-content">
+        <p>In the previous article, we covered the basic concepts of world models and the overall architecture of DreamerV3. Some readers asked for a deeper look at how RSSM actually works under the hood. This article breaks down the core component that powers the Dreamer family of world models.</p>
+
+        <p>I'll walk through the math as clearly as possible, but without excessive formalism. After all, our goal is to understand the principles, not prove theorems.</p>
+
+        <h2>Why Do We Need a State-Space Model?</h2>
+
+        <p>Before discussing RSSM, let's take a step back and ask: why do we need a state-space model at all? Can't we just use a plain RNN or Transformer?</p>
+
+        <p>Consider RNNs first. The problem with traditional RNNs is that they compress all information into a single deterministic hidden state vector. It's like asking you to describe "how's the weather today" using a single number — no matter how you choose that number, you'll lose a tremendous amount of information. More critically, RNNs have no way to express <strong>uncertainty</strong>. If the environment has stochastic elements (say, a gust of wind), an RNN cannot express "I'm not sure what's going to happen next."</p>
+
+        <p>Now consider Transformers. The attention mechanism is certainly powerful, but it comes with two issues: first, computational complexity grows quadratically with sequence length, which is prohibitively expensive for robotic tasks that require long-range memory; second, it is fundamentally an open-loop model with no explicit state transition structure, making it ill-suited for control.</p>
+
+        <p>A state-space model (SSM) offers a middle ground. It has an explicit state transition equation that captures the essence of dynamical systems, while carefully designed state representations strike a balance between expressiveness and computational efficiency.</p>
+
+        <h2>The Core Idea of RSSM: Dual-Track State</h2>
+
+        <p>RSSM stands for Recurrent State-Space Model. Its key innovation is splitting the hidden state into two tracks:</p>
+
+        <p><strong>Deterministic State hₜ</strong></p>
+
+        <p>This state is analogous to the hidden state of a traditional RNN, updated via a GRU (Gated Recurrent Unit):</p>
+
+        <pre><code>hₜ = GRU(hₜ₋₁, zₜ₋₁, aₜ₋₁)</code></pre>
+
+        <p>It captures the <strong>deterministic dynamics</strong> of the environment — the parts that can be predicted precisely. For example, "if the robot arm moves 10 cm to the right, the end-effector's x-coordinate increases by 10 cm" — a deterministic physical relationship.</p>
+
+        <p><strong>Stochastic State zₜ</strong></p>
+
+        <p>This state is sampled from a distribution:</p>
+
+        <pre><code>zₜ ~ p(zₜ | hₜ)     # prior (during imagination)
+zₜ ~ q(zₜ | hₜ, oₜ)  # posterior (during training)</code></pre>
+
+        <p>It captures the <strong>uncertainty</strong> in the environment — the parts that cannot be predicted precisely. For example, "the friction coefficient between two surfaces may be anywhere from 0.2 to 0.4" — an inherently ambiguous physical property.</p>
+
+        <p>Why split the state this way? Because the real world is governed by both deterministic laws and stochastic factors. By modeling them separately, the model can form a more accurate understanding of the environment.</p>
+
+        <h2>The Complete State Transition Process</h2>
+
+        <p>Let's walk through the RSSM state transition step by step. Suppose at time step t we have an observation oₜ (e.g., a camera image) and an action aₜ (e.g., joint torques):</p>
+
+        <p><strong>Step 1: Update the deterministic state</strong></p>
+
+        <pre><code>hₜ = GRU(hₜ₋₁, zₜ₋₁, aₜ₋₁)</code></pre>
+
+        <p>We concatenate the previous deterministic state hₜ₋₁, the stochastic state zₜ₋₁, and the action aₜ₋₁, then pass them through the GRU to obtain the new deterministic state. This step is analogous to a traditional RNN update.</p>
+
+        <p><strong>Step 2: Compute the stochastic state</strong></p>
+
+        <p>There are two modes here:</p>
+
+        <p>During training (with real observations), we use the <strong>posterior distribution</strong>:</p>
+
+        <pre><code>μₜ, σₜ = Encoder(hₜ, oₜ)
+zₜ = μₜ + σₜ * ε,  where ε ~ N(0, I)</code></pre>
+
+        <p>During inference (no real observations, during imagination), we use the <strong>prior distribution</strong>:</p>
+
+        <pre><code>μₜ, σₜ = Prior(hₜ)
+zₜ = μₜ + σₜ * ε,  where ε ~ N(0, I)</code></pre>
+
+        <p>This design is quite elegant. During training, the posterior distribution leverages real observations to correct predictions, improving training efficiency. During inference, only the prior distribution is used, allowing the model to make predictions purely based on its internal state without requiring external observations.</p>
+
+        <p><strong>Step 3: Decode outputs</strong></p>
+
+        <p>Given the state (hₜ, zₜ), we can decode various outputs:</p>
+
+        <pre><code>Observation prediction: ôₜ = Decoder(hₜ, zₜ)
+Reward prediction: r̂ₜ = RewardHead(hₜ, zₜ)
+Discount prediction: γ̂ₜ = DiscountHead(hₜ, zₜ)</code></pre>
+
+        <h3>Training Loss</h3>
+
+        <p>The RSSM training loss consists of three components:</p>
+
+        <p><strong>1. Reconstruction Loss</strong></p>
+
+        <pre><code>L_recon = -log p(oₜ | hₜ, zₜ)</code></pre>
+
+        <p>This drives the model's predicted observations to match the real observations as closely as possible, pushing the model to learn the environment dynamics.</p>
+
+        <p><strong>2. KL Divergence Loss</strong></p>
+
+        <pre><code>L_kl = KL[q(zₜ|hₜ,oₜ) || p(zₜ|hₜ)]</code></pre>
+
+        <p>This pushes the posterior distribution close to the prior distribution. The purpose of this loss is to ensure that the model performs well during inference (when only the prior is available). Without this constraint, the posterior and prior could diverge significantly, leading to good training performance but collapsed inference.</p>
+
+        <p>In practice, the KL divergence is typically scaled by a coefficient, and the "free bits" trick is applied — when the KL falls below a certain threshold (e.g., 3 nats), no further penalty is imposed, preventing the model from over-compressing information.</p>
+
+        <p><strong>3. Reward / Discount Loss</strong></p>
+
+        <pre><code>L_reward = -log p(rₜ | hₜ, zₜ)
+L_discount = -log p(γₜ | hₜ, zₜ)</code></pre>
+
+        <p>This ensures the model accurately predicts rewards and termination conditions.</p>
+
+        <h2>Physics-Aware RSSM: An Improvement Direction</h2>
+
+        <p>The standard RSSM treats the state as a "black-box" vector, without regard for whether it corresponds to real physical quantities. However, in robotic tasks, many states have clear physical meanings — position, velocity, force, temperature, and so on.</p>
+
+        <p>A natural direction for improvement is to <strong>endow the state space with physical meaning</strong>.</p>
+
+        <p>Specifically, this could be done as follows:</p>
+
+        <ul>
+            <li>Partition the state vector into subspaces, each corresponding to a category of physical quantities (position, velocity, force, thermodynamics, etc.)</li>
+            <li>Introduce physical constraints into the state transition equations (e.g., conservation of energy, conservation of momentum)</li>
+            <li>Use physical priors to initialize certain parameters (e.g., gravitational acceleration known to be 9.8 m/s²)</li>
+        </ul>
+
+        <p>Such a "physics-aware" RSSM offers several advantages:</p>
+
+        <ul>
+            <li><strong>Better generalization</strong>: Physical laws are universal; policies based on physical modeling transfer more easily to new scenarios</li>
+            <li><strong>Stronger constraints</strong>: Physical constraints reduce the degrees of freedom the model needs to learn, accelerating training</li>
+            <li><strong>Better interpretability</strong>: Each state dimension has a physical meaning, facilitating debugging and analysis</li>
+        </ul>
+
+        <p>Of course, this also increases model complexity and requires deep physical understanding of the task. Not every scenario is suited for this approach.</p>
+
+        <h2>Engineering Implementation Notes</h2>
+
+        <p>If you plan to implement RSSM yourself, here are some practical considerations from real-world engineering:</p>
+
+        <p><strong>1. Network Architecture</strong></p>
+
+        <p>The specific RSSM implementation in DreamerV3:</p>
+
+        <ul>
+            <li>Deterministic state h: dimension 1024, updated via a GRU with a 4-layer MLP</li>
+            <li>Stochastic state z: dimension 32 (note: much smaller than h), parameterized Gaussian distribution via a 2-layer MLP</li>
+            <li>Both prior and posterior networks are 2-layer MLPs, outputting mean and log standard deviation</li>
+        </ul>
+
+        <p><strong>2. Numerical Stability</strong></p>
+
+        <p>If the standard deviation of the Gaussian distribution is too small, the KL divergence can explode; if too large, the model cannot make precise predictions. In practice, the standard deviation is typically clamped:</p>
+
+        <pre><code>sigma = torch.clamp(sigma, min=1e-4, max=1.0)</code></pre>
+
+        <p><strong>3. Gradient Propagation</strong></p>
+
+        <p>During imagination training, gradients must be backpropagated through the world model to the actor network. Since imagination trajectories can be long (15 steps), gradient vanishing/exploding is a concern. DreamerV3 addresses this with gradient clipping.</p>
+
+        <p><strong>4. Experience Replay</strong></p>
+
+        <p>Training data comes from an experience replay buffer. In practice, complete episode sequences are stored, and during training, 64 random sequence segments are sampled. The replay buffer is typically sized at around 1 million steps.</p>
+
+        <h2>Comparison with Other State-Space Models</h2>
+
+        <p>To gain a more comprehensive understanding of RSSM, let's compare it with several other common state-space models:</p>
+
+        <p><strong>RSSM vs. Classical Kalman Filter</strong></p>
+
+        <p>The Kalman Filter assumes linear dynamics and Gaussian noise; RSSM uses neural networks to learn nonlinear dynamics. The Kalman Filter's state transition is matrix multiplication; RSSM uses GRU + MLP. But the core idea is similar: maintain a belief about the state of the environment and update it through observations.</p>
+
+        <p><strong>RSSM vs. Transformer</strong></p>
+
+        <p>Transformers process the entire history sequence via attention; RSSM compresses historical information through a recurrent state. Transformer computational complexity is O(n²); RSSM is O(n). For robotic tasks requiring long-range memory, RSSM is more efficient. However, Transformers are stronger at capturing long-range dependencies.</p>
+
+        <p><strong>RSSM vs. Mamba / S4</strong></p>
+
+        <p>Mamba and S4 are newer state-space models that improve expressiveness through selective mechanisms and structured parameterization. They are primarily used for sequence modeling (similar to Transformers), while RSSM focuses on control scenarios. The two approaches are potentially complementary — using Mamba's selective mechanism to improve RSSM's state updates is a direction worth exploring.</p>
+
+        <h2>Summary</h2>
+
+        <p>The core contribution of RSSM is that it provides an effective way to simultaneously model the deterministic dynamics and stochastic factors of an environment. Through its dual-track state design, it can handle sequential data like an RNN while expressing uncertainty like a probabilistic model.</p>
+
+        <p>In DreamerV3, RSSM has been shown to achieve high-level performance across 55 Atari games with a single set of parameters, and also enables efficient policy learning in robotic manipulation tasks. This demonstrates that the RSSM design captures some essential characteristics of environment modeling.</p>
+
+        <p>If you're interested in the implementation of RSSM, I recommend checking out the official DreamerV3 code (searchable on GitHub). Focus on the RSSM class implementation — it's not a lot of code, but the design is elegant.</p>
+
+        <p>In the next article, I'll cover a more practical topic: Sim-to-Real transfer. How do we deploy policies trained in simulation to real robots? What are the pitfalls? See you next time.</p>
+
+        <hr>
+
+        <p><em>The author is a robotics AI engineer with an M.S. from Northwestern Polytechnical University, specializing in world models and Sim-to-Real transfer. If you found this article helpful, feel free to like, bookmark, or leave a comment to discuss.</em></p>
+    </main>
+
+    <div class="author-box">
+        <div class="author-avatar">W</div>
+        <div class="author-info">
+            <p class="author-name">WorldSense</p>
+            <p>Robotics AI engineer, M.S. from Northwestern Polytechnical University. Author of 'Visual C++ Made Simple' and '300 Classic C++ Programming Examples'. Focused on world models and Sim-to-Real transfer.</p>
+        </div>
+    </div>
+
+    <footer>
+        <p>&copy; 2026 WorldSense · <a href="https://worldsensetech.com">worldsensetech.com</a></p>
+    
+<span id="busuanzi_container_site_pv" style="font-size:0.8rem;color:#999;">
+  Total visits <span id="busuanzi_value_site_pv" style="color:#2563eb;"></span>
+</span>
+<span id="busuanzi_container_page_pv" style="font-size:0.8rem;color:#999;margin-left:12px;">
+  Article views <span id="busuanzi_value_page_pv" style="color:#2563eb;"></span>
+</span>
+
+    </footer>
+</body>
+</html>
