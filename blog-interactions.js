@@ -28,7 +28,7 @@
 
     var SUPABASE_CONFIG = {
         projectUrl: 'https://vkbbaulinnpgywowgztp.supabase.co',
-        apiKey: 'sb_publishable_-LEtCNCKzgK7zd0oTAJ3ow_3dH7Di7H',
+        apiKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZrYmJhdWxpbm5wZ3l3b3dnenRwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU3OTM3MDMsImV4cCI6MjEwMTM2OTcwM30.oB4arqje9FP2x5Ws1yvCkGCTUPzmtY7XH5wes41egwc',
         tableName: 'blog_stats'
     };
 
