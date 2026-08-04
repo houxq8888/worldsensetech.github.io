@@ -95,6 +95,12 @@
         </article>
     </main>
 
+    <!-- Admin Stats Panel (only visible with ?stats=1) -->
+    <div id="admin-stats" style="display:none; max-width:800px; margin:2rem auto; padding:1.5rem; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px;">
+        <h3 style="margin:0 0 1rem; font-size:1.1rem; color:#1a1a2e;">全站统计</h3>
+        <div id="stats-content" style="font-size:0.9rem; color:#64748b;">加载中...</div>
+    </div>
+
     <footer>
         <p>&copy; 2026 WorldSense · <a href="https://worldsensetech.com">worldsensetech.com</a></p>
     
@@ -106,5 +112,62 @@
 </span>
 
     </footer>
+
+    <script>
+    // Admin stats panel - only show when ?stats=1 in URL
+    (function() {
+        var params = new URLSearchParams(window.location.search);
+        if (params.get('stats') !== '1') return;
+
+        var panel = document.getElementById('admin-stats');
+        var content = document.getElementById('stats-content');
+        if (!panel || !content) return;
+
+        panel.style.display = 'block';
+
+        // Fetch all stats from Supabase
+        var SUPABASE_URL = 'https://vkbbaulinnpgywowgztp.supabase.co/rest/v1/blog_stats?select=*';
+        var API_KEY = 'sb_publishable_-LEtCNCKzgK7zd0oTAJ3ow_3dH7Di7H';
+
+        fetch(SUPABASE_URL, {
+            headers: {
+                'apikey': API_KEY,
+                'Authorization': 'Bearer ' + API_KEY
+            }
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (!data || data.length === 0) {
+                content.innerHTML = '<p>暂无数据</p>';
+                return;
+            }
+
+            var totalLikes = 0, totalBookmarks = 0;
+            var rows = data.map(function(row) {
+                totalLikes += row.likes || 0;
+                totalBookmarks += row.bookmarks || 0;
+                return '<tr><td style="padding:0.5rem; border-bottom:1px solid #e2e8f0;">' + row.path +
+                       '</td><td style="padding:0.5rem; border-bottom:1px solid #e2e8f0; text-align:center;">' + (row.likes || 0) +
+                       '</td><td style="padding:0.5rem; border-bottom:1px solid #e2e8f0; text-align:center;">' + (row.bookmarks || 0) + '</td></tr>';
+            }).join('');
+
+            content.innerHTML =
+                '<table style="width:100%; border-collapse:collapse; margin-bottom:1rem;">' +
+                '<thead><tr style="background:#e2e8f0;">' +
+                '<th style="padding:0.5rem; text-align:left;">文章路径</th>' +
+                '<th style="padding:0.5rem; text-align:center;">点赞</th>' +
+                '<th style="padding:0.5rem; text-align:center;">收藏</th>' +
+                '</tr></thead><tbody>' + rows + '</tbody>' +
+                '<tfoot><tr style="background:#f1f5f9; font-weight:600;">' +
+                '<td style="padding:0.5rem;">总计</td>' +
+                '<td style="padding:0.5rem; text-align:center;">' + totalLikes + '</td>' +
+                '<td style="padding:0.5rem; text-align:center;">' + totalBookmarks + '</td>' +
+                '</tr></tfoot></table>';
+        })
+        .catch(function(err) {
+            content.innerHTML = '<p style="color:#ef4444;">加载失败: ' + err.message + '</p>';
+        });
+    })();
+    </script>
 </body>
 </html>
