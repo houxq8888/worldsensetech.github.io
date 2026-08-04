@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>世界模型（world model）当下是一个好的方向吗？ - WorldSense 技术笔记</title>
+    <meta name="description" content="作为一个在这个方向上摸爬滚打了大半年的工程师，聊聊世界模型为什么是好方向，以及谁适合现在入场。">
+    <link rel="stylesheet" href="../style.css">
+
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-6EQ7ZKS9L8"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-6EQ7ZKS9L8');
+</script>
+
+<!-- Busuanzi Counter -->
+<script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+</head>
+<body>
+
+    <header>
+        <div class="header-inner">
+            <a href="../index.html" class="site-title">WorldSense 技术笔记</a>
+            <nav>
+                <a href="../index.html">文章</a>
+                <a href="../about.html">关于</a>
+                <a href="https://github.com/houxq8888/worldsensetech.github.io" target="_blank">GitHub</a>
+                <a href="../en/index.html">English</a>
+            </nav>
+        </div>
+    </header>
+
+    <div class="article-header">
+        <h1>世界模型（world model）当下是一个好的方向吗？</h1>
+        <div class="article-info">2026年8月3日 · 阅读约8分钟 · 世界模型, 具身智能, 职业方向</div>
+    </div>
+
+    <main class="article-content">
+<p>作为一个在这个方向上摸爬滚打了大半年的工程师，说说我的看法。</p>
+
+<p>先说结论：<strong>是好方向，但不是所有人都适合现在入场。</strong></p>
+
+<h2>为什么是好方向</h2>
+
+<p>世界模型解决的是一个很根本的问题：让AI不只是"看到"世界，而是<strong>"理解"世界</strong>。</p>
+
+<p>大语言模型已经证明了，当模型足够大、数据足够多时，它能涌现出很强的能力。但语言模型理解的是文本世界，不是物理世界。机器人要真正在现实环境中工作，需要理解物理规律——重力、摩擦力、碰撞、因果。这些东西光靠文本数据学不到。</p>
+
+<p>世界模型的核心思想很直觉：让模型学习<em>"如果我执行这个动作，环境会怎么变化"</span>。学会了这个，机器人就可以在"想象"中训练策略，而不是在真实世界里反复试错。这对机器人来说意义重大——真实世界的试错成本高、速度慢、还可能损坏硬件。</p>
+
+<p>DreamerV3（2023年，Danijar Hafner等）已经证明了这条路可行。同一套参数，在55款Atari游戏上都能跑出不错的成绩，在机器人操控任务上样本效率比传统RL高出<strong>10-100倍</em>。</p>
+
+<p>2024-2025年，世界模型在视频生成领域也爆发了。Sora、Kling、Vidu这些视频生成模型，本质上也是在学"世界会怎么变化"。虽然它们目前还停留在视觉层面，没有和物理控制打通，但方向是一致的。</p>
+
+<h2>但为什么不是所有人都适合入场</h2>
+
+<h3>第一，这个方向还在早期，离大规模商业化有距离</h3>
+
+<p>世界模型在仿真环境里表现很好，但Sim-to-Real迁移仍然是个大问题。仿真里训练的策略，部署到真实机器人上往往性能下降30-50%。域随机化、系统辨识这些方法能缓解，但远没有解决。如果你是想快速变现的创业者，这个方向可能太慢了。</p>
+
+<h3>第二，计算资源门槛不低</h3>
+
+<p>训练一个像样的世界模型，至少需要多张A100跑几天到几周。不像写个Web应用，一台笔记本就能搞定。个人研究者或小团队需要精打细算。</p>
+
+<h3>第三，学术竞争很激烈</h3>
+
+<p>这个方向的顶会论文主要来自Stanford、CMU、Berkeley、DeepMind等机构。如果你没有这些背景，纯靠自学想做出有影响力的工作，难度很大。</p>
+
+<h2>我的建议</h2>
+
+<p>如果你是想做研究、读博、进大厂AI Lab，世界模型绝对值得投入。它是具身智能的核心技术之一，未来5-10年都会有持续的研究需求。</p>
+
+<p>如果你是想创业或做产品，建议关注世界模型的<strong>应用层</strong>——比如用世界模型做工业机器人的快速任务适配、做仿真-to-现实的迁移工具链。这些方向离钱更近，而且大厂还没完全覆盖。</p>
+
+<p>如果你只是对技术感兴趣的工程师，我的建议是：先理解原理，跑通开源代码（DreamerV3有官方实现），然后在一个具体任务上实践。不需要从头训练一个大模型，学会用、学会改、学会部署，就已经很有价值了。</p>
+
+<p>我自己走的是最后这条路。不是学术大牛，也没有大厂的资源，就是一个对技术有热情的工程师。通过写博客、发文章来梳理自己的理解，同时也希望能帮到同样想进入这个方向的人。</p>
+
+        <hr>
+
+        <p>如果觉得有帮助，欢迎点赞收藏，也欢迎在评论区交流讨论。</p>
+    </main>
+
+    <!-- Article Actions (Like / Bookmark) -->
+    <div class="article-actions" style="max-width:800px;margin:1rem auto;padding:0 2rem;display:flex;gap:1rem;justify-content:center;">
+        <button class="action-btn" id="like-btn" onclick="toggleLike()">
+            <span id="like-icon">&#9825;</span> <span id="like-count">0</span> 点赞
+        </button>
+        <button class="action-btn" id="bookmark-btn" onclick="toggleBookmark()">
+            <span id="bookmark-icon">&#9734;</span> <span id="bookmark-count">0</span> 收藏
+        </button>
+    </div>
+
+    <!-- Comments Section -->
+    <div class="comments-section" style="max-width:800px;margin:2rem auto;padding:0 2rem;">
+        <h3 style="margin-bottom:1rem;">评论</h3>
+        <div id="giscus-container"></div>
+    </div>
+
+    <div class="author-box">
+        <div class="author-avatar">W</div>
+        <div class="author-info">
+            <p class="author-name">WorldSense</p>
+            <p>机器人AI工程师，西北工业大学硕士。著有《Visual C++入门很容易》《C++程序设计经典300例》。现专注世界模型、Sim-to-Real、具身智能方向。</p>
+        </div>
+    </div>
+
+    <footer>
+        <p>&copy; 2026 WorldSense · <a href="https://worldsensetech.com">worldsensetech.com</a></p>
+
+<span id="busuanzi_container_site_pv" style="font-size:0.8rem;color:#999;">
+  总访问量 <span id="busuanzi_value_site_pv" style="color:#2563eb;"></span> 次
+</span>
+<span id="busuanzi_container_page_pv" style="font-size:0.8rem;color:#999;margin-left:12px;">
+  本文阅读 <span id="busuanzi_value_page_pv" style="color:#2563eb;"></span> 次
+</span>
+
+    </footer>
+
+    <script src="../blog-interactions.js"></script>
+</body>
+</html>

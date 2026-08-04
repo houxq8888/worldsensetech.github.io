@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>回看世界模型8年进展，始终没突破的瓶颈是什么？ - WorldSense 技术笔记</title>
+    <meta name="description" content="Sim-to-Real鸿沟、长程预测误差累积、物理一致性、计算成本——四个八年没突破的核心瓶颈。">
+    <link rel="stylesheet" href="../style.css">
+
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-6EQ7ZKS9L8"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-6EQ7ZKS9L8');
+</script>
+
+<!-- Busuanzi Counter -->
+<script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+</head>
+<body>
+
+    <header>
+        <div class="header-inner">
+            <a href="../index.html" class="site-title">WorldSense 技术笔记</a>
+            <nav>
+                <a href="../index.html">文章</a>
+                <a href="../about.html">关于</a>
+                <a href="https://github.com/houxq8888/worldsensetech.github.io" target="_blank">GitHub</a>
+                <a href="../en/index.html">English</a>
+            </nav>
+        </div>
+    </header>
+
+    <div class="article-header">
+        <h1>回看世界模型8年进展，始终没突破的瓶颈是什么？</h1>
+        <div class="article-info">2026年8月3日 · 阅读约8分钟 · 世界模型, Sim-to-Real, 技术瓶颈</div>
+    </div>
+
+    <main class="article-content">
+<p>做世界模型方向大半年，最大的感受是：论文很多，但真正能落地的很少。最近读了一篇2026年中科院联合多所高校的综述，把八年来的进展梳理得很清楚。我结合自己的实践，聊聊几个始终没突破的瓶颈。</p>
+
+<p>先说进步。从2018年Ha和Schmidhuber提出世界模型概念，到DreamerV3在55款Atari游戏上统一参数跑出好成绩，再到Sora等视频生成模型的爆发，世界模型确实从"概念验证"走到了"技术验证"阶段。四大技术范式（观测级生成、隐空间建模、强化学习驱动、对象中心表示）已经成型，应用场景也从游戏扩展到了机器人、自动驾驶、科学发现等领域。</p>
+
+<p>但有几个核心瓶颈，八年过去了，依然没有根本性突破。</p>
+
+<h2>瓶颈一：Sim-to-Real鸿沟</h2>
+
+<p>这是最痛的瓶颈。世界模型在仿真环境里表现很好，DreamerV3的样本效率比传统RL高出10-100倍。但仿真里训练的策略，部署到真实机器人上往往性能下降<strong>30-50%</strong>。</p>
+
+<p>域随机化能缓解一部分问题，但远没有解决。根本原因在于：仿真器无法完美模拟真实世界的物理动态——接触摩擦、柔性形变、传感噪声、未建模的干扰。世界模型学到的"世界规律"是仿真世界的规律，不是真实世界的。</p>
+
+<p>八年了，这个问题依然没有优雅的解决方案。要么花大量时间做系统辨识，要么接受性能打折。</p>
+
+<h2>瓶颈二：长程预测误差累积</h2>
+
+<p>世界模型的核心能力是"在想象中推演未来"。但预测不可能完美，每一步都有小误差，多步之后误差指数级放大。</p>
+
+<p>DreamerV3的想象步数限制在15步左右，超过这个长度预测就不可靠了。对于需要长期规划的任务（比如机器人完成一个多步骤的装配任务），15步远远不够。</p>
+
+<p>层级时序建模、显式因果表征这些方向有潜力，但目前都还在研究阶段，没有成熟的工程方案。</p>
+
+<h2>瓶颈三：物理一致性</h2>
+
+<p>现在的模型能生成看起来很合理的画面，但经常违反物理定律。比如生成的视频里物体穿模了、重力方向不对、碰撞后动量不守恒。</p>
+
+<p>这是因为模型学的是数据分布的统计规律，不是物理定律。它知道"杯子掉在地上会碎"是因为训练数据里见过，而不是因为它理解了重力和材料力学。</p>
+
+<p>把物理约束（能量守恒、动量守恒、因果规则）嵌入模型是一个方向，但怎么嵌入、嵌入多少、会不会限制模型的表达能力，这些问题还没有共识。</p>
+
+<h2>瓶颈四：计算成本</h2>
+
+<p>训练一个像样的世界模型，需要多张A100跑几天到几周。推理时虽然比训练快，但对于实时控制场景（比如机器人每秒需要决策100次），延迟仍然太高。</p>
+
+<p>边缘设备部署更是难上加难。工业场景的机器人控制器算力有限，跑不动大模型。模型压缩、知识蒸馏这些方法能用，但会牺牲预测精度。</p>
+
+<h2>为什么这些瓶颈难突破</h2>
+
+<p>根本原因在于：世界模型试图用数据驱动的方法解决一个需要机理理解的问题。</p>
+
+<p>人类理解世界靠的不只是观察统计，还有物理直觉、因果推理、抽象建模。现在的模型只有第一种能力，缺后两种。</p>
+
+<p>未来5年，如果能突破"统计拟合→机理理解"这个关口，世界模型才能真正成为通用人工智能和具身智能的基石。否则，它可能一直停留在<em>"仿真里很强，真实世界拉胯"</em>的状态。</p>
+
+        <hr>
+
+        <p>如果觉得有帮助，欢迎点赞收藏，也欢迎在评论区交流讨论。</p>
+    </main>
+
+    <!-- Article Actions (Like / Bookmark) -->
+    <div class="article-actions" style="max-width:800px;margin:1rem auto;padding:0 2rem;display:flex;gap:1rem;justify-content:center;">
+        <button class="action-btn" id="like-btn" onclick="toggleLike()">
+            <span id="like-icon">&#9825;</span> <span id="like-count">0</span> 点赞
+        </button>
+        <button class="action-btn" id="bookmark-btn" onclick="toggleBookmark()">
+            <span id="bookmark-icon">&#9734;</span> <span id="bookmark-count">0</span> 收藏
+        </button>
+    </div>
+
+    <!-- Comments Section -->
+    <div class="comments-section" style="max-width:800px;margin:2rem auto;padding:0 2rem;">
+        <h3 style="margin-bottom:1rem;">评论</h3>
+        <div id="giscus-container"></div>
+    </div>
+
+    <div class="author-box">
+        <div class="author-avatar">W</div>
+        <div class="author-info">
+            <p class="author-name">WorldSense</p>
+            <p>机器人AI工程师，西北工业大学硕士。著有《Visual C++入门很容易》《C++程序设计经典300例》。现专注世界模型、Sim-to-Real、具身智能方向。</p>
+        </div>
+    </div>
+
+    <footer>
+        <p>&copy; 2026 WorldSense · <a href="https://worldsensetech.com">worldsensetech.com</a></p>
+
+<span id="busuanzi_container_site_pv" style="font-size:0.8rem;color:#999;">
+  总访问量 <span id="busuanzi_value_site_pv" style="color:#2563eb;"></span> 次
+</span>
+<span id="busuanzi_container_page_pv" style="font-size:0.8rem;color:#999;margin-left:12px;">
+  本文阅读 <span id="busuanzi_value_page_pv" style="color:#2563eb;"></span> 次
+</span>
+
+    </footer>
+
+    <script src="../blog-interactions.js"></script>
+</body>
+</html>

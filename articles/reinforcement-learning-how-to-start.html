@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>强化学习应该怎么入门？ - WorldSense 技术笔记</title>
+    <meta name="description" content="从传统自动化转到强化学习方向，中间踩了不少坑。分享一条最有效的学习路径。">
+    <link rel="stylesheet" href="../style.css">
+
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-6EQ7ZKS9L8"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-6EQ7ZKS9L8');
+</script>
+
+<!-- Busuanzi Counter -->
+<script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+</head>
+<body>
+
+    <header>
+        <div class="header-inner">
+            <a href="../index.html" class="site-title">WorldSense 技术笔记</a>
+            <nav>
+                <a href="../index.html">文章</a>
+                <a href="../about.html">关于</a>
+                <a href="https://github.com/houxq8888/worldsensetech.github.io" target="_blank">GitHub</a>
+                <a href="../en/index.html">English</a>
+            </nav>
+        </div>
+    </header>
+
+    <div class="article-header">
+        <h1>强化学习应该怎么入门？</h1>
+        <div class="article-info">2026年8月3日 · 阅读约10分钟 · 强化学习, 入门指南, 学习路径</div>
+    </div>
+
+    <main class="article-content">
+<p>这个问题我很有感触。我自己就是从传统自动化转到强化学习方向的，中间踩了不少坑。说说我觉得最有效的路径。</p>
+
+<h2>先搞清楚：你要学强化学习做什么</h2>
+
+<p>强化学习的应用方向差异很大，学习路径也不同：</p>
+
+<ul>
+<li><strong>玩游戏/仿真</strong>：Atari游戏、MuJoCo机器人仿真——入门最友好，资源最多</li>
+<li><strong>机器人控制</strong>：机械臂、四足机器人、人形机器人——需要结合仿真和Sim-to-Real</li>
+<li><strong>推荐系统/广告</strong>：互联网公司的主要应用场景——偏工程，数学要求相对低</li>
+<li><strong>自动驾驶</strong>：决策规划模块——需要结合传统控制理论</li>
+</ul>
+
+<p>先确定方向，再选择学习路径，效率会高很多。下面的建议以"机器人控制"为主线，因为这是我最熟悉的方向，也是目前最有前景的方向之一。</p>
+
+<h2>第一阶段：打基础（1-2个月）</h2>
+
+<h3>数学基础</h3>
+
+<p>不需要博士级别的数学，但以下必须掌握：</p>
+
+<ul>
+<li><strong>线性代数</strong>：矩阵运算、特征值分解、SVD——神经网络的基础</li>
+<li><strong>概率论</strong>：贝叶斯定理、高斯分布、采样——RL的核心是概率决策</li>
+<li><strong>微积分</strong>：梯度、链式法则、优化——理解反向传播和策略梯度</li>
+</ul>
+
+<p>推荐资源：3Blue1Brown的线性代数和微积分视频（B站有），直观易懂。</p>
+
+<h3>深度学习基础</h3>
+
+<p>不需要从头实现神经网络，但要理解：</p>
+
+<ul>
+<li>CNN、RNN、Transformer的基本原理和适用场景</li>
+<li>能用PyTorch搭建简单网络并训练</li>
+<li>理解过拟合、正则化、学习率调度等训练技巧</li>
+</ul>
+
+<p>推荐资源：李宏毅的机器学习课程（B站免费），讲得非常清楚。</p>
+
+<h3>强化学习核心概念</h3>
+
+<p>必须理解的概念（按顺序）：</p>
+
+<ol>
+<li>MDP（马尔可夫决策过程）：状态、动作、奖励、转移概率</li>
+<li>值函数和Q函数：评估"这个状态/动作有多好"</li>
+<li>策略梯度：直接优化策略参数</li>
+<li>Actor-Critic：结合值函数和策略梯度的优势</li>
+<li>探索与利用的权衡：ε-greedy、UCB、熵正则化</li>
+</ol>
+
+<p>推荐资源：David Silver的强化学习课程（YouTube/B站），经典中的经典。</p>
+
+<h2>第二阶段：动手实践（1-2个月）</h2>
+
+<p>这是最重要的阶段。<strong>读10篇论文不如自己跑通一个项目。</strong></p>
+
+<h3>第一个项目：CartPole</h3>
+
+<p>用DQN或PPO在CartPole（倒立摆）上训练一个策略。这个任务简单，几分钟就能跑完，但能帮你理解整个RL训练流程：</p>
+
+<ul>
+<li>环境交互：agent执行动作，环境返回新状态和奖励</li>
+<li>经验收集：把交互数据存储到replay buffer</li>
+<li>策略更新：从buffer采样，计算损失，更新网络</li>
+<li>评估：定期测试策略性能，画训练曲线</li>
+</ul>
+
+<p>推荐框架：Stable-Baselines3（封装好了主流算法，接口简洁）</p>
+
+<h3>第二个项目：MuJoCo机器人</h3>
+
+<p>选一个MuJoCo环境（推荐HalfCheetah或Ant），用PPO或SAC训练。</p>
+
+<p>这个阶段你会遇到真实的问题：</p>
+
+<ul>
+<li>训练不稳定，奖励曲线震荡——学习率、batch size、网络结构都可能需要调</li>
+<li>策略收敛到局部最优——需要调整探索策略</li>
+<li>训练太慢——需要理解并行化、向量化环境</li>
+</ul>
+
+<p>这些"坑"才是真正学到的东西。</p>
+
+<h2>第三阶段：深入一个方向（2-3个月）</h2>
+
+<p>基础RL掌握后，选择一个方向深入：</p>
+
+<h3>方向A：世界模型（Model-Based RL）</h3>
+
+<p>学习DreamerV3、TD-MPC2等算法。核心思想是先学习环境模型，再在模型中训练策略。样本效率高，适合机器人场景。</p>
+
+<p>入门路径：读DreamerV3论文 → 跑通官方代码 → 在自己的MuJoCo任务上实验</p>
+
+<h3>方向B：离线强化学习（Offline RL）</h3>
+
+<p>从固定数据集中学习策略，不需要在线交互。适合真实机器人场景（数据收集成本高）。</p>
+
+<p>入门路径：读CQL或IQL论文 → 在D4RL数据集上实验</p>
+
+<h3>方向C：多智能体强化学习（MARL）</h3>
+
+<p>多个智能体协作或竞争。适合无人机编队、交通调度等场景。</p>
+
+<p>入门路径：读MAPPO或QMIX论文 → 在StarCraft II或Google Research Football上实验</p>
+
+<h2>几个关键建议</h2>
+
+<p><strong>1. 不要试图读完所有论文。</strong>RL领域论文太多，每个月都有几十篇新的。选择2-3篇经典论文精读，其他的泛读了解即可。</p>
+
+<p><strong>2. 代码比论文重要。</strong>读论文理解的是idea，但真正的理解来自于你亲手实现、调试、看到训练曲线时的顿悟。</p>
+
+<p><strong>3. 善用开源框架。</strong>Stable-Baselines3、RLlib、CleanRL这些框架封装好了主流算法。先用框架跑通，再自己实现核心模块，效率最高。</p>
+
+<p><strong>4. 写博客记录过程。</strong>当你试图把一个概念解释给别人时，你会发现自己理解中的漏洞。而且博客是你最好的简历。</p>
+
+<p><strong>5. 接受"慢"。</strong>RL训练很慢，调参很痛苦，收敛不稳定是常态。给自己至少3-6个月的时间，不要期望一个月就能成为专家。</p>
+
+<h2>推荐资源汇总</h2>
+
+<ul>
+<li><strong>课程</strong>：David Silver的RL课程、李宏毅的机器学习、伯克利CS285</li>
+<li><strong>书籍</strong>：《Reinforcement Learning: An Introduction》（Sutton，免费在线版）</li>
+<li><strong>框架</strong>：Stable-Baselines3（入门）、CleanRL（学习实现）、RLlib（分布式）</li>
+<li><strong>环境</strong>：Gymnasium（通用）、MuJoCo（机器人）、D4RL（离线RL）</li>
+<li><strong>社区</strong>：r/reinforcementlearning（Reddit）、知乎RL话题</li>
+</ul>
+
+<p>最后说一句：强化学习入门不难，难的是坚持。训练曲线不收敛的时候、调参调到怀疑人生的时候，想想你为什么要学这个——是因为它真的能让机器人变聪明，这件事本身就值得。</p>
+
+        <hr>
+
+        <p>如果觉得有帮助，欢迎点赞收藏，也欢迎在评论区交流讨论。</p>
+    </main>
+
+    <!-- Article Actions (Like / Bookmark) -->
+    <div class="article-actions" style="max-width:800px;margin:1rem auto;padding:0 2rem;display:flex;gap:1rem;justify-content:center;">
+        <button class="action-btn" id="like-btn" onclick="toggleLike()">
+            <span id="like-icon">&#9825;</span> <span id="like-count">0</span> 点赞
+        </button>
+        <button class="action-btn" id="bookmark-btn" onclick="toggleBookmark()">
+            <span id="bookmark-icon">&#9734;</span> <span id="bookmark-count">0</span> 收藏
+        </button>
+    </div>
+
+    <!-- Comments Section -->
+    <div class="comments-section" style="max-width:800px;margin:2rem auto;padding:0 2rem;">
+        <h3 style="margin-bottom:1rem;">评论</h3>
+        <div id="giscus-container"></div>
+    </div>
+
+    <div class="author-box">
+        <div class="author-avatar">W</div>
+        <div class="author-info">
+            <p class="author-name">WorldSense</p>
+            <p>机器人AI工程师，西北工业大学硕士。著有《Visual C++入门很容易》《C++程序设计经典300例》。现专注世界模型、Sim-to-Real、具身智能方向。</p>
+        </div>
+    </div>
+
+    <footer>
+        <p>&copy; 2026 WorldSense · <a href="https://worldsensetech.com">worldsensetech.com</a></p>
+
+<span id="busuanzi_container_site_pv" style="font-size:0.8rem;color:#999;">
+  总访问量 <span id="busuanzi_value_site_pv" style="color:#2563eb;"></span> 次
+</span>
+<span id="busuanzi_container_page_pv" style="font-size:0.8rem;color:#999;margin-left:12px;">
+  本文阅读 <span id="busuanzi_value_page_pv" style="color:#2563eb;"></span> 次
+</span>
+
+    </footer>
+
+    <script src="../blog-interactions.js"></script>
+</body>
+</html>
