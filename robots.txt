@@ -1,4 +1,41 @@
+# robots.txt for WorldSense Tech Blog
+# https://worldsensetech.com
+
 User-agent: *
 Allow: /
 
+# OpenAI search display crawler
+User-agent: OAI-SearchBot
+Allow: /
+
+# OpenAI user-triggered page fetches
+User-agent: ChatGPT-User
+Allow: /
+
+# OpenAI training crawler
+User-agent: GPTBot
+Allow: /
+
+# Perplexity search crawler
+User-agent: PerplexityBot
+Allow: /
+
+# Google and Bing search crawlers
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+# Other mainstream AI crawlers
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-SearchBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+# Sitemap
 Sitemap: https://worldsensetech.com/sitemap.xml
