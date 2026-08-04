@@ -318,6 +318,71 @@ footer a {
 
 footer a:hover { color: var(--primary); }
 
+/* Interaction Buttons */
+.article-actions {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 1rem 2rem;
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    justify-content: center;
+}
+
+.action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    background: var(--bg);
+    color: var(--text-light);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    user-select: none;
+}
+
+.action-btn:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+    background: #eff6ff;
+}
+
+.action-btn.active {
+    border-color: var(--primary);
+    color: var(--primary);
+    background: #eff6ff;
+}
+
+.action-btn .icon {
+    font-size: 1.1rem;
+    line-height: 1;
+}
+
+.action-btn.like-btn.active .icon {
+    color: #ef4444;
+}
+
+/* Giscus Comments */
+.comments-section {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 2rem 2rem 1rem;
+}
+
+.comments-section h3 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: var(--text);
+}
+
+#giscus-container {
+    min-height: 100px;
+}
+
 /* Responsive */
 @media (max-width: 640px) {
     .header-inner {
@@ -332,4 +397,6 @@ footer a:hover { color: var(--primary); }
     .article-header h1 { font-size: 1.5rem; }
     .article-content { padding: 0 1.5rem 3rem; }
     .author-box { padding: 1.5rem; flex-direction: column; gap: 1rem; }
+    .article-actions { padding: 1rem 1.5rem; }
+    .comments-section { padding: 1.5rem 1.5rem 1rem; }
 }

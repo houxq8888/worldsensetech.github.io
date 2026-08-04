@@ -211,8 +211,23 @@
 
         <hr>
 
-        <p><em>The author is a robotics AI engineer with an M.S. from Northwestern Polytechnical University, author of two C++ programming books. Focused on world models and Sim-to-Real transfer. If you found this helpful, feel free to like, bookmark, or discuss in the comments.</em></p>
+        <div class="article-actions">
+            <button class="action-btn like-btn" id="btn-like">
+                <span class="icon">&#9825;</span>
+                <span>Like</span>
+                <span id="like-count">0</span>
+            </button>
+            <button class="action-btn bookmark-btn" id="btn-bookmark">
+                <span class="icon">&#9734;</span>
+                <span>Bookmark</span>
+            </button>
+        </div>
     </main>
+
+    <div class="comments-section">
+        <h3>Comments</h3>
+        <div id="giscus-container"></div>
+    </div>
 
     <div class="author-box">
         <div class="author-avatar">W</div>
@@ -231,5 +246,7 @@
           Page Views: <span id="busuanzi_value_page_pv" style="color:#2563eb;"></span>
         </span>
     </footer>
+
+    <script src="../../blog-interactions.js"></script>
 </body>
 </html>

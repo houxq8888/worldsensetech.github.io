@@ -161,8 +161,23 @@
 
         <hr>
 
-        <p><em>作者是一名机器人AI工程师，西北工业大学硕士，专注于世界模型和Sim-to-Real方向。如果觉得有帮助，欢迎点赞收藏，也欢迎在评论区交流讨论。</em></p>
+        <div class="article-actions">
+            <button class="action-btn like-btn" id="btn-like">
+                <span class="icon">&#9825;</span>
+                <span>点赞</span>
+                <span id="like-count">0</span>
+            </button>
+            <button class="action-btn bookmark-btn" id="btn-bookmark">
+                <span class="icon">&#9734;</span>
+                <span>收藏</span>
+            </button>
+        </div>
     </main>
+
+    <div class="comments-section">
+        <h3>评论</h3>
+        <div id="giscus-container"></div>
+    </div>
 
     <div class="author-box">
         <div class="author-avatar">W</div>
@@ -183,5 +198,7 @@
 </span>
 
     </footer>
+
+    <script src="../blog-interactions.js"></script>
 </body>
 </html>

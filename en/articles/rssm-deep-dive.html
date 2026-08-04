@@ -216,8 +216,23 @@ L_discount = -log p(γₜ | hₜ, zₜ)</code></pre>
 
         <hr>
 
-        <p><em>The author is a robotics AI engineer with an M.S. from Northwestern Polytechnical University, specializing in world models and Sim-to-Real transfer. If you found this article helpful, feel free to like, bookmark, or leave a comment to discuss.</em></p>
+        <div class="article-actions">
+            <button class="action-btn like-btn" id="btn-like">
+                <span class="icon">&#9825;</span>
+                <span>Like</span>
+                <span id="like-count">0</span>
+            </button>
+            <button class="action-btn bookmark-btn" id="btn-bookmark">
+                <span class="icon">&#9734;</span>
+                <span>Bookmark</span>
+            </button>
+        </div>
     </main>
+
+    <div class="comments-section">
+        <h3>Comments</h3>
+        <div id="giscus-container"></div>
+    </div>
 
     <div class="author-box">
         <div class="author-avatar">W</div>
@@ -238,5 +253,7 @@ L_discount = -log p(γₜ | hₜ, zₜ)</code></pre>
 </span>
 
     </footer>
+
+    <script src="../../blog-interactions.js"></script>
 </body>
 </html>

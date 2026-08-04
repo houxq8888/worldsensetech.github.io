@@ -230,8 +230,23 @@ where α ∈ (0, 1) is the safety parameter</code></pre>
 
         <hr>
 
-        <p><em>The author is a robotics AI engineer with an M.S. from Northwestern Polytechnical University, and the author of "Visual C++ Made Simple" and "300 Classic C++ Programming Examples." Focused on world models and Sim-to-Real transfer. If you found this helpful, feel free to like and bookmark, and join the discussion in the comments.</em></p>
+        <div class="article-actions">
+            <button class="action-btn like-btn" id="btn-like">
+                <span class="icon">&#9825;</span>
+                <span>Like</span>
+                <span id="like-count">0</span>
+            </button>
+            <button class="action-btn bookmark-btn" id="btn-bookmark">
+                <span class="icon">&#9734;</span>
+                <span>Bookmark</span>
+            </button>
+        </div>
     </main>
+
+    <div class="comments-section">
+        <h3>Comments</h3>
+        <div id="giscus-container"></div>
+    </div>
 
     <div class="author-box">
         <div class="author-avatar">W</div>
@@ -250,5 +265,7 @@ where α ∈ (0, 1) is the safety parameter</code></pre>
           Article views <span id="busuanzi_value_page_pv" style="color:#2563eb;"></span>
         </span>
     </footer>
+
+    <script src="../../blog-interactions.js"></script>
 </body>
 </html>

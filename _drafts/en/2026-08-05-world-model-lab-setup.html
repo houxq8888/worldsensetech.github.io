@@ -47,11 +47,11 @@
 
         <h2>Tool Selection: Why These Three</h2>
 
-        <p><strong>MuJoCo</strong>: One of the most popular simulation engines in robotics. High physics accuracy, clean API, fast. Open-sourced and free after DeepMind's acquisition in 2021, it's now the de facto standard for robotics learning research. Most world model papers use MuJoCo for experiments.</p>
+        <p><strong>MuJoCo</strong>: One of the most popular simulation engines in robotics. High physics accuracy, clean API, fast. Open-sourced and free after DeepMind's acquisition in 2021, it's now the de facto standard for robotics learning research and one of the most commonly used benchmarks in continuous control world model research.</p>
 
         <p><strong>DreamerV3</strong>: A world model algorithm by Danijar Hafner et al., the third generation of the Dreamer series. It uses RSSM (Recurrent State-Space Model) to learn environment dynamics and trains Actor-Critic policies in imagination space. Open-source with clear documentation — the best starting point for learning world models.</p>
 
-        <p><strong>TensorBoard</strong>: TensorFlow's built-in visualization tool, natively supported by DreamerV3. View training curves, imagination space visualizations, and agent behavior videos in real-time.</p>
+        <p><strong>TensorBoard</strong>: A general-purpose experiment visualization tool. DreamerV3 outputs training metrics through its logging interface, and TensorBoard reads these logs for visualization. You can view training curves, imagination space visualizations, and agent behavior videos in real-time. Note that DreamerV3 is built on <strong>JAX + Haiku</strong>, not TensorFlow — TensorBoard is just a general-purpose log viewer and doesn't imply a TensorFlow dependency.</p>
 
         <h2>Step 1: Environment Setup</h2>
 
@@ -69,6 +69,20 @@
         <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>conda create -n worldmodel python=3.11
 conda activate worldmodel</code></pre>
 
+        <p>If you have an NVIDIA GPU, install JAX with CUDA support (JAX is DreamerV3's underlying framework). The default <code>pip install jax</code> only installs the CPU version — GPU users need to specify explicitly:</p>
+
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code># GPU users (CUDA 12)
+pip install "jax[cuda12]"
+
+# For specific CUDA versions, see JAX official docs:
+# https://jax.readthedocs.io/en/latest/installation.html</code></pre>
+
+        <p>Verify GPU is recognized:</p>
+
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>python -c "import jax; print(jax.devices())"</code></pre>
+
+        <p>If you see <code>GpuDevice(id=0)</code>, GPU is configured correctly. If only <code>CpuDevice(id=0)</code> appears, JAX isn't using the GPU — check your NVIDIA driver and CUDA version compatibility.</p>
+
         <h2>Step 2: Install MuJoCo</h2>
 
         <p>MuJoCo can now be installed directly via pip — much easier than before:</p>
@@ -79,103 +93,190 @@ conda activate worldmodel</code></pre>
 
         <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>python -c "import mujoco; print(mujoco.__version__)"</code></pre>
 
-        <p>For visual rendering (seeing the robot's 3D view), you'll need a rendering backend. On Linux, use EGL or OSMesa:</p>
+        <p>For visual rendering (seeing the robot's 3D view), you'll need a rendering backend. This is where many beginners get stuck — especially on remote servers.</p>
 
-        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code># Linux (with GPU)
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code># Install rendering dependencies
 pip install mujoco[extras]
 
-# Linux (no GPU, headless rendering)
-sudo apt-get install libosmesa6-dev
-pip install mujoco[extras]</code></pre>
+# For headless servers without GPU, also install OSMesa
+sudo apt-get install libosmesa6-dev</code></pre>
+
+        <p>On remote servers or headless machines, you must explicitly set the rendering backend environment variable, or you'll get GLFW errors:</p>
+
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code># Server with NVIDIA GPU
+export MUJOCO_GL=egl
+
+# Server without GPU
+export MUJOCO_GL=osmesa</code></pre>
+
+        <p>Add this to your <code>~/.bashrc</code> to avoid re-setting it each time. Verify GPU status with:</p>
+
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>nvidia-smi</code></pre>
 
         <h2>Step 3: Install DreamerV3</h2>
 
-        <p>Clone the official repository and install dependencies:</p>
+        <p>The official DreamerV3 code is on GitHub. Note that DreamerV3 is not a traditional Python package — its code structure, dependency management, and entry points have changed across versions. For reproducibility, lock to a specific commit:</p>
 
         <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>git clone https://github.com/danijar/dreamerv3.git
 cd dreamerv3
-pip install -r requirements.txt
-pip install -e .</code></pre>
 
-        <p>For MuJoCo environments, install the environment packages:</p>
+# Lock to a verified commit (avoids future version changes breaking commands)
+git checkout 60b6 example_commit_hash
 
-        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code># MuJoCo control tasks (classic RL benchmark)
+pip install -r requirements.txt</code></pre>
+
+        <p>For MuJoCo environments, install the DeepMind control library:</p>
+
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code># DeepMind Control Suite (includes MuJoCo predefined tasks)
 pip install dm-control</code></pre>
 
-        <p>Verify DreamerV3 imports correctly:</p>
+        <p class="note" style="background:#fef3c7; padding:10px 14px; border-left:3px solid #f59e0b; border-radius:4px; font-size:14px; color:#92400e; margin:16px 0;"><strong>Note</strong>: Some online tutorials write <code>pip install dm-control-suite</code> — this package doesn't exist. The correct package name is <code>dm-control</code>.</p>
 
-        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>python -c "import dreamerv3; print('DreamerV3 ready!')"</code></pre>
+        <h2>Understanding the Code: Not a Black Box</h2>
+
+        <p>Before running experiments, take a look at DreamerV3's code structure so you know where the core components live. Otherwise you're just running a black box:</p>
+
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>dreamerv3/
+├── dreamerv3/
+│   ├── agent.py          # Agent logic (Actor, Critic)
+│   ├── models.py         # World model (RSSM core is here)
+│   ├── networks.py       # Neural network definitions
+│   └── configs.py        # Hyperparameter configs
+├── embodied/
+│   ├── envs/             # Environment wrappers (incl. DM Control adapter)
+│   └── main.py           # Training entry point
+└── requirements.txt</code></pre>
+
+        <p>Key locations:</p>
+
+        <ul>
+            <li><strong>RSSM (Recurrent State-Space Model)</strong>: Implemented in <code>models.py</code> — the core of the world model, responsible for encoding observations and predicting future states</li>
+            <li><strong>Actor</strong>: In <code>agent.py</code>, generates actions in imagination space</li>
+            <li><strong>Imagination training</strong>: Also in <code>agent.py</code> — the Actor samples latent states from RSSM, imagines multiple trajectories, and optimizes the policy</li>
+            <li><strong>Replay Buffer</strong>: Stores real interaction experience data</li>
+        </ul>
+
+        <p>Knowing these locations, you can go directly read how RSSM's forward pass is implemented — more intuitive than reading the paper.</p>
 
         <h2>Step 4: Run Your First Experiment</h2>
 
-        <p>Let's train a world model on a simple MuJoCo task: <strong>Walker Walk</strong> — teaching a bipedal robot to walk.</p>
+        <p>Let's start with a relatively simple task: <strong>Cartpole Balance</strong> — teaching a cart to keep a pole upright. This task has low action dimensionality and converges quickly — ideal for verifying your setup.</p>
 
-        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>python dreamerv3.py \
-  --logdir ~/logdir/wm_walker_walk \
-  --configs defaults mujoco_control \
-  --task dm_control_walker_walk \
+        <p>Before running, check which task names the current repository supports. Different versions may use different naming (e.g., <code>dmc_walker_walk</code> vs. <code>dm_control_walker_walk</code>). Check first:</p>
+
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code># Check available tasks and configs
+python embodied/main.py --help</code></pre>
+
+        <p>After confirming the task name, run training. The entry point varies by version — it could be <code>dreamerv3/main.py</code>, <code>embodied/main.py</code>, or <code>python -m dreamerv3.main</code>. Use whatever matches your locked version's structure:</p>
+
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>python embodied/main.py \
+  --logdir ~/logdir/wm_cartpole_balance \
+  --configs defaults dm_control \
+  --task dmc_cartpole_balance \
   --steps 1e6</code></pre>
 
         <p>Parameters:</p>
 
         <ul>
             <li><code>--logdir</code>: Log and model save path</li>
-            <li><code>--configs</code>: Preset configurations (defaults + mujoco_control)</li>
-            <li><code>--task</code>: Specific task name</li>
-            <li><code>--steps 1e6</code>: Train for 1 million steps (tens of minutes to hours depending on hardware)</li>
+            <li><code>--configs</code>: Preset configurations (defaults + dm_control, exact names depend on repository version)</li>
+            <li><code>--task</code>: Specific task name — cartpole_balance is the cart balancing task</li>
+            <li><code>--steps 1e6</code>: Train for 1 million steps</li>
         </ul>
+
+        <p>Training time depends on your hardware. A consumer-grade GPU (RTX 3060+) takes roughly tens of minutes to a few hours. Without GPU, CPU-only training could take a day or more. Overall range: tens of minutes to tens of hours.</p>
 
         <p>To quickly verify the pipeline works, use fewer steps:</p>
 
-        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>python dreamerv3.py \
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>python embodied/main.py \
   --logdir ~/logdir/wm_test \
-  --configs defaults mujoco_control \
-  --task dm_control_walker_walk \
+  --configs defaults dm_control \
+  --task dmc_cartpole_balance \
   --steps 1e4</code></pre>
 
-        <p>10K steps takes just a few minutes — enough to verify everything works.</p>
+        <p>10K steps takes just a few minutes on GPU — enough to verify the pipeline.</p>
+
+        <p>After Cartpole Balance works, gradually increase difficulty:</p>
+
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code># Recommended difficulty progression
+dmc_cartpole_balance    # ⭐ Beginner
+dmc_walker_stand        # ⭐⭐ Standing
+dmc_cheetah_run         # ⭐⭐⭐ Running
+dmc_walker_walk         # ⭐⭐⭐⭐ Walking (multi-joint coordination)
+dmc_humanoid_walk       # ⭐⭐⭐⭐⭐ Humanoid walking (hardest)</code></pre>
 
         <h2>Step 5: Visualize Training</h2>
 
         <p>Open another terminal and launch TensorBoard:</p>
 
-        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>tensorboard --logdir ~/logdir/wm_walker_walk --port 6006</code></pre>
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>tensorboard --logdir ~/logdir/wm_cartpole_balance --port 6006</code></pre>
 
-        <p>Open <code>http://localhost:6006</code> in your browser. Key metrics to watch:</p>
+        <p>Open <code>http://localhost:6006</code> in your browser. Key metrics to watch (note: exact metric names vary by version — these are the common categories):</p>
 
-        <p><strong>1. Train Return (train/return)</strong>: The core metric — cumulative reward in the real environment. Should increase over training.</p>
+        <p><strong>1. Episode Return / Score</strong>: The core metric — cumulative reward in the real environment. Should increase over training. May appear as <code>episode/return</code>, <code>train/return</code>, or <code>eval/score</code> depending on version.</p>
 
-        <p><strong>2. Eval Return (eval/return)</strong>: Policy performance evaluated in imagination space. Large gap between eval and train return suggests world model accuracy issues.</p>
+        <p><strong>2. Imagination Space Evaluation</strong>: Policy performance evaluated in imagination space. A large gap between imagination evaluation and real-environment return suggests world model accuracy issues.</p>
 
-        <p><strong>3. Reconstruction Loss (losses/recon)</strong>: RSSM's observation reconstruction error. Decreasing values mean the world model is learning environment dynamics.</p>
+        <p><strong>3. Model Loss / Prediction Loss</strong>: RSSM's composite loss, typically including observation reconstruction loss, reward prediction loss, and continuation prediction loss. Decreasing values indicate improved observation modeling, but this does <strong>not directly imply improved control</strong> — low reconstruction error doesn't mean good control performance.</p>
 
-        <p><strong>4. Video Playback</strong>: In the Images tab, compare agent behavior in real vs. imagined environments — a direct look at imagination quality.</p>
+        <p><strong>4. Actor Loss / Policy Loss</strong>: Policy network optimization loss, reflecting how well the Actor is learning in imagination space.</p>
+
+        <p><strong>5. Video Playback</strong>: In the Images tab, compare agent behavior in real vs. imagined environments — a direct look at imagination quality.</p>
+
+        <h2>Advanced: Observing the World Model's "Imagination"</h2>
+
+        <p>This article is about world models, but so far we've mainly been looking at policy training. The world model's most fundamental capability is <strong>imagination</strong> — given a current state, predicting what will happen next. We should observe this directly.</p>
+
+        <p>DreamerV3's RSSM can perform <strong>imagination rollout</strong>:</p>
+
+        <ol>
+            <li>Encode the current latent state from real observations</li>
+            <li>RSSM autonomously rolls forward multiple steps from this state</li>
+            <li>Each step predicts: future frames, reward, and termination</li>
+        </ol>
+
+        <p>In TensorBoard's Images tab, you can see videos generated from imagination space. For a more direct approach, do rollout analysis in code:</p>
+
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code># Pseudocode: imagination rollout
+# From a real state, let the world model "imagine" the future
+latent_state = rssm.encode(real_observation)
+for step in range(horizon):
+    action = actor(latent_state)
+    next_latent, predicted_obs, predicted_reward = \
+        rssm.imagine(latent_state, action)
+    # Compare predicted_obs vs real observations</code></pre>
+
+        <p>This is the most critical step for understanding Dreamer. If imagined frames increasingly resemble real frames, the world model is indeed learning environment dynamics. If imagined frames are blurry or distorted, the model needs more training, or the task exceeds the current model capacity.</p>
 
         <h2>Step 6: Analyze Training Output</h2>
 
         <p>After training, the logdir structure looks like:</p>
 
-        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>~/logdir/wm_walker_walk/
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>~/logdir/wm_cartpole_balance/
 ├── events.out.tfevents.*    # TensorBoard logs
 ├── configs.yaml              # Training config
 ├── variables.pkl             # Model weights
 └── metrics.json              # Metric records</code></pre>
 
-        <p>Load metrics.json with Python for analysis:</p>
+        <p>Load metrics.json with Python for analysis (metric key names vary by version — use actual output):</p>
 
         <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>import json
 import matplotlib.pyplot as plt
 
-with open('~/logdir/wm_walker_walk/metrics.json') as f:
+with open('~/logdir/wm_cartpole_balance/metrics.json') as f:
     metrics = [json.loads(line) for line in f]
 
+# Metric keys vary by version — print available keys first
+print(metrics[0].keys() if metrics else "No data")
+
 steps = [m['step'] for m in metrics]
-returns = [m['eval/return'] for m in metrics]
+# Common keys: episode/return, eval/return, train/return
+returns = [m.get('episode/return', m.get('eval/return', 0)) for m in metrics]
 
 plt.plot(steps, returns)
 plt.xlabel('Training Steps')
-plt.ylabel('Eval Return')
-plt.title('DreamerV3 on Walker Walk')
+plt.ylabel('Episode Return')
+plt.title('DreamerV3 on Cartpole Balance')
 plt.savefig('training_curve.png')
 plt.show()</code></pre>
 
@@ -191,7 +292,7 @@ export MUJOCO_GL=osmesa  # without GPU</code></pre>
 
         <p><strong>Issue 2: Training is very slow</strong></p>
 
-        <p>Likely causes: no GPU (CPU-only is 10x+ slower), batch size too large, or insufficient environment parallelism. Verify CUDA is properly detected.</p>
+        <p>Likely causes: no GPU (CPU-only is 10x+ slower), batch size too large, or insufficient environment parallelism. If you have a GPU, verify JAX correctly detects CUDA (check with <code>jax.devices()</code>).</p>
 
         <p><strong>Issue 3: Training return not increasing</strong></p>
 
@@ -205,18 +306,50 @@ export MUJOCO_GL=osmesa  # without GPU</code></pre>
 
         <p>MuJoCo is great for algorithm validation, but rendering realism is limited. If you need more realistic visual inputs (e.g., training a robot to recognize objects from camera feeds), you can upgrade to NVIDIA Isaac Sim.</p>
 
-        <p>Isaac Sim, built on the Omniverse platform, provides physically accurate simulation with high-fidelity rendering. The API differs from MuJoCo, but DreamerV3's training pipeline is the same — you just need an environment wrapper to adapt Isaac Sim's observation and action interfaces to DreamerV3's expected format.</p>
+        <p>Isaac Sim, built on the Omniverse platform, provides physically accurate simulation with high-fidelity rendering. The API differs from MuJoCo, and while DreamerV3's training pipeline is the same, migrating from MuJoCo to Isaac Sim involves more than just writing an environment wrapper. Differences you'll need to handle include:</p>
+
+        <ul>
+            <li><strong>Observation design</strong>: Isaac Sim's visual output format, resolution, and camera parameters differ from MuJoCo — requires adaptation</li>
+            <li><strong>Camera latency</strong>: High-fidelity rendering introduces additional latency, potentially affecting training stability</li>
+            <li><strong>Physics timestep</strong>: The two engines differ in simulation frequency and integration accuracy — may need action repeat adjustment</li>
+            <li><strong>Action scaling</strong>: Action space ranges and semantics may differ — requires recalibration</li>
+            <li><strong>Domain randomization</strong>: Randomization strategies need to be redesigned for Sim-to-Real transfer</li>
+        </ul>
 
         <p>I'll cover this advanced topic in a future article. For now, get MuJoCo + DreamerV3 running and understand the training pipeline — that's what matters most.</p>
 
+        <h2>Optional: One-Click Docker Setup</h2>
+
+        <p>If you've spent too much time on local environment setup (CUDA versions, MuJoCo rendering, JAX GPU, etc.), consider using Docker for environment consistency. Here's a basic Dockerfile example:</p>
+
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>FROM nvidia/cuda:12.2.0-runtime-ubuntu22.04
+
+RUN apt-get update && apt-get install -y \
+    python3.11 python3-pip libosmesa6-dev \
+    libgl1-mesa-glx libglfw3-dev
+
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install "jax[cuda12]" mujoco dm-control
+
+COPY . .
+CMD ["python", "embodied/main.py", \
+     "--logdir", "/app/logdir", \
+     "--configs", "defaults", "dm_control", \
+     "--task", "dmc_cartpole_balance"]</code></pre>
+
+        <p>Docker ensures complete reproducibility — no more "works on my machine" issues. Especially useful for team collaboration and paper experiment reproduction.</p>
+
         <h2>Summary</h2>
 
-        <p>Today we built a complete world model experiment environment: MuJoCo for physics simulation, DreamerV3 for world model training, TensorBoard for visualization. The whole process from installation to running the first experiment takes about 30-60 minutes (depending on network speed).</p>
+        <p>Today we built a complete world model experiment environment: MuJoCo for physics simulation, DreamerV3 for world model training, TensorBoard for visualization. The whole process from installation to running the first experiment takes about 30-60 minutes (depending on network speed and whether you use Docker).</p>
 
         <p>Once running, try:</p>
 
         <ul>
-            <li>Switching to different MuJoCo tasks (cheetah run, hopper stand, humanoid walk)</li>
+            <li>Progressively increasing task difficulty (walker stand → cheetah run → walker walk → humanoid walk)</li>
+            <li>Running imagination rollouts to observe the world model's "imagination" quality</li>
             <li>Adjusting hyperparameters and observing imagination quality changes</li>
             <li>Comparing DreamerV3's sample efficiency with traditional RL (e.g., PPO)</li>
             <li>Adding language conditioning to explore language-grounded world models</li>
@@ -226,10 +359,27 @@ export MUJOCO_GL=osmesa  # without GPU</code></pre>
 
         <p>Next article, I plan to discuss a more cutting-edge topic: how to use world models to generate synthetic data for enhancing VLA training. This is a hot direction in VLA-world model convergence. Stay tuned.</p>
 
+        <p>If you found this helpful, feel free to like, bookmark, or discuss in the comments.</p>
+
         <hr>
 
-        <p><em>The author is a robotics AI engineer with an M.S. from Northwestern Polytechnical University, author of two C++ programming books. Focused on world models and Sim-to-Real transfer. If you found this helpful, feel free to like, bookmark, or discuss in the comments.</em></p>
+        <div class="article-actions">
+            <button class="action-btn like-btn" id="btn-like">
+                <span class="icon">&#9825;</span>
+                <span>Like</span>
+                <span id="like-count">0</span>
+            </button>
+            <button class="action-btn bookmark-btn" id="btn-bookmark">
+                <span class="icon">&#9734;</span>
+                <span>Bookmark</span>
+            </button>
+        </div>
     </main>
+
+    <div class="comments-section">
+        <h3>Comments</h3>
+        <div id="giscus-container"></div>
+    </div>
 
     <div class="author-box">
         <div class="author-avatar">W</div>
@@ -248,5 +398,7 @@ export MUJOCO_GL=osmesa  # without GPU</code></pre>
           Page Views: <span id="busuanzi_value_page_pv" style="color:#2563eb;"></span>
         </span>
     </footer>
+
+    <script src="../../blog-interactions.js"></script>
 </body>
 </html>

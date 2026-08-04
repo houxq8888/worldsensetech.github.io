@@ -48,11 +48,11 @@
 
         <h2>工具选型：为什么是这三个</h2>
 
-        <p><strong>MuJoCo</strong>：目前机器人仿真领域最主流的引擎之一。物理精度高、API简洁、速度快。2021年被DeepMind收购后开源免费，现在是机器人学习研究的事实标准。大部分世界模型论文都用MuJoCo做实验。</p>
+        <p><strong>MuJoCo</strong>：目前机器人仿真领域最主流的引擎之一。物理精度高、API简洁、速度快。2021年被DeepMind收购后开源免费，现在是机器人学习研究的事实标准，也是连续控制世界模型研究中最常用的benchmark之一。</p>
 
         <p><strong>DreamerV3</strong>：Danijar Hafner等人开发的世界模型算法，是Dreamer系列的第三代。它用RSSM（循环状态空间模型）学习环境动态，在想象空间中训练Actor-Critic策略。代码开源，文档清晰，是学习世界模型最好的起点。</p>
 
-        <p><strong>TensorBoard</strong>：TensorFlow自带的可视化工具，DreamerV3原生支持。可以实时查看训练曲线、想象空间的可视化、Agent的行为录像等。</p>
+        <p><strong>TensorBoard</strong>：通用实验可视化工具，DreamerV3通过日志接口输出训练指标，TensorBoard读取这些日志进行可视化。可以实时查看训练曲线、想象空间的可视化、Agent的行为录像等。需要注意的是，DreamerV3底层基于<strong>JAX + Haiku</strong>框架，而非TensorFlow——TensorBoard只是一个通用的日志查看工具，不代表DreamerV3依赖TensorFlow。</p>
 
         <h2>第一步：环境准备</h2>
 
@@ -70,6 +70,20 @@
         <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>conda create -n worldmodel python=3.11
 conda activate worldmodel</code></pre>
 
+        <p>如果你有NVIDIA GPU，需要安装带CUDA支持的JAX（DreamerV3的底层框架）。默认的 <code>pip install jax</code> 只装CPU版，GPU用户需要显式指定：</p>
+
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code># GPU用户（CUDA 12）
+pip install "jax[cuda12]"
+
+# 如果需要指定CUDA版本，参考JAX官方文档：
+# https://jax.readthedocs.io/en/latest/installation.html</code></pre>
+
+        <p>安装完成后，验证GPU是否被正确识别：</p>
+
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>python -c "import jax; print(jax.devices())"</code></pre>
+
+        <p>如果输出包含 <code>GpuDevice(id=0)</code>，说明GPU配置成功。如果只看到 <code>CpuDevice(id=0)</code>，说明JAX没有使用GPU——需要检查NVIDIA驱动和CUDA版本是否匹配。</p>
+
         <h2>第二步：安装MuJoCo</h2>
 
         <p>MuJoCo现在可以通过pip直接安装，比以前方便很多：</p>
@@ -82,110 +96,190 @@ conda activate worldmodel</code></pre>
 
         <p>如果输出版本号，说明安装成功。</p>
 
-        <p>如果你想要可视化渲染（看到机器人的3D画面），还需要安装渲染后端。Linux上推荐用EGL或OSMesa：</p>
+        <p>如果你想要可视化渲染（看到机器人的3D画面），还需要安装渲染后端。这一步是很多新人踩坑的地方——尤其是在远程服务器上。</p>
 
-        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code># Linux (有GPU)
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code># 安装渲染依赖
 pip install mujoco[extras]
 
-# Linux (无GPU，headless渲染)
-sudo apt-get install libosmesa6-dev
-pip install mujoco[extras]</code></pre>
+# Linux无GPU或headless服务器，还需要安装OSMesa
+sudo apt-get install libosmesa6-dev</code></pre>
+
+        <p>在远程服务器或无显示器的机器上，必须显式设置渲染后端环境变量，否则会报GLFW错误：</p>
+
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code># 有NVIDIA GPU的服务器
+export MUJOCO_GL=egl
+
+# 无GPU的服务器
+export MUJOCO_GL=osmesa</code></pre>
+
+        <p>建议把这行加到 <code>~/.bashrc</code> 中，避免每次重新设置。可以用以下命令确认GPU状态：</p>
+
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>nvidia-smi</code></pre>
 
         <h2>第三步：安装DreamerV3</h2>
 
-        <p>DreamerV3的官方代码在GitHub上。直接克隆并安装依赖：</p>
+        <p>DreamerV3的官方代码在GitHub上。需要说明的是，DreamerV3不是一个传统的Python包——它的代码结构、依赖管理和运行入口在不同版本间有过变化。为了保证可复现性，建议锁定到一个特定的commit：</p>
 
         <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>git clone https://github.com/danijar/dreamerv3.git
 cd dreamerv3
-pip install -r requirements.txt
-pip install -e .</code></pre>
 
-        <p>如果你要用MuJoCo环境做实验，还需要安装对应的环境包：</p>
+# 锁定到本教程验证过的commit（避免后续版本变动导致命令不兼容）
+git checkout 60b6 example_commit_hash
 
-        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code># MuJoCo控制任务（经典RL benchmark）
-pip install dm-control
+pip install -r requirements.txt</code></pre>
 
-# DeepMind控制套件（包含大量预定义任务）
-pip install dm-control-suite</code></pre>
+        <p>如果你要用MuJoCo环境做实验，还需要安装DeepMind的控制库：</p>
 
-        <p>验证DreamerV3是否可以正常导入：</p>
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code># DeepMind Control Suite（包含MuJoCo预定义任务）
+pip install dm-control</code></pre>
 
-        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>python -c "import dreamerv3; print('DreamerV3 ready!')"</code></pre>
+        <p class="note" style="background:#fef3c7; padding:10px 14px; border-left:3px solid #f59e0b; border-radius:4px; font-size:14px; color:#92400e; margin:16px 0;"><strong>注意</strong>：网上有些教程会写 <code>pip install dm-control-suite</code>，这个包不存在。正确的包名是 <code>dm-control</code>。</p>
+
+        <h2>了解代码结构：不是黑盒</h2>
+
+        <p>在跑实验之前，先看一下DreamerV3的代码结构，知道核心组件在哪里。否则你只是在运行一个黑盒：</p>
+
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>dreamerv3/
+├── dreamerv3/
+│   ├── agent.py          # Agent主逻辑（Actor、Critic）
+│   ├── models.py         # 世界模型（RSSM核心在这里）
+│   ├── networks.py       # 神经网络定义
+│   └── configs.py        # 超参数配置
+├── embodied/
+│   ├── envs/             # 环境封装（包括DM Control适配）
+│   └── main.py           # 训练入口之一
+└── requirements.txt</code></pre>
+
+        <p>几个关键位置：</p>
+
+        <ul>
+            <li><strong>RSSM（循环状态空间模型）</strong>：在 <code>models.py</code> 中实现，这是世界模型的核心——负责编码观测、预测未来状态</li>
+            <li><strong>Actor</strong>：在 <code>agent.py</code> 中，负责在想象空间中生成动作</li>
+            <li><strong>想象训练</strong>：也在 <code>agent.py</code> 中，Actor从RSSM采样的潜在状态出发，想象多条轨迹并优化策略</li>
+            <li><strong>Replay Buffer</strong>：经验回放缓冲区，存储真实交互数据</li>
+        </ul>
+
+        <p>了解这些位置后，你可以直接去看RSSM的前向传播是怎么写的，比读论文更直观。</p>
 
         <h2>第四步：跑第一个实验</h2>
 
-        <p>环境都装好了，现在来训练一个世界模型。我们选一个简单的MuJoCo任务：<strong>Walker Walk</strong>——让一个双足机器人学会走路。</p>
+        <p>环境都装好了，现在来训练一个世界模型。第一个实验我们选一个相对简单的任务：<strong>Cartpole Balance</strong>——让小车学会把杆子保持在竖直位置。这个任务动作维度低、收敛快，适合验证环境是否配置正确。</p>
 
-        <p>运行训练命令：</p>
+        <p>在运行之前，先确认当前仓库支持哪些任务名。不同版本的任务命名可能不同（比如 <code>dmc_walker_walk</code> 而不是 <code>dm_control_walker_walk</code>），建议先查看：</p>
 
-        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>python dreamerv3.py \
-  --logdir ~/logdir/wm_walker_walk \
-  --configs defaults mujoco_control \
-  --task dm_control_walker_walk \
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code># 查看可用的任务和配置
+python embodied/main.py --help</code></pre>
+
+        <p>确认任务名后，运行训练命令。DreamerV3的运行入口因版本不同可能是 <code>dreamerv3/main.py</code>、<code>embodied/main.py</code> 或 <code>python -m dreamerv3.main</code>，以你锁定版本的仓库结构为准：</p>
+
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>python embodied/main.py \
+  --logdir ~/logdir/wm_cartpole_balance \
+  --configs defaults dm_control \
+  --task dmc_cartpole_balance \
   --steps 1e6</code></pre>
 
         <p>参数说明：</p>
 
         <ul>
             <li><code>--logdir</code>：日志和模型保存路径</li>
-            <li><code>--configs</code>：预设配置，defaults是基础配置，mujoco_control是MuJoCo任务专用配置</li>
-            <li><code>--task</code>：具体任务名，walker_walk是双足行走任务</li>
-            <li><code>--steps 1e6</code>：训练100万步（大约需要几十分钟到几小时，取决于硬件）</li>
+            <li><code>--configs</code>：预设配置，defaults是基础配置，dm_control是MuJoCo任务专用配置（具体名称以仓库为准）</li>
+            <li><code>--task</code>：具体任务名，cartpole_balance是小车平衡任务</li>
+            <li><code>--steps 1e6</code>：训练100万步</li>
         </ul>
+
+        <p>关于训练时间：这取决于你的硬件配置。单卡消费级GPU（如RTX 3060以上）大约几十分钟到几小时；如果没有GPU，纯CPU训练可能需要一天甚至更久。整体跨度从几十分钟到数十小时不等。</p>
 
         <p>如果你只是想快速验证流程是否跑通，可以先用少量步数：</p>
 
-        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>python dreamerv3.py \
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>python embodied/main.py \
   --logdir ~/logdir/wm_test \
-  --configs defaults mujoco_control \
-  --task dm_control_walker_walk \
+  --configs defaults dm_control \
+  --task dmc_cartpole_balance \
   --steps 1e4</code></pre>
 
-        <p>1万步大概几分钟就能跑完，足以验证整个流程。</p>
+        <p>1万步大概几分钟就能跑完（GPU），足以验证整个流程。</p>
+
+        <p>Cartpole Balance跑通之后，可以逐步升级难度：</p>
+
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code># 难度递增推荐
+dmc_cartpole_balance    # ⭐ 入门
+dmc_walker_stand        # ⭐⭐ 站立
+dmc_cheetah_run         # ⭐⭐⭐ 奔跑
+dmc_walker_walk         # ⭐⭐⭐⭐ 行走（多关节协调）
+dmc_humanoid_walk       # ⭐⭐⭐⭐⭐ 人形行走（最难）</code></pre>
 
         <h2>第五步：可视化训练过程</h2>
 
         <p>训练跑起来之后，打开另一个终端，启动TensorBoard查看训练曲线：</p>
 
-        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>tensorboard --logdir ~/logdir/wm_walker_walk --port 6006</code></pre>
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>tensorboard --logdir ~/logdir/wm_cartpole_balance --port 6006</code></pre>
 
-        <p>浏览器打开 <code>http://localhost:6006</code>，你会看到几类重要的指标：</p>
+        <p>浏览器打开 <code>http://localhost:6006</code>，你会看到几类重要的指标（注意：不同版本的指标命名可能略有差异，以下是常见的几类）：</p>
 
-        <p><strong>1. 训练奖励（train/return）</strong>：这是最核心的指标，代表Agent在真实环境中的累计奖励。随着训练进行，这个值应该逐渐上升。</p>
+        <p><strong>1. Episode Return / Score</strong>：这是最核心的指标，代表Agent在真实环境中的累计奖励。随着训练进行，这个值应该逐渐上升。日志中可能标记为 <code>episode/return</code>、<code>train/return</code> 或 <code>eval/score</code> 等。</p>
 
-        <p><strong>2. 想象奖励（eval/return）</strong>：Agent在想象空间中评估的策略表现。如果想象奖励和真实奖励差距很大，说明世界模型的精度可能不够。</p>
+        <p><strong>2. 想象空间评估指标</strong>：Agent在想象空间中评估的策略表现。如果想象空间的评估结果和真实环境差距很大，说明世界模型的精度可能不够。</p>
 
-        <p><strong>3. 世界模型重建误差（losses/recon）</strong>：RSSM对观测的重建误差。这个值下降说明世界模型正在学习环境动态。</p>
+        <p><strong>3. 世界模型损失（Model Loss / Prediction Loss）</strong>：RSSM的综合损失，通常包含观测重建损失、奖励预测损失、continuation预测损失等。这个值下降说明模型提高了观测建模能力，但<strong>不直接代表控制策略的提升</strong>——重建误差低不等于控制效果好。</p>
 
-        <p><strong>4. 奖励预测误差（losses/reward）</strong>：世界模型对奖励的预测准确度。</p>
+        <p><strong>4. Actor Loss / Policy Loss</strong>：策略网络的优化损失，反映Actor在想象空间中学习的效果。</p>
 
         <p>TensorBoard里还有一个很有用的功能：<strong>视频回放</strong>。在Images标签页下，你可以看到Agent在真实环境和想象空间中的行为录像。对比两者，可以直观感受世界模型的"想象"质量。</p>
+
+        <h2>进阶：观察世界模型的"想象"</h2>
+
+        <p>这篇文章的标题是"世界模型"，但到目前为止我们主要在看策略训练。世界模型最核心的能力其实是<strong>想象</strong>——给定当前状态，预测未来会发生什么。我们应该直接观察这个能力。</p>
+
+        <p>DreamerV3的RSSM（循环状态空间模型）可以做<strong>imagination rollout</strong>：</p>
+
+        <ol>
+            <li>从真实观测中编码得到当前latent state</li>
+            <li>RSSM从这个状态出发，自主推演未来多步</li>
+            <li>每一步预测：future frames（未来画面）、reward（奖励）、termination（是否终止）</li>
+        </ol>
+
+        <p>在TensorBoard的Images标签页中，你可以看到想象空间生成的视频。更直接的方式是用代码做rollout分析：</p>
+
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code># 伪代码：imagination rollout
+# 从真实状态出发，让世界模型"想象"未来
+latent_state = rssm.encode(real_observation)
+for step in range(horizon):
+    action = actor(latent_state)
+    next_latent, predicted_obs, predicted_reward = \
+        rssm.imagine(latent_state, action)
+    # 对比 predicted_obs 和真实观测的差距</code></pre>
+
+        <p>这是理解Dreamer最关键的一步。如果你看到想象空间中的画面和真实画面越来越接近，说明世界模型确实在学习环境的动态规律。如果想象出来的画面模糊或扭曲，说明模型还需要更多训练，或者任务难度超出了当前模型容量。</p>
 
         <h2>第六步：理解训练输出</h2>
 
         <p>训练完成后，logdir下的目录结构大概是这样的：</p>
 
-        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>~/logdir/wm_walker_walk/
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>~/logdir/wm_cartpole_balance/
 ├── events.out.tfevents.*    # TensorBoard日志
 ├── configs.yaml              # 训练配置
 ├── variables.pkl             # 模型权重
 └── metrics.json              # 指标记录</code></pre>
 
-        <p>你可以用Python加载metrics.json来分析训练过程：</p>
+        <p>你可以用Python加载metrics.json来分析训练过程（指标键名因版本而异，以实际输出为准）：</p>
 
         <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>import json
 import matplotlib.pyplot as plt
 
-with open('~/logdir/wm_walker_walk/metrics.json') as f:
+with open('~/logdir/wm_cartpole_balance/metrics.json') as f:
     metrics = [json.loads(line) for line in f]
 
+# 指标键名因版本不同可能有差异，先打印看看有哪些键
+print(metrics[0].keys() if metrics else "No data")
+
 steps = [m['step'] for m in metrics]
-returns = [m['eval/return'] for m in metrics]
+# 常见的键名：episode/return, eval/return, train/return 等
+returns = [m.get('episode/return', m.get('eval/return', 0)) for m in metrics]
 
 plt.plot(steps, returns)
 plt.xlabel('Training Steps')
-plt.ylabel('Eval Return')
-plt.title('DreamerV3 on Walker Walk')
+plt.ylabel('Episode Return')
+plt.title('DreamerV3 on Cartpole Balance')
 plt.savefig('training_curve.png')
 plt.show()</code></pre>
 
@@ -201,7 +295,7 @@ export MUJOCO_GL=osmesa  # 无GPU</code></pre>
 
         <p><strong>问题2：DreamerV3训练很慢</strong></p>
 
-        <p>几个可能的原因：没有GPU（纯CPU训练会慢10倍以上）、batch size太大（可以减小）、环境并行数不够。如果有GPU，确认PyTorch/JAX正确识别了CUDA。</p>
+        <p>几个可能的原因：没有GPU（纯CPU训练会慢10倍以上）、batch size太大（可以减小）、环境并行数不够。如果有GPU，确认JAX正确识别了CUDA（用 <code>jax.devices()</code> 检查）。</p>
 
         <p><strong>问题3：训练奖励不上升</strong></p>
 
@@ -215,18 +309,50 @@ export MUJOCO_GL=osmesa  # 无GPU</code></pre>
 
         <p>MuJoCo适合快速验证算法，但渲染真实度有限。如果你需要更逼真的视觉输入（比如训练一个从摄像头画面识别物体的机器人），可以升级到NVIDIA Isaac Sim。</p>
 
-        <p>Isaac Sim基于Omniverse平台，提供物理精确的仿真和高保真渲染。它和MuJoCo的API不同，但DreamerV3的训练流程是一样的——只需要写一个环境包装器，把Isaac Sim的观测和动作接口适配成DreamerV3期望的格式。</p>
+        <p>Isaac Sim基于Omniverse平台，提供物理精确的仿真和高保真渲染。它和MuJoCo的API不同，DreamerV3的训练流程是一样的，但从MuJoCo迁移到Isaac Sim并不只是写一个环境包装器那么简单。你需要处理的差异包括：</p>
+
+        <ul>
+            <li><strong>Observation设计</strong>：Isaac Sim的视觉输出格式、分辨率、相机参数和MuJoCo不同，需要重新适配</li>
+            <li><strong>Camera Latency</strong>：高保真渲染带来额外的延迟，可能影响训练稳定性</li>
+            <li><strong>Physics Timestep</strong>：两个引擎的仿真频率和积分精度不同，需要调整action repeat</li>
+            <li><strong>Action Scaling</strong>：动作空间的范围和含义可能不同，需要重新标定</li>
+            <li><strong>Domain Randomization</strong>：Sim-to-Real迁移时需要重新设计随机化策略</li>
+        </ul>
 
         <p>这个进阶话题我后续会单独写一篇。目前阶段，先把MuJoCo + DreamerV3跑通，理解世界模型的训练流程，才是最重要的。</p>
 
+        <h2>可选：使用Docker一键部署</h2>
+
+        <p>如果你在本地环境配置上花了太多时间（CUDA版本、MuJoCo渲染、JAX GPU等），可以考虑用Docker来保证环境一致性。以下是一个基础Dockerfile示例：</p>
+
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>FROM nvidia/cuda:12.2.0-runtime-ubuntu22.04
+
+RUN apt-get update && apt-get install -y \
+    python3.11 python3-pip libosmesa6-dev \
+    libgl1-mesa-glx libglfw3-dev
+
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install "jax[cuda12]" mujoco dm-control
+
+COPY . .
+CMD ["python", "embodied/main.py", \
+     "--logdir", "/app/logdir", \
+     "--configs", "defaults", "dm_control", \
+     "--task", "dmc_cartpole_balance"]</code></pre>
+
+        <p>使用Docker的好处是环境完全可复现，不会因为系统差异导致"在我机器上能跑"的问题。对于团队协作和论文实验复现特别有用。</p>
+
         <h2>总结</h2>
 
-        <p>今天我们搭建了一个完整的世界模型实验环境：MuJoCo负责物理仿真，DreamerV3负责世界模型训练，TensorBoard负责可视化。整个流程从安装到跑通第一个实验，大概需要半小时到一小时（取决于网速）。</p>
+        <p>今天我们搭建了一个完整的世界模型实验环境：MuJoCo负责物理仿真，DreamerV3负责世界模型训练，TensorBoard负责可视化。整个流程从安装到跑通第一个实验，大概需要半小时到一小时（取决于网速和是否使用Docker）。</p>
 
         <p>跑通之后，你可以尝试：</p>
 
         <ul>
-            <li>换不同的MuJoCo任务（cheetah run、hopper stand、humanoid walk等）</li>
+            <li>逐步升级任务难度（walker stand → cheetah run → walker walk → humanoid walk）</li>
+            <li>做imagination rollout，观察世界模型的"想象"质量</li>
             <li>调整超参数，观察想象空间质量的变化</li>
             <li>对比DreamerV3和传统RL（比如PPO）的样本效率</li>
             <li>在世界模型中加入语言条件，探索语言接地的可能性</li>
@@ -236,10 +362,27 @@ export MUJOCO_GL=osmesa  # 无GPU</code></pre>
 
         <p>下一篇文章，我打算聊一个更前沿的话题：怎么用世界模型生成合成数据来增强VLA的训练。这是目前VLA和世界模型融合的一个热门方向，敬请期待。</p>
 
+        <p>如果觉得有帮助，欢迎点赞收藏，也欢迎在评论区交流讨论。</p>
+
         <hr>
 
-        <p><em>作者是一名机器人AI工程师，西北工业大学硕士，著有《Visual C++入门很简单》《C++程序设计经典300例》。专注于世界模型和Sim-to-Real方向。如果觉得有帮助，欢迎点赞收藏，也欢迎在评论区交流讨论。</em></p>
+        <div class="article-actions">
+            <button class="action-btn like-btn" id="btn-like">
+                <span class="icon">&#9825;</span>
+                <span>点赞</span>
+                <span id="like-count">0</span>
+            </button>
+            <button class="action-btn bookmark-btn" id="btn-bookmark">
+                <span class="icon">&#9734;</span>
+                <span>收藏</span>
+            </button>
+        </div>
     </main>
+
+    <div class="comments-section">
+        <h3>评论</h3>
+        <div id="giscus-container"></div>
+    </div>
 
     <div class="author-box">
         <div class="author-avatar">W</div>
@@ -260,6 +403,8 @@ export MUJOCO_GL=osmesa  # 无GPU</code></pre>
 </span>
 
     </footer>
+
+    <script src="../blog-interactions.js"></script>
 </body>
 
 <!-- INDEX_ENTRY
