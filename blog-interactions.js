@@ -14,15 +14,17 @@
     // CONFIGURATION — Update these values for your blog
     // ============================================================
     var GISCUS_CONFIG = {
-        repo: 'houxq8888/worldsensetech.github.io',  // GitHub repo
-        repoId: '',           // Get from https://giscus.app after installation
+        repo: 'houxq8888/worldsensetech.github.io',
+        repoId: 'R_kgDOTqqp9g',
         category: 'Announcements',
-        categoryId: '',       // Get from https://giscus.app
-        mapping: 'pathname',  // Match discussions by page pathname
-        theme: 'light',
-        lang: 'zh-CN',
-        // GitHub API for reading reaction counts (no auth needed for public repos)
-        githubApiBase: 'https://api.github.com'
+        categoryId: 'DIC_kwDOTqqp9s4DCnZo',
+        mapping: 'pathname',
+        strict: '0',
+        reactionsEnabled: '1',
+        emitMetadata: '0',
+        inputPosition: 'bottom',
+        theme: 'preferred_color_scheme',
+        lang: 'zh-CN'
     };
 
     // Current article path (used as unique key for likes/bookmarks)
@@ -154,23 +156,14 @@
         script.setAttribute('data-category', GISCUS_CONFIG.category);
         script.setAttribute('data-category-id', GISCUS_CONFIG.categoryId);
         script.setAttribute('data-mapping', GISCUS_CONFIG.mapping);
-        script.setAttribute('data-strict', '0');
-        script.setAttribute('data-reactions-enabled', '1');
-        script.setAttribute('data-emit-metadata', '0');
-        script.setAttribute('data-input-position', 'bottom');
+        script.setAttribute('data-strict', GISCUS_CONFIG.strict);
+        script.setAttribute('data-reactions-enabled', GISCUS_CONFIG.reactionsEnabled);
+        script.setAttribute('data-emit-metadata', GISCUS_CONFIG.emitMetadata);
+        script.setAttribute('data-input-position', GISCUS_CONFIG.inputPosition);
         script.setAttribute('data-theme', GISCUS_CONFIG.theme);
         script.setAttribute('data-lang', GISCUS_CONFIG.lang);
         script.crossOrigin = 'anonymous';
         script.async = true;
-
-        // If repoId/categoryId not configured, show setup message
-        if (!GISCUS_CONFIG.repoId || !GISCUS_CONFIG.categoryId) {
-            container.innerHTML = '<div style="text-align:center; padding:2rem; color:#64748b; font-size:0.9rem; border:1px dashed #e2e8f0; border-radius:8px;">' +
-                '<p style="margin-bottom:0.5rem;">Comment system not yet configured.</p>' +
-                '<p>Visit <a href="https://giscus.app" target="_blank" style="color:#2563eb;">giscus.app</a> to get your repo-id and category-id, then update the config in blog-interactions.js.</p>' +
-                '</div>';
-            return;
-        }
 
         container.appendChild(script);
     }
