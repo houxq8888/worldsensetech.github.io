@@ -1,17 +1,16 @@
 /**
- * Blog Interactions: Like (GitHub Reactions) + Bookmark (localStorage) + Giscus Comments
+ * Blog Interactions: Like + Bookmark (Supabase global stats) + Giscus Comments
  *
- * Setup required (one-time):
- * 1. Install Giscus app on your repo: https://github.com/apps/giscus
- * 2. Configure at https://giscus.app — get your public key
- * 3. Update GISCUS_CONFIG below with your repo and key
+ * Setup:
+ * 1. Giscus: https://giscus.app
+ * 2. Supabase: https://supabase.com (create project, create blog_stats table)
  */
 
 (function () {
     'use strict';
 
     // ============================================================
-    // CONFIGURATION — Update these values for your blog
+    // CONFIGURATION
     // ============================================================
     var GISCUS_CONFIG = {
         repo: 'houxq8888/worldsensetech.github.io',
@@ -27,118 +26,197 @@
         lang: 'zh-CN'
     };
 
-    // Current article path (used as unique key for likes/bookmarks)
+    var SUPABASE_CONFIG = {
+        projectUrl: 'https://vkbbaulinnpgywowgztp.supabase.co',
+        apiKey: 'sb_publishable_-LEtCNCKzgK7zd0oTAJ3ow_3dH7Di7H',
+        tableName: 'blog_stats'
+    };
+
     var articlePath = window.location.pathname;
 
+    // Get or create visitor ID (stored in localStorage)
+    function getVisitorId() {
+        var vid = localStorage.getItem('ws_visitor_id');
+        if (!vid) {
+            vid = 'v_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            localStorage.setItem('ws_visitor_id', vid);
+        }
+        return vid;
+    }
+
     // ============================================================
-    // BOOKMARK (localStorage)
+    // SUPABASE API HELPERS
+    // ============================================================
+    function sbHeaders() {
+        return {
+            'apikey': SUPABASE_CONFIG.apiKey,
+            'Authorization': 'Bearer ' + SUPABASE_CONFIG.apiKey,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=representation'
+        };
+    }
+
+    var SB_URL = SUPABASE_CONFIG.projectUrl + '/rest/v1/' + SUPABASE_CONFIG.tableName;
+
+    // Query stats for current article
+    function sbQueryStats() {
+        return fetch(SB_URL + '?path=eq.' + encodeURIComponent(articlePath), {
+            headers: sbHeaders()
+        }).then(function (r) { return r.json(); });
+    }
+
+    // Create new stats record
+    function sbCreateStats(data) {
+        return fetch(SB_URL, {
+            method: 'POST',
+            headers: sbHeaders(),
+            body: JSON.stringify(data)
+        }).then(function (r) { return r.json(); });
+    }
+
+    // Update stats record
+    function sbUpdateStats(path, data) {
+        return fetch(SB_URL + '?path=eq.' + encodeURIComponent(path), {
+            method: 'PATCH',
+            headers: sbHeaders(),
+            body: JSON.stringify(data)
+        }).then(function (r) { return r.json(); });
+    }
+
+    // ============================================================
+    // LIKE (global via Supabase)
+    // ============================================================
+    function initLike() {
+        var btn = document.getElementById('btn-like');
+        var countEl = document.getElementById('like-count');
+        if (!btn || !countEl) return;
+
+        // Load current stats
+        sbQueryStats().then(function (results) {
+            if (results && results.length > 0) {
+                var stats = results[0];
+                countEl.textContent = stats.likes || 0;
+                // Check if current visitor already liked
+                var liked = JSON.parse(localStorage.getItem('ws_likes') || '[]');
+                if (liked.indexOf(articlePath) !== -1) {
+                    btn.classList.add('active');
+                }
+            } else {
+                countEl.textContent = '0';
+            }
+        }).catch(function () {
+            countEl.textContent = '-';
+        });
+
+        btn.addEventListener('click', function () {
+            var isActive = btn.classList.contains('active');
+            var liked = JSON.parse(localStorage.getItem('ws_likes') || '[]');
+            var alreadyLiked = liked.indexOf(articlePath) !== -1;
+
+            if (isActive || alreadyLiked) {
+                // Unlike: decrement count
+                sbQueryStats().then(function (results) {
+                    if (results && results.length > 0) {
+                        var newCount = Math.max(0, (results[0].likes || 0) - 1);
+                        return sbUpdateStats(articlePath, { likes: newCount });
+                    } else {
+                        return sbCreateStats({ path: articlePath, likes: 0, bookmarks: 0 });
+                    }
+                }).then(function () {
+                    btn.classList.remove('active');
+                    // Update localStorage
+                    var idx = liked.indexOf(articlePath);
+                    if (idx !== -1) liked.splice(idx, 1);
+                    localStorage.setItem('ws_likes', JSON.stringify(liked));
+                    return sbQueryStats();
+                }).then(function (results) {
+                    if (results && results.length > 0) {
+                        countEl.textContent = results[0].likes || 0;
+                    }
+                });
+            } else {
+                // Like: increment count
+                sbQueryStats().then(function (results) {
+                    if (results && results.length > 0) {
+                        var newCount = (results[0].likes || 0) + 1;
+                        return sbUpdateStats(articlePath, { likes: newCount });
+                    } else {
+                        return sbCreateStats({ path: articlePath, likes: 1, bookmarks: 0 });
+                    }
+                }).then(function () {
+                    btn.classList.add('active');
+                    // Update localStorage
+                    if (liked.indexOf(articlePath) === -1) liked.push(articlePath);
+                    localStorage.setItem('ws_likes', JSON.stringify(liked));
+                    return sbQueryStats();
+                }).then(function (results) {
+                    if (results && results.length > 0) {
+                        countEl.textContent = results[0].likes || 0;
+                    }
+                });
+            }
+        });
+    }
+
+    // ============================================================
+    // BOOKMARK (global via Supabase)
     // ============================================================
     function initBookmark() {
         var btn = document.getElementById('btn-bookmark');
         if (!btn) return;
 
-        var bookmarks = JSON.parse(localStorage.getItem('ws_bookmarks') || '[]');
-        var isBookmarked = bookmarks.indexOf(articlePath) !== -1;
-
-        if (isBookmarked) {
-            btn.classList.add('active');
-            btn.querySelector('.icon').textContent = '\u2605'; // ★
-        }
-
-        btn.addEventListener('click', function () {
-            var bookmarks = JSON.parse(localStorage.getItem('ws_bookmarks') || '[]');
-            var idx = bookmarks.indexOf(articlePath);
-            if (idx === -1) {
-                bookmarks.push(articlePath);
-                btn.classList.add('active');
-                btn.querySelector('.icon').textContent = '\u2605';
-            } else {
-                bookmarks.splice(idx, 1);
-                btn.classList.remove('active');
-                btn.querySelector('.icon').textContent = '\u2606';
-            }
-            localStorage.setItem('ws_bookmarks', JSON.stringify(bookmarks));
-        });
-    }
-
-    // ============================================================
-    // LIKE (GitHub Reactions via REST API)
-    // ============================================================
-    function initLike() {
-        var btn = document.getElementById('btn-like');
-        var countEl = document.getElementById('like-count');
-        if (!btn) return;
-
-        // Check if user already liked (stored locally)
-        var liked = JSON.parse(localStorage.getItem('ws_likes') || '[]');
-        var hasLiked = liked.indexOf(articlePath) !== -1;
-        if (hasLiked) {
-            btn.classList.add('active');
-        }
-
-        // Try to load like count from GitHub API
-        loadLikeCount(countEl);
-
-        btn.addEventListener('click', function () {
-            var liked = JSON.parse(localStorage.getItem('ws_likes') || '[]');
-            var idx = liked.indexOf(articlePath);
-            if (idx === -1) {
-                liked.push(articlePath);
-                btn.classList.add('active');
-                // Update local count display
-                if (countEl) {
-                    countEl.textContent = parseInt(countEl.textContent || '0') + 1;
-                }
-                // Try to add GitHub reaction (requires auth, will silently fail if not authenticated)
-                addGitHubReaction();
-            } else {
-                liked.splice(idx, 1);
-                btn.classList.remove('active');
-                if (countEl) {
-                    var c = parseInt(countEl.textContent || '1') - 1;
-                    countEl.textContent = Math.max(0, c);
+        // Load current stats to check bookmark state
+        sbQueryStats().then(function (results) {
+            if (results && results.length > 0) {
+                // Check if current visitor already bookmarked
+                var bookmarked = JSON.parse(localStorage.getItem('ws_bookmarks') || '[]');
+                if (bookmarked.indexOf(articlePath) !== -1) {
+                    btn.classList.add('active');
+                    btn.querySelector('.icon').textContent = '\u2605';
                 }
             }
-            localStorage.setItem('ws_likes', JSON.stringify(liked));
         });
-    }
 
-    function loadLikeCount(el) {
-        if (!el) return;
-        // Try to load from GitHub Discussions API (public read, no auth needed)
-        // This maps article pathname to a Discussion and reads heart reaction count
-        // Since we don't have the discussion ID yet, we use a fallback:
-        // Store counts in a simple JSON file or use localStorage as fallback
-        var stored = JSON.parse(localStorage.getItem('ws_like_counts') || '{}');
-        if (stored[articlePath]) {
-            el.textContent = stored[articlePath];
-        }
+        btn.addEventListener('click', function () {
+            var isActive = btn.classList.contains('active');
+            var bookmarked = JSON.parse(localStorage.getItem('ws_bookmarks') || '[]');
+            var alreadyBookmarked = bookmarked.indexOf(articlePath) !== -1;
 
-        // Try GitHub API (works for public repos, read-only without auth)
-        // In production, you'd map articlePath → Discussion ID and query:
-        // GET https://api.github.com/repos/{owner}/{repo}/discussions/{number}/reactions
-        // For now, show localStorage count
-    }
-
-    function addGitHubReaction() {
-        // Adding reactions requires authentication.
-        // Options to enable this:
-        // 1. Set up a GitHub OAuth backend (e.g., Cloudflare Worker)
-        // 2. Use a Personal Access Token (for personal blogs)
-        // 3. Let users react through Giscus comments (recommended - no extra setup)
-        //
-        // For now, likes are tracked locally.
-        // To enable GitHub Reactions, uncomment and configure:
-        //
-        // fetch(GISCUS_CONFIG.githubApiBase + '/repos/' + GISCUS_CONFIG.repo + '/discussions/{NUMBER}/reactions', {
-        //     method: 'POST',
-        //     headers: {
-        //         'Accept': 'application/vnd.github.squirrel-girl-preview+json',
-        //         'Authorization': 'token YOUR_TOKEN',
-        //         'Content-Type': 'application/json'
-        //     },
-        //     body: JSON.stringify({ content: 'heart' })
-        // });
+            if (isActive || alreadyBookmarked) {
+                // Remove bookmark: decrement count
+                sbQueryStats().then(function (results) {
+                    if (results && results.length > 0) {
+                        var newCount = Math.max(0, (results[0].bookmarks || 0) - 1);
+                        return sbUpdateStats(articlePath, { bookmarks: newCount });
+                    } else {
+                        return sbCreateStats({ path: articlePath, likes: 0, bookmarks: 0 });
+                    }
+                }).then(function () {
+                    btn.classList.remove('active');
+                    btn.querySelector('.icon').textContent = '\u2606';
+                    // Update localStorage
+                    var idx = bookmarked.indexOf(articlePath);
+                    if (idx !== -1) bookmarked.splice(idx, 1);
+                    localStorage.setItem('ws_bookmarks', JSON.stringify(bookmarked));
+                });
+            } else {
+                // Add bookmark: increment count
+                sbQueryStats().then(function (results) {
+                    if (results && results.length > 0) {
+                        var newCount = (results[0].bookmarks || 0) + 1;
+                        return sbUpdateStats(articlePath, { bookmarks: newCount });
+                    } else {
+                        return sbCreateStats({ path: articlePath, likes: 0, bookmarks: 1 });
+                    }
+                }).then(function () {
+                    btn.classList.add('active');
+                    btn.querySelector('.icon').textContent = '\u2605';
+                    // Update localStorage
+                    if (bookmarked.indexOf(articlePath) === -1) bookmarked.push(articlePath);
+                    localStorage.setItem('ws_bookmarks', JSON.stringify(bookmarked));
+                });
+            }
+        });
     }
 
     // ============================================================
@@ -148,7 +226,6 @@
         var container = document.getElementById('giscus-container');
         if (!container) return;
 
-        // Build Giscus script
         var script = document.createElement('script');
         script.src = 'https://giscus.app/client.js';
         script.setAttribute('data-repo', GISCUS_CONFIG.repo);
