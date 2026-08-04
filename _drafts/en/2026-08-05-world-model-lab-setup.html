@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Building a World Model Lab from Scratch: A MuJoCo + DreamerV3 Practical Guide - WorldSense Tech Notes</title>
+    <meta name="description" content="A step-by-step guide to setting up a complete world model experiment environment with MuJoCo and DreamerV3, from installation to training to visualization.">
+    <link rel="stylesheet" href="../style.css">
+
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-6EQ7ZKS9L8"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-6EQ7ZKS9L8');
+</script>
+
+<!-- Busuanzi Counter -->
+<script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+</head>
+<body>
+    <header>
+        <div class="header-inner">
+            <a href="../index.html" class="site-title">WorldSense Tech Notes</a>
+            <nav>
+                <a href="../index.html">Articles</a>
+                <a href="../about.html">About</a>
+                <a href="../../index.html">中文</a>
+                <a href="https://github.com/houxq8888/worldsensetech.github.io" target="_blank">GitHub</a>
+            </nav>
+        </div>
+    </header>
+
+    <div class="article-header">
+        <h1>Building a World Model Lab from Scratch: A MuJoCo + DreamerV3 Practical Guide</h1>
+        <div class="article-info">August 5, 2026 · ~15 min read · Tutorial, MuJoCo, DreamerV3, World Models</div>
+    </div>
+
+    <main class="article-content">
+        <p>I've written several theoretical articless about world models — from RSSM math to Sim-to-Real transfer to the VLA comparison. A reader asked: <strong>I get the theory, but how do I actually run it?</strong></p>
+
+        <p>This article answers that question. I'll walk you through setting up a complete world model experiment environment, step by step from installation to training to visualization. Once you get this running, you'll have a solid foundation for your own experiments.</p>
+
+        <p>Our tool stack: <strong>MuJoCo</strong> (physics simulation) + <strong>DreamerV3</strong> (world model) + <strong>TensorBoard</strong> (visualization). If you need higher-fidelity rendering, you can later swap in Isaac Sim, but MuJoCo is sufficient for getting started.</p>
+
+        <h2>Tool Selection: Why These Three</h2>
+
+        <p><strong>MuJoCo</strong>: One of the most popular simulation engines in robotics. High physics accuracy, clean API, fast. Open-sourced and free after DeepMind's acquisition in 2021, it's now the de facto standard for robotics learning research. Most world model papers use MuJoCo for experiments.</p>
+
+        <p><strong>DreamerV3</strong>: A world model algorithm by Danijar Hafner et al., the third generation of the Dreamer series. It uses RSSM (Recurrent State-Space Model) to learn environment dynamics and trains Actor-Critic policies in imagination space. Open-source with clear documentation — the best starting point for learning world models.</p>
+
+        <p><strong>TensorBoard</strong>: TensorFlow's built-in visualization tool, natively supported by DreamerV3. View training curves, imagination space visualizations, and agent behavior videos in real-time.</p>
+
+        <h2>Step 1: Environment Setup</h2>
+
+        <p>System requirements:</p>
+
+        <ul>
+            <li><strong>OS</strong>: Linux (Ubuntu 20.04/22.04 recommended) or macOS. Windows users should use WSL2</li>
+            <li><strong>Python</strong>: 3.10 or 3.11 (DreamerV3 has version requirements)</li>
+            <li><strong>GPU</strong>: Optional but strongly recommended. NVIDIA GPU significantly accelerates training</li>
+            <li><strong>RAM</strong>: 16GB+ recommended</li>
+        </ul>
+
+        <p>Create a new conda environment:</p>
+
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>conda create -n worldmodel python=3.11
+conda activate worldmodel</code></pre>
+
+        <h2>Step 2: Install MuJoCo</h2>
+
+        <p>MuJoCo can now be installed directly via pip — much easier than before:</p>
+
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>pip install mujoco</code></pre>
+
+        <p>Verify installation:</p>
+
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>python -c "import mujoco; print(mujoco.__version__)"</code></pre>
+
+        <p>For visual rendering (seeing the robot's 3D view), you'll need a rendering backend. On Linux, use EGL or OSMesa:</p>
+
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code># Linux (with GPU)
+pip install mujoco[extras]
+
+# Linux (no GPU, headless rendering)
+sudo apt-get install libosmesa6-dev
+pip install mujoco[extras]</code></pre>
+
+        <h2>Step 3: Install DreamerV3</h2>
+
+        <p>Clone the official repository and install dependencies:</p>
+
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>git clone https://github.com/danijar/dreamerv3.git
+cd dreamerv3
+pip install -r requirements.txt
+pip install -e .</code></pre>
+
+        <p>For MuJoCo environments, install the environment packages:</p>
+
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code># MuJoCo control tasks (classic RL benchmark)
+pip install dm-control</code></pre>
+
+        <p>Verify DreamerV3 imports correctly:</p>
+
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>python -c "import dreamerv3; print('DreamerV3 ready!')"</code></pre>
+
+        <h2>Step 4: Run Your First Experiment</h2>
+
+        <p>Let's train a world model on a simple MuJoCo task: <strong>Walker Walk</strong> — teaching a bipedal robot to walk.</p>
+
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>python dreamerv3.py \
+  --logdir ~/logdir/wm_walker_walk \
+  --configs defaults mujoco_control \
+  --task dm_control_walker_walk \
+  --steps 1e6</code></pre>
+
+        <p>Parameters:</p>
+
+        <ul>
+            <li><code>--logdir</code>: Log and model save path</li>
+            <li><code>--configs</code>: Preset configurations (defaults + mujoco_control)</li>
+            <li><code>--task</code>: Specific task name</li>
+            <li><code>--steps 1e6</code>: Train for 1 million steps (tens of minutes to hours depending on hardware)</li>
+        </ul>
+
+        <p>To quickly verify the pipeline works, use fewer steps:</p>
+
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>python dreamerv3.py \
+  --logdir ~/logdir/wm_test \
+  --configs defaults mujoco_control \
+  --task dm_control_walker_walk \
+  --steps 1e4</code></pre>
+
+        <p>10K steps takes just a few minutes — enough to verify everything works.</p>
+
+        <h2>Step 5: Visualize Training</h2>
+
+        <p>Open another terminal and launch TensorBoard:</p>
+
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>tensorboard --logdir ~/logdir/wm_walker_walk --port 6006</code></pre>
+
+        <p>Open <code>http://localhost:6006</code> in your browser. Key metrics to watch:</p>
+
+        <p><strong>1. Train Return (train/return)</strong>: The core metric — cumulative reward in the real environment. Should increase over training.</p>
+
+        <p><strong>2. Eval Return (eval/return)</strong>: Policy performance evaluated in imagination space. Large gap between eval and train return suggests world model accuracy issues.</p>
+
+        <p><strong>3. Reconstruction Loss (losses/recon)</strong>: RSSM's observation reconstruction error. Decreasing values mean the world model is learning environment dynamics.</p>
+
+        <p><strong>4. Video Playback</strong>: In the Images tab, compare agent behavior in real vs. imagined environments — a direct look at imagination quality.</p>
+
+        <h2>Step 6: Analyze Training Output</h2>
+
+        <p>After training, the logdir structure looks like:</p>
+
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>~/logdir/wm_walker_walk/
+├── events.out.tfevents.*    # TensorBoard logs
+├── configs.yaml              # Training config
+├── variables.pkl             # Model weights
+└── metrics.json              # Metric records</code></pre>
+
+        <p>Load metrics.json with Python for analysis:</p>
+
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>import json
+import matplotlib.pyplot as plt
+
+with open('~/logdir/wm_walker_walk/metrics.json') as f:
+    metrics = [json.loads(line) for line in f]
+
+steps = [m['step'] for m in metrics]
+returns = [m['eval/return'] for m in metrics]
+
+plt.plot(steps, returns)
+plt.xlabel('Training Steps')
+plt.ylabel('Eval Return')
+plt.title('DreamerV3 on Walker Walk')
+plt.savefig('training_curve.png')
+plt.show()</code></pre>
+
+        <h2>Common Issues</h2>
+
+        <p><strong>Issue 1: MuJoCo rendering error — "GLFW error"</strong></p>
+
+        <p>Set environment variable for offscreen rendering:</p>
+
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>export MUJOCO_GL=egl     # with GPU
+# or
+export MUJOCO_GL=osmesa  # without GPU</code></pre>
+
+        <p><strong>Issue 2: Training is very slow</strong></p>
+
+        <p>Likely causes: no GPU (CPU-only is 10x+ slower), batch size too large, or insufficient environment parallelism. Verify CUDA is properly detected.</p>
+
+        <p><strong>Issue 3: Training return not increasing</strong></p>
+
+        <p>Try a simpler task first (e.g., reach task). DreamerV3's default hyperparameters are well-tuned for most MuJoCo tasks — usually no need to modify.</p>
+
+        <p><strong>Issue 4: Out of memory (OOM)</strong></p>
+
+        <p>Reduce replay buffer size in configs: <code>buffer_size=1e5</code> (default is larger).</p>
+
+        <h2>Next Step: From MuJoCo to Isaac Sim</h2>
+
+        <p>MuJoCo is great for algorithm validation, but rendering realism is limited. If you need more realistic visual inputs (e.g., training a robot to recognize objects from camera feeds), you can upgrade to NVIDIA Isaac Sim.</p>
+
+        <p>Isaac Sim, built on the Omniverse platform, provides physically accurate simulation with high-fidelity rendering. The API differs from MuJoCo, but DreamerV3's training pipeline is the same — you just need an environment wrapper to adapt Isaac Sim's observation and action interfaces to DreamerV3's expected format.</p>
+
+        <p>I'll cover this advanced topic in a future article. For now, get MuJoCo + DreamerV3 running and understand the training pipeline — that's what matters most.</p>
+
+        <h2>Summary</h2>
+
+        <p>Today we built a complete world model experiment environment: MuJoCo for physics simulation, DreamerV3 for world model training, TensorBoard for visualization. The whole process from installation to running the first experiment takes about 30-60 minutes (depending on network speed).</p>
+
+        <p>Once running, try:</p>
+
+        <ul>
+            <li>Switching to different MuJoCo tasks (cheetah run, hopper stand, humanoid walk)</li>
+            <li>Adjusting hyperparameters and observing imagination quality changes</li>
+            <li>Comparing DreamerV3's sample efficiency with traditional RL (e.g., PPO)</li>
+            <li>Adding language conditioning to explore language-grounded world models</li>
+        </ul>
+
+        <p>Practice beats theory. Running one experiment teaches you more than reading ten papers.</p>
+
+        <p>Next article, I plan to discuss a more cutting-edge topic: how to use world models to generate synthetic data for enhancing VLA training. This is a hot direction in VLA-world model convergence. Stay tuned.</p>
+
+        <hr>
+
+        <p><em>The author is a robotics AI engineer with an M.S. from Northwestern Polytechnical University, author of two C++ programming books. Focused on world models and Sim-to-Real transfer. If you found this helpful, feel free to like, bookmark, or discuss in the comments.</em></p>
+    </main>
+
+    <div class="author-box">
+        <div class="author-avatar">W</div>
+        <div class="author-info">
+            <p class="author-name">WorldSense</p>
+            <p>Robotics AI engineer, M.S. from Northwestern Polytechnical University, author of two C++ programming books. Focused on world models, Sim-to-Real transfer, and embodied intelligence.</p>
+        </div>
+    </div>
+
+    <footer>
+        <p>&copy; 2026 WorldSense · <a href="https://worldsensetech.com">worldsensetech.com</a></p>
+        <span id="busuanzi_container_site_pv" style="font-size:0.8rem;color:#999;">
+          Total Visits: <span id="busuanzi_value_site_pv" style="color:#2563eb;"></span>
+        </span>
+        <span id="busuanzi_container_page_pv" style="font-size:0.8rem;color:#999;margin-left:12px;">
+          Page Views: <span id="busuanzi_value_page_pv" style="color:#2563eb;"></span>
+        </span>
+    </footer>
+</body>
+</html>

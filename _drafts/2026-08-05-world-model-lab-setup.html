@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>从零搭建世界模型实验环境：MuJoCo + DreamerV3 实战指南 - WorldSense 技术笔记</title>
+    <meta name="description" content="手把手教你用MuJoCo和DreamerV3搭建一个完整的世界模型实验环境，从安装到训练到可视化，一步步走通。">
+    <link rel="stylesheet" href="../style.css">
+
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-6EQ7ZKS9L8"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-6EQ7ZKS9L8');
+</script>
+
+<!-- Busuanzi Counter -->
+<script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+</head>
+<body>
+
+    <header>
+        <div class="header-inner">
+            <a href="../index.html" class="site-title">WorldSense 技术笔记</a>
+            <nav>
+                <a href="../index.html">文章</a>
+                <a href="../about.html">关于</a>
+                <a href="https://github.com/houxq8888/worldsensetech.github.io" target="_blank">GitHub</a>
+                <a href="../en/index.html">English</a>
+            </nav>
+        </div>
+    </header>
+
+    <div class="article-header">
+        <h1>从零搭建世界模型实验环境：MuJoCo + DreamerV3 实战指南</h1>
+        <div class="article-info">2026年8月5日 · 阅读约15分钟 · 实战教程, MuJoCo, DreamerV3, 世界模型</div>
+    </div>
+
+    <main class="article-content">
+        <p>前面写了好几篇世界模型的理论文章——从RSSM的数学原理到Sim-to-Real迁移，到VLA和世界模型的对比。有读者问：<strong>道理我都懂了，怎么动手跑起来？</strong></p>
+
+        <p>今天这篇就是回答这个问题的。我会手把手带你搭建一个完整的世界模型实验环境，从安装到训练到可视化，一步步走通。跑通之后，你就可以在这个基础上做自己的实验了。</p>
+
+        <p>我们选用的工具链是：<strong>MuJoCo</strong>（物理仿真）+ <strong>DreamerV3</strong>（世界模型）+ <strong>TensorBoard</strong>（可视化）。如果你需要更高保真度的渲染，后面可以替换为Isaac Sim，但入门阶段MuJoCo足够了。</p>
+
+        <h2>工具选型：为什么是这三个</h2>
+
+        <p><strong>MuJoCo</strong>：目前机器人仿真领域最主流的引擎之一。物理精度高、API简洁、速度快。2021年被DeepMind收购后开源免费，现在是机器人学习研究的事实标准。大部分世界模型论文都用MuJoCo做实验。</p>
+
+        <p><strong>DreamerV3</strong>：Danijar Hafner等人开发的世界模型算法，是Dreamer系列的第三代。它用RSSM（循环状态空间模型）学习环境动态，在想象空间中训练Actor-Critic策略。代码开源，文档清晰，是学习世界模型最好的起点。</p>
+
+        <p><strong>TensorBoard</strong>：TensorFlow自带的可视化工具，DreamerV3原生支持。可以实时查看训练曲线、想象空间的可视化、Agent的行为录像等。</p>
+
+        <h2>第一步：环境准备</h2>
+
+        <p>先确认你的系统环境：</p>
+
+        <ul>
+            <li><strong>操作系统</strong>：Linux（推荐Ubuntu 20.04/22.04）或 macOS。Windows用户建议用WSL2</li>
+            <li><strong>Python</strong>：3.10 或 3.11（DreamerV3对Python版本有要求）</li>
+            <li><strong>GPU</strong>：可选但强烈推荐。有NVIDIA GPU可以显著加速训练</li>
+            <li><strong>内存</strong>：建议16GB以上</li>
+        </ul>
+
+        <p>创建一个新的conda环境：</p>
+
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>conda create -n worldmodel python=3.11
+conda activate worldmodel</code></pre>
+
+        <h2>第二步：安装MuJoCo</h2>
+
+        <p>MuJoCo现在可以通过pip直接安装，比以前方便很多：</p>
+
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>pip install mujoco</code></pre>
+
+        <p>验证安装是否成功：</p>
+
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>python -c "import mujoco; print(mujoco.__version__)"</code></pre>
+
+        <p>如果输出版本号，说明安装成功。</p>
+
+        <p>如果你想要可视化渲染（看到机器人的3D画面），还需要安装渲染后端。Linux上推荐用EGL或OSMesa：</p>
+
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code># Linux (有GPU)
+pip install mujoco[extras]
+
+# Linux (无GPU，headless渲染)
+sudo apt-get install libosmesa6-dev
+pip install mujoco[extras]</code></pre>
+
+        <h2>第三步：安装DreamerV3</h2>
+
+        <p>DreamerV3的官方代码在GitHub上。直接克隆并安装依赖：</p>
+
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>git clone https://github.com/danijar/dreamerv3.git
+cd dreamerv3
+pip install -r requirements.txt
+pip install -e .</code></pre>
+
+        <p>如果你要用MuJoCo环境做实验，还需要安装对应的环境包：</p>
+
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code># MuJoCo控制任务（经典RL benchmark）
+pip install dm-control
+
+# DeepMind控制套件（包含大量预定义任务）
+pip install dm-control-suite</code></pre>
+
+        <p>验证DreamerV3是否可以正常导入：</p>
+
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>python -c "import dreamerv3; print('DreamerV3 ready!')"</code></pre>
+
+        <h2>第四步：跑第一个实验</h2>
+
+        <p>环境都装好了，现在来训练一个世界模型。我们选一个简单的MuJoCo任务：<strong>Walker Walk</strong>——让一个双足机器人学会走路。</p>
+
+        <p>运行训练命令：</p>
+
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>python dreamerv3.py \
+  --logdir ~/logdir/wm_walker_walk \
+  --configs defaults mujoco_control \
+  --task dm_control_walker_walk \
+  --steps 1e6</code></pre>
+
+        <p>参数说明：</p>
+
+        <ul>
+            <li><code>--logdir</code>：日志和模型保存路径</li>
+            <li><code>--configs</code>：预设配置，defaults是基础配置，mujoco_control是MuJoCo任务专用配置</li>
+            <li><code>--task</code>：具体任务名，walker_walk是双足行走任务</li>
+            <li><code>--steps 1e6</code>：训练100万步（大约需要几十分钟到几小时，取决于硬件）</li>
+        </ul>
+
+        <p>如果你只是想快速验证流程是否跑通，可以先用少量步数：</p>
+
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>python dreamerv3.py \
+  --logdir ~/logdir/wm_test \
+  --configs defaults mujoco_control \
+  --task dm_control_walker_walk \
+  --steps 1e4</code></pre>
+
+        <p>1万步大概几分钟就能跑完，足以验证整个流程。</p>
+
+        <h2>第五步：可视化训练过程</h2>
+
+        <p>训练跑起来之后，打开另一个终端，启动TensorBoard查看训练曲线：</p>
+
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>tensorboard --logdir ~/logdir/wm_walker_walk --port 6006</code></pre>
+
+        <p>浏览器打开 <code>http://localhost:6006</code>，你会看到几类重要的指标：</p>
+
+        <p><strong>1. 训练奖励（train/return）</strong>：这是最核心的指标，代表Agent在真实环境中的累计奖励。随着训练进行，这个值应该逐渐上升。</p>
+
+        <p><strong>2. 想象奖励（eval/return）</strong>：Agent在想象空间中评估的策略表现。如果想象奖励和真实奖励差距很大，说明世界模型的精度可能不够。</p>
+
+        <p><strong>3. 世界模型重建误差（losses/recon）</strong>：RSSM对观测的重建误差。这个值下降说明世界模型正在学习环境动态。</p>
+
+        <p><strong>4. 奖励预测误差（losses/reward）</strong>：世界模型对奖励的预测准确度。</p>
+
+        <p>TensorBoard里还有一个很有用的功能：<strong>视频回放</strong>。在Images标签页下，你可以看到Agent在真实环境和想象空间中的行为录像。对比两者，可以直观感受世界模型的"想象"质量。</p>
+
+        <h2>第六步：理解训练输出</h2>
+
+        <p>训练完成后，logdir下的目录结构大概是这样的：</p>
+
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>~/logdir/wm_walker_walk/
+├── events.out.tfevents.*    # TensorBoard日志
+├── configs.yaml              # 训练配置
+├── variables.pkl             # 模型权重
+└── metrics.json              # 指标记录</code></pre>
+
+        <p>你可以用Python加载metrics.json来分析训练过程：</p>
+
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>import json
+import matplotlib.pyplot as plt
+
+with open('~/logdir/wm_walker_walk/metrics.json') as f:
+    metrics = [json.loads(line) for line in f]
+
+steps = [m['step'] for m in metrics]
+returns = [m['eval/return'] for m in metrics]
+
+plt.plot(steps, returns)
+plt.xlabel('Training Steps')
+plt.ylabel('Eval Return')
+plt.title('DreamerV3 on Walker Walk')
+plt.savefig('training_curve.png')
+plt.show()</code></pre>
+
+        <h2>常见问题排查</h2>
+
+        <p><strong>问题1：MuJoCo渲染报错 "GLFW error"</strong></p>
+
+        <p>这通常是因为没有正确配置渲染后端。如果你在远程服务器或无显示器的机器上，设置环境变量使用离屏渲染：</p>
+
+        <pre style="background:#f1f5f9; padding:12px; border-radius:6px; overflow-x:auto; font-size:14px; line-height:1.6;"><code>export MUJOCO_GL=egl   # 有GPU
+# 或
+export MUJOCO_GL=osmesa  # 无GPU</code></pre>
+
+        <p><strong>问题2：DreamerV3训练很慢</strong></p>
+
+        <p>几个可能的原因：没有GPU（纯CPU训练会慢10倍以上）、batch size太大（可以减小）、环境并行数不够。如果有GPU，确认PyTorch/JAX正确识别了CUDA。</p>
+
+        <p><strong>问题3：训练奖励不上升</strong></p>
+
+        <p>可能是学习率不合适、任务太难、或者训练步数不够。建议先换一个简单的任务（比如reach任务）验证流程，再切换到难任务。DreamerV3的默认超参数在大部分MuJoCo任务上是调好的，一般不需要修改。</p>
+
+        <p><strong>问题4：内存溢出（OOM）</strong></p>
+
+        <p>DreamerV3需要存储replay buffer，如果内存不够可以减小buffer size。在configs里修改 <code>buffer_size=1e5</code>（默认更大）。</p>
+
+        <h2>下一步：从MuJoCo到Isaac Sim</h2>
+
+        <p>MuJoCo适合快速验证算法，但渲染真实度有限。如果你需要更逼真的视觉输入（比如训练一个从摄像头画面识别物体的机器人），可以升级到NVIDIA Isaac Sim。</p>
+
+        <p>Isaac Sim基于Omniverse平台，提供物理精确的仿真和高保真渲染。它和MuJoCo的API不同，但DreamerV3的训练流程是一样的——只需要写一个环境包装器，把Isaac Sim的观测和动作接口适配成DreamerV3期望的格式。</p>
+
+        <p>这个进阶话题我后续会单独写一篇。目前阶段，先把MuJoCo + DreamerV3跑通，理解世界模型的训练流程，才是最重要的。</p>
+
+        <h2>总结</h2>
+
+        <p>今天我们搭建了一个完整的世界模型实验环境：MuJoCo负责物理仿真，DreamerV3负责世界模型训练，TensorBoard负责可视化。整个流程从安装到跑通第一个实验，大概需要半小时到一小时（取决于网速）。</p>
+
+        <p>跑通之后，你可以尝试：</p>
+
+        <ul>
+            <li>换不同的MuJoCo任务（cheetah run、hopper stand、humanoid walk等）</li>
+            <li>调整超参数，观察想象空间质量的变化</li>
+            <li>对比DreamerV3和传统RL（比如PPO）的样本效率</li>
+            <li>在世界模型中加入语言条件，探索语言接地的可能性</li>
+        </ul>
+
+        <p>实践出真知。跑过一遍实验，你对世界模型的理解会比读十篇论文更深。</p>
+
+        <p>下一篇文章，我打算聊一个更前沿的话题：怎么用世界模型生成合成数据来增强VLA的训练。这是目前VLA和世界模型融合的一个热门方向，敬请期待。</p>
+
+        <hr>
+
+        <p><em>作者是一名机器人AI工程师，西北工业大学硕士，著有《Visual C++入门很简单》《C++程序设计经典300例》。专注于世界模型和Sim-to-Real方向。如果觉得有帮助，欢迎点赞收藏，也欢迎在评论区交流讨论。</em></p>
+    </main>
+
+    <div class="author-box">
+        <div class="author-avatar">W</div>
+        <div class="author-info">
+            <p class="author-name">WorldSense</p>
+            <p>机器人AI工程师，西北工业大学硕士。著有《Visual C++入门很简单》《C++程序设计经典300例》。现专注世界模型、Sim-to-Real、具身智能方向。</p>
+        </div>
+    </div>
+
+    <footer>
+        <p>&copy; 2026 WorldSense · <a href="https://worldsensetech.com">worldsensetech.com</a></p>
+
+<span id="busuanzi_container_site_pv" style="font-size:0.8rem;color:#999;">
+  总访问量 <span id="busuanzi_value_site_pv" style="color:#2563eb;"></span> 次
+</span>
+<span id="busuanzi_container_page_pv" style="font-size:0.8rem;color:#999;margin-left:12px;">
+  本文阅读 <span id="busuanzi_value_page_pv" style="color:#2563eb;"></span> 次
+</span>
+
+    </footer>
+</body>
+
+<!-- INDEX_ENTRY
+<article class="article-item">
+    <div class="article-meta">2026年8月5日 · 阅读约15分钟</div>
+    <h2><a href="articles/world-model-lab-setup.html">从零搭建世界模型实验环境：MuJoCo + DreamerV3 实战指南</a></h2>
+    <div>
+        <span class="tag">实战教程</span>
+        <span class="tag">MuJoCo</span>
+        <span class="tag">DreamerV3</span>
+    </div>
+    <p class="article-excerpt">手把手教你用MuJoCo和DreamerV3搭建一个完整的世界模型实验环境，从安装到训练到可视化，一步步走通。</p>
+</article>
+-->
+
+<!-- EN_INDEX_ENTRY
+<article class="article-item">
+    <div class="article-meta">August 5, 2026 · ~15 min read</div>
+    <h2><a href="articles/world-model-lab-setup.html">Building a World Model Lab from Scratch: A MuJoCo + DreamerV3 Practical Guide</a></h2>
+    <div>
+        <span class="tag">Tutorial</span>
+        <span class="tag">MuJoCo</span>
+        <span class="tag">DreamerV3</span>
+    </div>
+    <p class="article-excerpt">A step-by-step guide to setting up a complete world model experiment environment with MuJoCo and DreamerV3, from installation to training to visualization.</p>
+</article>
+-->
+
+</html>
