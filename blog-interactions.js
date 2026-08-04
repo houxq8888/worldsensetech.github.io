@@ -65,11 +65,11 @@
         }).then(function (r) { return r.json(); });
     }
 
-    // Create new stats record
-    function sbCreateStats(data) {
+    // Create or update stats record (upsert)
+    function sbUpsertStats(data) {
         return fetch(SB_URL, {
             method: 'POST',
-            headers: sbHeaders(),
+            headers: Object.assign(sbHeaders(), { 'Prefer': 'resolution=merge-duplicates' }),
             body: JSON.stringify(data)
         }).then(function (r) { return r.json(); });
     }
@@ -120,7 +120,7 @@
                         var newCount = Math.max(0, (results[0].likes || 0) - 1);
                         return sbUpdateStats(articlePath, { likes: newCount });
                     } else {
-                        return sbCreateStats({ path: articlePath, likes: 0, bookmarks: 0 });
+                        return sbUpsertStats({ path: articlePath, likes: 0, bookmarks: 0 });
                     }
                 }).then(function () {
                     btn.classList.remove('active');
@@ -141,7 +141,7 @@
                         var newCount = (results[0].likes || 0) + 1;
                         return sbUpdateStats(articlePath, { likes: newCount });
                     } else {
-                        return sbCreateStats({ path: articlePath, likes: 1, bookmarks: 0 });
+                        return sbUpsertStats({ path: articlePath, likes: 1, bookmarks: 0 });
                     }
                 }).then(function () {
                     btn.classList.add('active');
@@ -189,7 +189,7 @@
                         var newCount = Math.max(0, (results[0].bookmarks || 0) - 1);
                         return sbUpdateStats(articlePath, { bookmarks: newCount });
                     } else {
-                        return sbCreateStats({ path: articlePath, likes: 0, bookmarks: 0 });
+                        return sbUpsertStats({ path: articlePath, likes: 0, bookmarks: 0 });
                     }
                 }).then(function () {
                     btn.classList.remove('active');
@@ -206,7 +206,7 @@
                         var newCount = (results[0].bookmarks || 0) + 1;
                         return sbUpdateStats(articlePath, { bookmarks: newCount });
                     } else {
-                        return sbCreateStats({ path: articlePath, likes: 0, bookmarks: 1 });
+                        return sbUpsertStats({ path: articlePath, likes: 0, bookmarks: 1 });
                     }
                 }).then(function () {
                     btn.classList.add('active');
