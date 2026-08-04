@@ -4,6 +4,8 @@
 User-agent: *
 Allow: /
 
+# === International Search & AI Crawlers ===
+
 # OpenAI search display crawler
 User-agent: OAI-SearchBot
 Allow: /
@@ -35,6 +37,43 @@ User-agent: Claude-SearchBot
 Allow: /
 
 User-agent: Google-Extended
+Allow: /
+
+# === Chinese Search & AI Crawlers ===
+
+# Baidu
+User-agent: Baiduspider
+Allow: /
+
+# ByteDance (Doubao/豆包)
+User-agent: Bytespider
+Allow: /
+
+# 360 AI Search
+User-agent: 360Spider
+Allow: /
+
+# Sogou
+User-agent: Sogou web spider
+Allow: /
+
+User-agent: Sogou inst spider
+Allow: /
+
+# Tencent Hunyuan
+User-agent: TencentBot
+Allow: /
+
+# Alibaba Tongyi Qianwen
+User-agent: Alibababot
+Allow: /
+
+# Zhipu AI (ChatGLM)
+User-agent: ZhihuSpider
+Allow: /
+
+# Moonshot AI (Kimi)
+User-agent: Moonshot
 Allow: /
 
 # Sitemap
