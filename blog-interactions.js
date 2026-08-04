@@ -32,7 +32,10 @@
         tableName: 'blog_stats'
     };
 
-    var articlePath = window.location.pathname;
+    // Normalize path: English articles share stats with Chinese articles
+    // /en/articles/xxx.html -> /articles/xxx.html
+    var rawPath = window.location.pathname;
+    var articlePath = rawPath.replace(/^\/en\//, '/');
 
     // Get or create visitor ID (stored in localStorage)
     function getVisitorId() {
