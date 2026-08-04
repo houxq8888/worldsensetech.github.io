@@ -110,11 +110,15 @@
 
     <!-- Article Actions (Like / Bookmark) -->
     <div class="article-actions" style="max-width:800px;margin:1rem auto;padding:0 2rem;display:flex;gap:1rem;justify-content:center;">
-        <button class="action-btn" id="like-btn" onclick="toggleLike()">
-            <span id="like-icon">&#9825;</span> <span id="like-count">0</span> 点赞
+        <button class="action-btn like-btn" id="btn-like">
+            <span class="icon">&#9825;</span>
+            <span>点赞</span>
+            <span id="like-count">0</span>
         </button>
-        <button class="action-btn" id="bookmark-btn" onclick="toggleBookmark()">
-            <span id="bookmark-icon">&#9734;</span> <span id="bookmark-count">0</span> 收藏
+        <button class="action-btn bookmark-btn" id="btn-bookmark">
+            <span class="icon">&#9734;</span>
+            <span>收藏</span>
+            <span id="bookmark-count">0</span>
         </button>
     </div>
 
