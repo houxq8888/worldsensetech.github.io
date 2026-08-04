@@ -74,7 +74,11 @@
             method: 'POST',
             headers: Object.assign(sbHeaders(), { 'Prefer': 'resolution=merge-duplicates' }),
             body: JSON.stringify(data)
-        }).then(function (r) { return r.json(); });
+        }).then(function (r) {
+            if (!r.ok) return r.text().then(function(t) { throw new Error(t || r.statusText); });
+            var text = r.text();
+            return text.then(function(t) { return t ? JSON.parse(t) : {}; });
+        });
     }
 
     // Update stats record
@@ -83,7 +87,11 @@
             method: 'PATCH',
             headers: sbHeaders(),
             body: JSON.stringify(data)
-        }).then(function (r) { return r.json(); });
+        }).then(function (r) {
+            if (!r.ok) return r.text().then(function(t) { throw new Error(t || r.statusText); });
+            var text = r.text();
+            return text.then(function(t) { return t ? JSON.parse(t) : {}; });
+        });
     }
 
     // ============================================================
