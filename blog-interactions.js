@@ -257,12 +257,61 @@
     }
 
     // ============================================================
+    // CODE COPY BUTTON
+    // ============================================================
+    function initCodeCopy() {
+        var pres = document.querySelectorAll('.article-content pre');
+        pres.forEach(function (pre) {
+            // Skip if already has a copy button
+            if (pre.querySelector('.code-copy-btn')) return;
+
+            var btn = document.createElement('button');
+            btn.className = 'code-copy-btn';
+            btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg><span>复制</span>';
+
+            btn.addEventListener('click', function () {
+                var code = pre.querySelector('code');
+                var text = code ? code.textContent : pre.textContent;
+
+                navigator.clipboard.writeText(text).then(function () {
+                    btn.classList.add('copied');
+                    btn.querySelector('span').textContent = '已复制!';
+                    setTimeout(function () {
+                        btn.classList.remove('copied');
+                        btn.querySelector('span').textContent = '复制';
+                    }, 2000);
+                }).catch(function () {
+                    // Fallback for older browsers
+                    var textarea = document.createElement('textarea');
+                    textarea.value = text;
+                    textarea.style.position = 'fixed';
+                    textarea.style.opacity = '0';
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textarea);
+
+                    btn.classList.add('copied');
+                    btn.querySelector('span').textContent = '已复制!';
+                    setTimeout(function () {
+                        btn.classList.remove('copied');
+                        btn.querySelector('span').textContent = '复制';
+                    }, 2000);
+                });
+            });
+
+            pre.appendChild(btn);
+        });
+    }
+
+    // ============================================================
     // INIT
     // ============================================================
     function init() {
         initLike();
         initBookmark();
         initGiscus();
+        initCodeCopy();
     }
 
     if (document.readyState === 'loading') {
