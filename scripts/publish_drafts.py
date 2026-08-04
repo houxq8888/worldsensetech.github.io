@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 publish_drafts.py - Check _drafts/ for articles past their publish date.
-Move due drafts to articles/, update index.html and en/index.html.
+Move due drafts to articles/, update index.html, en/index.html, and sitemap.xml.
 Exit 0 if published, 1 if nothing to publish.
 """
 
@@ -10,6 +10,7 @@ import re
 import shutil
 import sys
 from datetime import datetime, date
+from xml.etree import ElementTree as ET
 
 BLOG_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DRAFTS_DIR = os.path.join(BLOG_DIR, "_drafts")
@@ -17,6 +18,7 @@ ARTICLES_DIR = os.path.join(BLOG_DIR, "articles")
 EN_ARTICLES_DIR = os.path.join(BLOG_DIR, "en", "articles")
 INDEX_CN = os.path.join(BLOG_DIR, "index.html")
 INDEX_EN = os.path.join(BLOG_DIR, "en", "index.html")
+SITEMAP_PATH = os.path.join(BLOG_DIR, "sitemap.xml")
 
 DRAFT_PATTERN = re.compile(r"^(\d{4}-\d{2}-\d{2})-(.+)\.html$")
 
@@ -135,7 +137,46 @@ def publish_draft(filename):
     os.remove(draft_path)
     print(f"    -> Removed _drafts/{filename}")
 
+    # Update sitemap
+    has_en = en_entry is not None
+    update_sitemap(slug, publish_date_str, has_en)
+
     return True
+
+
+def update_sitemap(slug, publish_date_str, has_en=False):
+    """Add new article entry to sitemap.xml."""
+    if not os.path.exists(SITEMAP_PATH):
+        print(f"    -> WARNING: sitemap.xml not found, skipping")
+        return
+
+    # Parse existing sitemap
+    ET.register_namespace('', 'http://www.sitemaps.org/schemas/sitemap/0.9')
+    tree = ET.parse(SITEMAP_PATH)
+    root = tree.getroot()
+
+    ns = {'sm': 'http://www.sitemaps.org/schemas/sitemap/0.9'}
+
+    # Add Chinese article
+    cn_url = ET.SubElement(root, '{http://www.sitemaps.org/schemas/sitemap/0.9}url')
+    ET.SubElement(cn_url, '{http://www.sitemaps.org/schemas/sitemap/0.9}loc').text = \
+        f'https://worldsensetech.com/articles/{slug}.html'
+    ET.SubElement(cn_url, '{http://www.sitemaps.org/schemas/sitemap/0.9}lastmod').text = publish_date_str
+    ET.SubElement(cn_url, '{http://www.sitemaps.org/schemas/sitemap/0.9}changefreq').text = 'monthly'
+    ET.SubElement(cn_url, '{http://www.sitemaps.org/schemas/sitemap/0.9}priority').text = '0.8'
+
+    # Add English article if exists
+    if has_en:
+        en_url = ET.SubElement(root, '{http://www.sitemaps.org/schemas/sitemap/0.9}url')
+        ET.SubElement(en_url, '{http://www.sitemaps.org/schemas/sitemap/0.9}loc').text = \
+            f'https://worldsensetech.com/en/articles/{slug}.html'
+        ET.SubElement(en_url, '{http://www.sitemaps.org/schemas/sitemap/0.9}lastmod').text = publish_date_str
+        ET.SubElement(en_url, '{http://www.sitemaps.org/schemas/sitemap/0.9}changefreq').text = 'monthly'
+        ET.SubElement(en_url, '{http://www.sitemaps.org/schemas/sitemap/0.9}priority').text = '0.7'
+
+    # Write back with XML declaration
+    tree.write(SITEMAP_PATH, encoding='UTF-8', xml_declaration=True)
+    print(f"    -> Updated sitemap.xml")
 
 
 def main():
