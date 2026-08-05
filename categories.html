@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文章分类 - WorldSense 技术笔记</title>
+    <meta name="description" content="按分类浏览所有文章：世界模型理论、具身智能行业、强化学习入门、实战教程等">
+    <link rel="stylesheet" href="style.css">
+
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-6EQ7KS9L8"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-6EQ7KS9L8');
+</script>
+
+<!-- Busuanzi Counter -->
+<script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+<style>
+    .categories-page {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 2rem;
+    }
+    .category-section {
+        margin-bottom: 3rem;
+    }
+    .category-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: var(--text);
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid var(--primary);
+    }
+    .category-count {
+        font-size: 0.9rem;
+        color: var(--text-light);
+        font-weight: normal;
+        margin-left: 0.5rem;
+    }
+    .category-articles {
+        list-style: none;
+        padding: 0;
+    }
+    .category-articles li {
+        padding: 0.75rem 0;
+        border-bottom: 1px solid var(--border);
+    }
+    .category-articles li:last-child {
+        border-bottom: none;
+    }
+    .category-articles a {
+        color: var(--text);
+        text-decoration: none;
+        font-weight: 500;
+    }
+    .category-articles a:hover {
+        color: var(--primary);
+    }
+    .article-date {
+        font-size: 0.85rem;
+        color: var(--text-light);
+        margin-left: 1rem;
+    }
+    .category-nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-bottom: 2rem;
+        padding: 1rem;
+        background: var(--bg-secondary);
+        border-radius: 8px;
+    }
+    .category-nav a {
+        padding: 0.5rem 1rem;
+        background: white;
+        border-radius: 4px;
+        text-decoration: none;
+        color: var(--text);
+        font-size: 0.9rem;
+        transition: all 0.2s;
+    }
+    .category-nav a:hover {
+        background: var(--primary);
+        color: white;
+    }
+</style>
+
+</head>
+<body>
+
+    <header>
+        <div class="header-inner">
+            <a href="index.html" class="site-title">WorldSense 技术笔记</a>
+            <nav>
+                <a href="index.html">文章</a>
+                <a href="categories.html">分类</a>
+                <a href="archive.html">归档</a>
+                <a href="about.html">关于</a>
+                <a href="https://github.com/houxq8888/worldsensetech.github.io" target="_blank">GitHub</a>
+                <a href="en/index.html">English</a>
+            </nav>
+        </div>
+    </header>
+
+    <div class="categories-page">
+        <h1>文章分类</h1>
+        
+        <div class="category-nav">
+            <a href="#world-model">世界模型理论</a>
+            <a href="#embodied-ai">具身智能行业</a>
+            <a href="#reinforcement-learning">强化学习</a>
+            <a href="#tutorial">实战教程</a>
+            <a href="#career">职业思考</a>
+        </div>
+
+        <section class="category-section" id="world-model">
+            <h2 class="category-title">世界模型理论 <span class="category-count">(6篇)</span></h2>
+            <ul class="category-articles">
+                <li>
+                    <a href="articles/abot-world-0-24h-inference.html">从1分钟到24小时：ABot-World-0突破的核心意义</a>
+                    <span class="article-date">2026-08-05</span>
+                </li>
+                <li>
+                    <a href="articles/world-model-8year-bottleneck.html">回看世界模型8年进展，始终没突破的瓶颈是什么？</a>
+                    <span class="article-date">2026-08-03</span>
+                </li>
+                <li>
+                    <a href="articles/world-model-2026-trend.html">世界模型（world model）当下是一个好的方向吗？</a>
+                    <span class="article-date">2026-08-02</span>
+                </li>
+                <li>
+                    <a href="articles/vla-vs-world-model.html">VLA vs 世界模型，谁主沉浮？</a>
+                    <span class="article-date">2026-08-04</span>
+                </li>
+                <li>
+                    <a href="articles/rssm-deep-dive.html">RSSM状态空间模型详解：世界模型的核心引擎</a>
+                    <span class="article-date">2026-08-01</span>
+                </li>
+                <li>
+                    <a href="articles/world-model-intro.html">什么是机器人世界模型？一个工程师的深度解读</a>
+                    <span class="article-date">2026-07-30</span>
+                </li>
+            </ul>
+        </section>
+
+        <section class="category-section" id="embodied-ai">
+            <h2 class="category-title">具身智能行业 <span class="category-count">(3篇)</span></h2>
+            <ul class="category-articles">
+                <li>
+                    <a href="articles/embodied-ai-2026-breakthrough.html">你认为具身智能领域在2026年会有什么突破性进展？</a>
+                    <span class="article-date">2026-08-04</span>
+                </li>
+                <li>
+                    <a href="articles/embodied-ai-rl-prospects.html">具身智能、强化学习的前景如何？</a>
+                    <span class="article-date">2026-08-04</span>
+                </li>
+                <li>
+                    <a href="articles/embodied-ai-guide.html">具身智能入门指南</a>
+                    <span class="article-date">2026-08-01</span>
+                </li>
+            </ul>
+        </section>
+
+        <section class="category-section" id="reinforcement-learning">
+            <h2 class="category-title">强化学习 <span class="category-count">(1篇)</span></h2>
+            <ul class="category-articles">
+                <li>
+                    <a href="articles/reinforcement-learning-how-to-start.html">强化学习如何入门？</a>
+                    <span class="article-date">2026-08-02</span>
+                </li>
+            </ul>
+        </section>
+
+        <section class="category-section" id="tutorial">
+            <h2 class="category-title">实战教程 <span class="category-count">(2篇)</span></h2>
+            <ul class="category-articles">
+                <li>
+                    <a href="articles/world-model-lab-setup.html">从零搭建世界模型实验环境：MuJoCo + DreamerV3 实战指南</a>
+                    <span class="article-date">2026-08-05</span>
+                </li>
+                <li>
+                    <a href="articles/sim-to-real-transfer.html">Sim-to-Real太难？世界模型驱动的自适应迁移方法</a>
+                    <span class="article-date">2026-08-01</span>
+                </li>
+            </ul>
+        </section>
+
+        <section class="category-section" id="career">
+            <h2 class="category-title">职业思考 <span class="category-count">(1篇)</span></h2>
+            <ul class="category-articles">
+                <li>
+                    <a href="articles/embodied-ai-rl-prospects.html">没有博士学位，也能进入具身智能领域吗？</a>
+                    <span class="article-date">2026-08-04</span>
+                </li>
+            </ul>
+        </section>
+    </div>
+
+</body>
+</html>
