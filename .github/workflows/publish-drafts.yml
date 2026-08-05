@@ -14,11 +14,21 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+
+      - name: Check drafts directory
+        run: |
+          echo "Current directory: $(pwd)"
+          echo "Drafts directory contents:"
+          ls -la _drafts/ || echo "No _drafts directory"
+          echo "Looking for HTML files:"
+          find _drafts -name "*.html" 2>/dev/null || echo "No HTML files found"
 
       - name: Run publish script
         id: publish
@@ -34,3 +44,7 @@ jobs:
           git add -A
           git diff --staged --quiet || git commit -m "Auto-publish scheduled draft(s)"
           git push
+
+      - name: No drafts to publish
+        if: steps.publish.outputs.exit_code != '0'
+        run: echo "No drafts to publish today"
