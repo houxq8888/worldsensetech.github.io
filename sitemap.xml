@@ -1,43 +1,59 @@
-<?xml version='1.0' encoding='UTF-8'?>
+<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 
-  
+  <!-- Main Pages -->
   <url>
     <loc>https://worldsensetech.com/</loc>
-    <lastmod>2026-08-04</lastmod>
-    <changefreq>weekly</changefreq>
+    <lastmod>2026-08-06</lastmod>
+    <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
-
-  
   <url>
     <loc>https://worldsensetech.com/about.html</loc>
-    <lastmod>2026-08-02</lastmod>
+    <lastmod>2026-08-06</lastmod>
     <changefreq>monthly</changefreq>
-    <priority>0.5</priority>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://worldsensetech.com/categories.html</loc>
+    <lastmod>2026-08-06</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://worldsensetech.com/archive.html</loc>
+    <lastmod>2026-08-06</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
   </url>
 
-  
+  <!-- Chinese Articles -->
   <url>
-    <loc>https://worldsensetech.com/articles/world-model-intro.html</loc>
+    <loc>https://worldsensetech.com/articles/world-model-lab-setup.html</loc>
+    <lastmod>2026-08-05</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://worldsensetech.com/articles/abot-world-0-24h-inference.html</loc>
+    <lastmod>2026-08-05</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://worldsensetech.com/articles/vla-vs-world-model.html</loc>
     <lastmod>2026-08-04</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://worldsensetech.com/articles/world-model-8year-bottleneck.html</loc>
+    <loc>https://worldsensetech.com/articles/rssm-deep-dive.html</loc>
     <lastmod>2026-08-04</lastmod>
     <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
+    <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://worldsensetech.com/articles/world-model-good-direction.html</loc>
-    <lastmod>2026-08-04</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://worldsensetech.com/articles/world-model-2026-trend.html</loc>
+    <loc>https://worldsensetech.com/articles/sim-to-real-transfer.html</loc>
     <lastmod>2026-08-04</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
@@ -67,28 +83,34 @@
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://worldsensetech.com/articles/rssm-deep-dive.html</loc>
+    <loc>https://worldsensetech.com/articles/world-model-intro.html</loc>
     <lastmod>2026-08-04</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://worldsensetech.com/articles/sim-to-real-transfer.html</loc>
+    <loc>https://worldsensetech.com/articles/world-model-8year-bottleneck.html</loc>
     <lastmod>2026-08-04</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://worldsensetech.com/articles/vla-vs-world-model.html</loc>
+    <loc>https://worldsensetech.com/articles/world-model-good-direction.html</loc>
+    <lastmod>2026-08-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://worldsensetech.com/articles/world-model-2026-trend.html</loc>
     <lastmod>2026-08-04</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
 
-  
+  <!-- English Version -->
   <url>
     <loc>https://worldsensetech.com/en/</loc>
-    <lastmod>2026-08-03</lastmod>
+    <lastmod>2026-08-05</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
@@ -122,5 +144,11 @@
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
+  <url>
+    <loc>https://worldsensetech.com/en/articles/world-model-lab-setup.html</loc>
+    <lastmod>2026-08-05</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
 
-<url><loc>https://worldsensetech.com/articles/world-model-lab-setup.html</loc><lastmod>2026-08-05</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url><url><loc>https://worldsensetech.com/en/articles/world-model-lab-setup.html</loc><lastmod>2026-08-05</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url><url><loc>https://worldsensetech.com/articles/world-model-synthetic-data-for-vla.html</loc><lastmod>2026-08-06</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url></urlset>
+</urlset>

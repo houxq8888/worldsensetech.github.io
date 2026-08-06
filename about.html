@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>关于 - WorldSense 技术笔记</title>
+    <meta name="description" content="WorldSense 是一个独立技术博客，专注于世界模型（World Models）与具身智能（Embodied AI）方向。作者侯旭强，西北工业大学硕士，专注世界模型与 Sim-to-Real 迁移方向。">
     <link rel="stylesheet" href="style.css">
 
 <!-- Google tag (gtag.js) -->
@@ -36,42 +37,47 @@
     </header>
 
     <main class="about-content">
-        <h1>你好，欢迎来到这里</h1>
+        <h1>关于 WorldSense</h1>
 
-        <p>我是一名机器人AI方向的工程师，西北工业大学硕士毕业，在自动化和AI领域工作了十多年。早年著有《Visual C++入门很简单》和《C++程序设计经典300例》两本技术书。目前专注于<strong>世界模型（World Models）</strong>和<strong>Sim-to-Real迁移</strong>方向的研究与实践。</p>
+        <p>WorldSense 是一个独立技术博客，专注于<strong>世界模型（World Models）</strong>与<strong>具身智能（Embodied AI）</strong>方向。记录从论文解读到代码实现的完整学习路径，目标是用中文把这个领域讲清楚。</p>
 
-        <p>这个博客是我的技术笔记，记录我在这个方向上的学习、思考和实践过程。我会尽量把复杂的技术概念讲清楚，也会分享一些实际工程中的经验和踩坑记录。</p>
+        <h2>作者</h2>
+
+        <p>侯旭强，西北工业大学硕士，自动化与 AI 领域十余年工程经验。早年出版《Visual C++入门很容易》和《C++程序设计经典300例》两本技术书籍，目前专注世界模型与 Sim-to-Real 迁移方向的研究与实践。</p>
+
+        <h3>实验过的技术栈</h3>
+        <ul>
+            <li><strong>世界模型</strong>：Dreamer / DreamerV2 / DreamerV3、RSSM、latent imagination</li>
+            <li><strong>VLA</strong>：OpenVLA、π0、RT-2 架构分析</li>
+            <li><strong>强化学习</strong>：Actor-Critic、PPO、SAC、离线策略学习</li>
+            <li><strong>仿真平台</strong>：MuJoCo、Isaac Sim、ManiSkill、DeepMind Control Suite</li>
+            <li><strong>Sim-to-Real</strong>：域随机化、系统辨识、自适应策略</li>
+        </ul>
+
+        <h2>这个博客在写什么</h2>
+
+        <p>内容分三条线：</p>
+
+        <ul>
+            <li><strong>技术科普</strong>：把 RSSM、VLA、世界模型等核心概念讲清楚，适合想入门的研究者和工程师</li>
+            <li><strong>实战教程</strong>：从零搭建实验环境、跑通 DreamerV3、生成合成数据——每篇都可以跟着做</li>
+            <li><strong>前沿分析</strong>：对最新论文和行业进展的独立判断，不追热点，只聊有实质突破的工作</li>
+        </ul>
 
         <h2>为什么写这个博客</h2>
 
-        <p>具身智能（Embodied AI）正在成为AI的下一个重要方向。从ChatGPT到Sora，大语言模型和生成模型已经展现了惊人的能力。但下一个前沿是让AI不仅能在数字世界中生成内容，还能在物理世界中理解和行动。</p>
+        <p>具身智能正在成为 AI 的下一个重要方向。世界模型是实现这个目标的关键技术之一——它让机器人能够在"想象"中预测行动的后果，从而减少对真实世界试错的依赖。</p>
 
-        <p>世界模型是实现这个目标的关键技术之一。它让机器人能够在"想象"中预测行动的后果，从而减少对真实世界试错的依赖。这个方向很有潜力，但中文技术资料相对稀缺。我希望通过自己的写作，填补这个空白。</p>
-
-        <h2>关注的技术方向</h2>
-
-        <ul>
-            <li><strong>世界模型</strong>：DreamerV3、RSSM、想象空间训练</li>
-            <li><strong>Sim-to-Real迁移</strong>：域随机化、系统辨识、自适应策略</li>
-            <li><strong>强化学习</strong>：Actor-Critic方法、离线策略学习</li>
-            <li><strong>机器人控制</strong>：操作规划、力控、任务适配</li>
-            <li><strong>仿真工具</strong>：MuJoCo、Isaac Sim、PyBullet</li>
-        </ul>
-
-        <h2>关于我</h2>
-
-        <p>西北工业大学硕士，十多年自动化与AI行业经验。早年出版过两本C++技术书籍，现在转型做机器人AI方向。不是学术大牛，也不是明星创业者，只是一个对技术充满好奇的工程师。业余时间喜欢读论文、写代码、思考技术的本质。</p>
-
-        <p>我相信好的技术文章应该做到两件事：一是让读者真正理解一个概念，二是激发读者进一步探索的兴趣。我会朝这个方向努力。</p>
+        <p>这个领域发展很快，但高质量的中文技术资料相对稀缺。大部分内容要么是论文摘要，要么是泛泛的科普。我想做的是：把论文里的核心思路拆清楚，配上可以跑通的代码，让读者真正理解而不只是知道。</p>
 
         <h2>联系</h2>
 
-        <p>如果你对世界模型、机器人智能感兴趣，或者想交流技术、合作，欢迎通过以下方式联系我：</p>
+        <p>欢迎交流世界模型、具身智能、机器人学习相关话题：</p>
 
         <ul>
-            <li>GitHub：<a href="https://github.com/houxq8888/worldsensetech.github.io" target="_blank">github.com/worldsensetech</a></li>
-            <li>知乎：搜索"WorldSense"</li>
-            <li>邮箱：通过 GitHub 联系</li>
+            <li>GitHub：<a href="https://github.com/houxq8888" target="_blank">github.com/houxq8888</a></li>
+            <li>博客源码：<a href="https://github.com/houxq8888/worldsensetech.github.io" target="_blank">github.com/worldsensetech.github.io</a></li>
+            <li>知乎：<a href="https://www.zhihu.com/people/houxq" target="_blank">知乎主页</a></li>
         </ul>
     </main>
 
