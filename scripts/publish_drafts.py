@@ -7,12 +7,16 @@ Move due drafts to articles/, and auto-update:
   - categories.html (add entry + increment category count)
   - archive.html (add entry + increment total count)
   - sitemap.xml (add URL)
+  - article-nav (insert nav into new article + update prev/next neighbors)
+Navigation is driven by <!-- NAV_PREV: slug --> and <!-- NAV_NEXT: slug -->
+comments in each draft. Only links to already-published articles are created.
 Exit 0 if published, 1 if nothing to publish.
 """
 
 import os
 import re
 import sys
+import shutil
 from datetime import datetime, date
 from xml.etree import ElementTree as ET
 
@@ -299,7 +303,7 @@ def extract_block(content, tag):
 
 
 def clean_draft_content(content):
-    """Remove INDEX_ENTRY and EN_INDEX_ENTRY comment blocks from draft."""
+    """Remove INDEX_ENTRY, EN_INDEX_ENTRY, and NAV metadata comment blocks from draft."""
     content = re.sub(
         r"<!--\s*INDEX_ENTRY\s*\n.*?\n\s*-->\s*\n?",
         "",
@@ -312,7 +316,207 @@ def clean_draft_content(content):
         content,
         flags=re.DOTALL,
     )
+    # Remove NAV metadata comments (used by publish script, not needed in final article)
+    content = re.sub(r"\s*<!--\s*NAV_PREV:\s*.*?-->\s*\n?", "", content)
+    content = re.sub(r"\s*<!--\s*NAV_NEXT:\s*.*?-->\s*\n?", "", content)
     return content
+
+
+def migrate_images(content, slug):
+    """Find all img src references in HTML, move local images from _drafts/ to articles/.
+    Returns updated content with corrected image paths."""
+    # Match img src attributes (both single and double quoted)
+    img_pattern = re.compile(r'<img[^>]+src=["\']([^"\']+)["\']', re.IGNORECASE)
+    matches = img_pattern.findall(content)
+
+    moved = []
+    for src in matches:
+        # Skip external URLs and data URIs
+        if src.startswith(('http://', 'https://', 'data:')):
+            continue
+
+        # Resolve relative path from _drafts/ directory
+        src_clean = src.split('?')[0]  # Remove query strings
+        draft_img_path = os.path.join(DRAFTS_DIR, src_clean)
+
+        if os.path.isfile(draft_img_path):
+            # Determine destination in articles/
+            dest_img_path = os.path.join(ARTICLES_DIR, src_clean)
+
+            # Create subdirectories if needed
+            dest_img_dir = os.path.dirname(dest_img_path)
+            if dest_img_dir and not os.path.isdir(dest_img_dir):
+                os.makedirs(dest_img_dir, exist_ok=True)
+
+            shutil.move(draft_img_path, dest_img_path)
+            moved.append(src_clean)
+            print(f"    -> Moved image: _drafts/{src_clean} -> articles/{src_clean}")
+
+    return content
+
+
+# ── Navigation chain management ──────────────────────────────────────────
+
+def extract_nav_metadata(content):
+    """Extract NAV_PREV and NAV_NEXT slugs from draft HTML comments."""
+    prev_match = re.search(r'<!--\s*NAV_PREV:\s*(.+?)\s*-->', content)
+    next_match = re.search(r'<!--\s*NAV_NEXT:\s*(.+?)\s*-->', content)
+    return {
+        'prev': prev_match.group(1).strip() if prev_match else None,
+        'next': next_match.group(1).strip() if next_match else None,
+    }
+
+
+def get_article_title(slug):
+    """Get the h1 title from a published article by slug."""
+    article_path = os.path.join(ARTICLES_DIR, f"{slug}.html")
+    if not os.path.exists(article_path):
+        return None
+    with open(article_path, "r", encoding="utf-8") as f:
+        content = f.read()
+    h1_match = re.search(r"<h1>(.+?)</h1>", content)
+    return h1_match.group(1).strip() if h1_match else None
+
+
+def generate_nav_html(prev_slug, next_slug):
+    """Generate the article-nav HTML block.
+    Only includes links for articles that actually exist in articles/."""
+    prev_title = get_article_title(prev_slug) if prev_slug else None
+    next_title = get_article_title(next_slug) if next_slug else None
+
+    if prev_title:
+        left = (
+            f'<div style="flex:1; text-align:left;">'
+            f'<div style="font-size:0.85rem; color:#64748b; margin-bottom:4px;">&#8592; 上一篇</div>'
+            f'<a href="{prev_slug}.html" style="color:#2563eb; text-decoration:none; font-weight:500;">{prev_title}</a>'
+            f'</div>'
+        )
+    else:
+        left = '<div style="flex:1;"></div>'
+
+    if next_title:
+        right = (
+            f'<div style="flex:1; text-align:right;">'
+            f'<div style="font-size:0.85rem; color:#64748b; margin-bottom:4px;">下一篇 &#8594;</div>'
+            f'<a href="{next_slug}.html" style="color:#2563eb; text-decoration:none; font-weight:500;">{next_title}</a>'
+            f'</div>'
+        )
+    else:
+        right = '<div style="flex:1;"></div>'
+
+    return (
+        f'<nav class="article-nav" style="display:flex; justify-content:space-between; '
+        f'margin:2rem auto; padding:1.5rem; background:#f8fafc; border-radius:8px; '
+        f'border:1px solid #e2e8f0; max-width:800px;">\n'
+        f'        {left}\n'
+        f'        {right}\n'
+        f'    </nav>'
+    )
+
+
+def insert_nav_into_article(content, nav_html):
+    """Insert nav HTML into article before the comments section or article-actions."""
+    # Try to insert before <!-- Comments -->
+    if '<!-- Comments -->' in content:
+        return content.replace('<!-- Comments -->', nav_html + '\n\n    <!-- Comments -->', 1)
+    # Fallback: insert before article-actions
+    if 'class="article-actions"' in content:
+        return content.replace(
+            '<div class="article-actions"',
+            nav_html + '\n\n    <div class="article-actions"',
+            1,
+        )
+    # Fallback: insert before </body>
+    return content.replace('</body>', nav_html + '\n\n</body>', 1)
+
+
+def update_article_nav(article_slug, direction, new_slug):
+    """Update the prev/next link in an existing published article.
+    direction: 'prev' to update the 上一篇 link, 'next' to update the 下一篇 link.
+    new_slug: slug of the article to link to.
+    """
+    article_path = os.path.join(ARTICLES_DIR, f"{article_slug}.html")
+    if not os.path.exists(article_path):
+        print(f"    NAV WARN: {article_slug}.html not found, skipping nav update")
+        return False
+
+    with open(article_path, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    new_title = get_article_title(new_slug)
+    if not new_title:
+        print(f"    NAV WARN: cannot get title for {new_slug}, skipping nav update")
+        return False
+
+    nav_match = re.search(r'<nav class="article-nav".*?</nav>', content, re.DOTALL)
+    if not nav_match:
+        print(f"    NAV WARN: no nav found in {article_slug}, skipping")
+        return False
+
+    old_nav = nav_match.group()
+    new_nav = old_nav
+
+    if direction == 'next':
+        # Update the 下一篇 link (right side)
+        # Right div may have text-align:right (with next link) or be empty (no next link)
+        # Use lookahead (?=</nav>) to avoid consuming the closing </nav> tag
+        right_pattern = re.compile(
+            r'(<div style="flex:1;(?: text-align:right;)?"[^>]*>)'
+            r'.*?'
+            r'(</div>)'
+            r'\s*(?=</nav>)',
+            re.DOTALL,
+        )
+        right_match = right_pattern.search(old_nav)
+        if right_match:
+            new_right = (
+                f'<div style="flex:1; text-align:right;">'
+                f'<div style="font-size:0.85rem; color:#64748b; margin-bottom:4px;">'
+                f'下一篇 &#8594;</div>'
+                f'<a href="{new_slug}.html" style="color:#2563eb; text-decoration:none; '
+                f'font-weight:500;">{new_title}</a></div>'
+            )
+            new_nav = old_nav[:right_match.start()] + new_right + old_nav[right_match.end():]
+        else:
+            print(f"    NAV WARN: right div not found in {article_slug}")
+            return False
+
+    elif direction == 'prev':
+        # Update the 上一篇 link (left side)
+        # Strategy: find the right div, replace everything before it (the left part)
+        right_div_pattern = re.compile(
+            r'<div style="flex:1;(?: text-align:right;)?"[^>]*>'
+        )
+        # Find all flex:1 divs; the last one is the right div
+        right_divs = list(right_div_pattern.finditer(old_nav))
+        if not right_divs:
+            print(f"    NAV WARN: right div not found in {article_slug}")
+            return False
+        right_div_start = right_divs[-1].start()
+
+        # Build new nav: nav opening + new left div + existing right div onwards
+        nav_opening_match = re.match(r'<nav class="article-nav"[^>]*>\s*', old_nav)
+        if not nav_opening_match:
+            print(f"    NAV WARN: nav opening not found in {article_slug}")
+            return False
+
+        new_left = (
+            f'<div style="flex:1; text-align:left;">'
+            f'<div style="font-size:0.85rem; color:#64748b; margin-bottom:4px;">'
+            f'&#8592; 上一篇</div>'
+            f'<a href="{new_slug}.html" style="color:#2563eb; text-decoration:none; '
+            f'font-weight:500;">{new_title}</a></div>\n        '
+        )
+        new_nav = old_nav[:nav_opening_match.end()] + new_left + old_nav[right_div_start:]
+
+    if new_nav != old_nav:
+        content = content.replace(old_nav, new_nav, 1)
+        with open(article_path, "w", encoding="utf-8") as f:
+            f.write(content)
+        print(f"    -> Updated nav in {article_slug} ({direction} -> {new_slug})")
+        return True
+
+    return False
 
 
 def publish_draft(filename):
@@ -344,6 +548,13 @@ def publish_draft(filename):
     print(f"    Title: {meta['title']}")
     print(f"    Tags: {', '.join(meta['tags'])}")
 
+    # Extract navigation metadata (before cleaning removes NAV comments)
+    nav_meta = extract_nav_metadata(content)
+    print(f"    Nav: prev={nav_meta['prev']}, next={nav_meta['next']}")
+
+    # Migrate image resources from _drafts/ to articles/
+    content = migrate_images(content, slug)
+
     # Clean draft content
     clean_content = clean_draft_content(content)
 
@@ -352,6 +563,26 @@ def publish_draft(filename):
     with open(dest_path, "w", encoding="utf-8") as f:
         f.write(clean_content)
     print(f"    -> articles/{slug}.html")
+
+    # ── Navigation chain update ──
+    # 1. Generate nav HTML for the new article (only link to articles that exist)
+    nav_html = generate_nav_html(nav_meta['prev'], nav_meta['next'])
+    clean_content = insert_nav_into_article(clean_content, nav_html)
+    with open(dest_path, "w", encoding="utf-8") as f:
+        f.write(clean_content)
+    print(f"    -> Inserted nav (prev={nav_meta['prev']}, next={nav_meta['next']})")
+
+    # 2. Update prev article's "下一篇" to point to this new article
+    if nav_meta['prev']:
+        prev_path = os.path.join(ARTICLES_DIR, f"{nav_meta['prev']}.html")
+        if os.path.exists(prev_path):
+            update_article_nav(nav_meta['prev'], 'next', slug)
+
+    # 3. Update next article's "上一篇" to point to this new article
+    if nav_meta['next']:
+        next_path = os.path.join(ARTICLES_DIR, f"{nav_meta['next']}.html")
+        if os.path.exists(next_path):
+            update_article_nav(nav_meta['next'], 'prev', slug)
 
     # Check for English draft
     en_draft_path = os.path.join(DRAFTS_DIR, "en", filename)

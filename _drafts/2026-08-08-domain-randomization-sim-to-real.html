@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>域随机化（Domain Randomization）：机器人 Sim-to-Real 迁移的核心技术 - WorldSense 技术笔记</title>
+    <meta name="description" content="域随机化（Domain Randomization）是机器人仿真训练中实现 Sim-to-Real 迁移的核心技术。本文从原理、分类（动力学/视觉/传感器/任务DR）、工程实践到 AutoDR/课程DR 等进阶方法，系统拆解域随机化的实现细节。">
+    <link rel="stylesheet" href="../style.css">
+
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-6EQ7ZKS9L8"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-6EQ7ZKS9L8');
+</script>
+
+<!-- Busuanzi Counter -->
+<script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+</head>
+<body>
+
+<!-- NAV_PREV: td-mpc-world-model-control -->
+<!-- NAV_NEXT: sim-to-real-transfer -->
+
+    <header>
+        <div class="header-inner">
+            <a href="../index.html" class="site-title">WorldSense 技术笔记</a>
+            <nav>
+                <a href="../index.html">文章</a>
+                <a href="../categories.html">分类</a>
+                <a href="../archive.html">归档</a>
+                <a href="../about.html">关于</a>
+                <a href="https://github.com/houxq8888/worldsensetech.github.io" target="_blank">GitHub</a>
+                <a href="../en/index.html">English</a>
+            </nav>
+        </div>
+    </header>
+
+    <div class="article-header">
+        <h1>域随机化（Domain Randomization）：机器人 Sim-to-Real 迁移的核心技术</h1>
+        <div class="article-info">2026年8月8日 · 阅读约14分钟 · 域随机化, Sim-to-Real, 机器人, 仿真训练</div>
+    </div>
+
+    <main class="article-content">
+
+<p>上一篇我们聊了 TD-MPC 如何用世界模型做机器人控制。但不管用 Dreamer、TD-MPC 还是其他方法，训练出来的策略最终都要部署到真实机器人上。这就绕不开 Sim-to-Real 迁移——而域随机化（Domain Randomization）是这条路上最基础的技术。</p>
+
+<p>这篇文章系统拆解域随机化：它解决什么问题、有哪些类型、工程上怎么实现、以及最新的进展。</p>
+
+<h2>Sim-to-Real Gap 的根源</h2>
+
+<p>先回顾一下问题。仿真环境和真实世界之间存在系统性差异，这些差异统称为 Sim-to-Real Gap。其中一部分来自未建模动态（unmodeled dynamics），例如摩擦变化、接触误差、传感器噪声等：</p>
+
+<p><strong>动力学层面：</strong>摩擦系数、质量分布、关节阻尼、电机响应延迟。仿真中的物理参数往往是近似值，和真实机器人有偏差。</p>
+
+<p><strong>视觉层面：</strong>光照条件、相机噪声、纹理细节、背景变化。仿真渲染和真实相机看到的图像有显著差异。</p>
+
+<p><strong>传感器层面：</strong>IMU 漂移、力传感器噪声、编码器精度。仿真中的传感器是理想的，真实传感器有各种非理想特性。</p>
+
+<p>这些差异导致了一个核心问题：在仿真中训练的策略，直接部署到真实世界时性能下降。域随机化的思路很直接——<strong>既然真实世界无法被完全建模，就让训练环境覆盖一个合理范围的可能情况，使真实环境成为训练分布中的一个可能实例</strong>。</p>
+
+<h2>为什么域随机化现在重新受到关注？</h2>
+
+<p>域随机化并不是新技术——早在 2017 年左右就有系统性的工作。但近几年它的热度明显上升，原因和整个具身智能的研究范式变化有关。</p>
+
+<p>过去，机器人控制主要靠手工建模和专用控制器。工程师根据具体任务设计动力学模型、调参、写控制逻辑。这种方式在结构化环境中效果不错，但扩展性差——每换一个任务就要重新来一遍。</p>
+
+<p>现在的范式是：大模型 + 强化学习 + 仿真训练。策略不再由人手工设计，而是在仿真中通过大量试错自动学习。这意味着对训练数据的需求急剧增加。但真实世界的机器人数据太贵、太慢、太危险——不可能让真实机器人每天跑几百万次试错。</p>
+
+<p>于是，仿真训练成了主流选择。但仿真训练的核心瓶颈变成了：怎么让仿真中学到的能力迁移到真实世界？Sim-to-Real 不再只是一个机器人控制问题，而成为具身智能规模化训练的核心问题。域随机化作为其中最基础、最通用的技术，自然重新受到了关注。</p>
+
+<h2>域随机化的核心思想</h2>
+
+<p>域随机化的直觉来自一个观察：如果策略在足够多样的仿真环境中都能表现良好，那它在真实世界中应该也能工作——因为真实世界只是众多可能环境中的一个。</p>
+
+<p>形式化地说，域随机化把仿真参数 θ 当作随机变量，从一个分布 p(θ) 中采样。训练时，每个 episode 使用不同的 θ 值。策略学到的不是"在某个特定仿真中怎么做"，而是"在各种可能的环境中怎么做"。</p>
+
+<div class="highlight-box" style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:12px 16px; margin:20px 0;">
+<strong>关键洞察：</strong>域随机化本质上是在训练数据的分布中注入多样性，让策略学到鲁棒的、不依赖于特定仿真参数的行为。
+</div>
+
+<h2>域随机化的分类</h2>
+
+<p>根据随机化的对象，域随机化可以分为四大类：</p>
+
+<h3>1. 动力学域随机化（Dynamics DR）</h3>
+
+<p>随机化物理参数：</p>
+
+<ul>
+    <li><strong>质量：</strong>物体质量、机器人连杆质量。工程中通常从较小范围开始（例如围绕标称值扰动），再根据真实迁移效果逐步扩大范围。</li>
+    <li><strong>摩擦：</strong>接触摩擦系数、关节摩擦。这是影响操作任务最关键的因素之一。</li>
+    <li><strong>阻尼：</strong>关节阻尼系数。影响机器人的动态响应。</li>
+    <li><strong>惯性：</strong>转动惯量。影响旋转运动的动态。</li>
+    <li><strong>延迟：</strong>控制延迟、观测延迟。模拟真实系统的响应滞后。</li>
+</ul>
+
+<p>动力学 DR 是最常用的类型，对大多数任务都有显著效果。</p>
+
+<h3>2. 视觉域随机化（Visual DR）</h3>
+
+<p>随机化视觉渲染参数：</p>
+
+<ul>
+    <li><strong>光照：</strong>光源位置、强度、颜色。这是视觉 DR 中最重要的一项。</li>
+    <li><strong>纹理：</strong>物体表面纹理、颜色。可以用程序化纹理或随机贴图。</li>
+    <li><strong>背景：</strong>场景背景。可以用随机颜色、随机图像或随机3D场景。</li>
+    <li><strong>相机：</strong>相机位置、角度、焦距、噪声。</li>
+    <li><strong>材质：</strong>反射率、透明度、粗糙度。</li>
+</ul>
+
+<p>视觉 DR 对基于图像的策略特别重要。如果策略直接用相机图像作为输入，视觉 DR 几乎是必须的。</p>
+
+<h3>3. 传感器域随机化（Sensor DR）</h3>
+
+<p>随机化传感器特性：</p>
+
+<ul>
+    <li><strong>噪声：</strong>高斯噪声、偏置漂移。</li>
+    <li><strong>精度：</strong>量化误差、分辨率限制。</li>
+    <li><strong>丢帧：</strong>随机丢弃观测数据，模拟通信延迟。</li>
+</ul>
+
+<h3>4. 任务域随机化（Task DR）</h3>
+
+<p>随机化任务相关的参数：</p>
+
+<ul>
+    <li><strong>物体位置：</strong>目标物体的初始位置和朝向。</li>
+    <li><strong>物体形状：</strong>物体的大小、形状变化。</li>
+    <li><strong>目标位置：</strong>目标放置位置的变化。</li>
+</ul>
+
+<p>任务 DR 严格来说不属于 Sim-to-Real 的范畴——它更多解决的是任务泛化问题，而不是严格意义上的仿真-现实差异。但很多论文把它归入域随机化大类（如 object pose randomization、goal randomization），因为它和动力学 DR 共享相同的技术框架，通常一起使用。</p>
+
+<h2>工程实现：随机化范围的选择</h2>
+
+<p>域随机化最关键的工程决策是：<strong>随机化范围设多大？</strong></p>
+
+<p>范围太小：覆盖不了真实世界的差异，Sim-to-Real 迁移失败。</p>
+
+<p>范围太大：训练环境过于多样，策略学不到有效的行为，仿真中的性能也很差。</p>
+
+<p>这是一个典型的 bias-variance tradeoff。实践中有几个经验法则：</p>
+
+<p><strong>1. 从标称值出发，逐步扩大。</strong>先用标称参数（仿真默认值）训练，确认策略在仿真中能学好。然后逐步扩大随机化范围，观察仿真性能和迁移性能的变化。</p>
+
+<p><strong>2. 优先随机化敏感参数。</strong>不是所有参数都同样重要。对于抓取任务，摩擦系数和物体质量通常是最敏感的。可以通过敏感性分析（改变一个参数，观察性能变化）来确定优先级。</p>
+
+<p><strong>3. 使用真实数据校准范围。</strong>如果有真实世界的数据（比如机器人实际运行时的传感器读数），可以用这些数据来估计参数的真实分布，然后据此设定随机化范围。这比拍脑袋设范围靠谱得多。</p>
+
+<h2>进阶技巧</h2>
+
+<h3>自动域随机化（AutoDR）</h3>
+
+<p>手动设定随机化范围很耗时。AutoDR 的思路是用优化算法自动搜索最佳的随机化分布。核心想法是：把随机化分布的参数（比如均匀分布的上下界）当作超参数，用贝叶斯优化或梯度方法来优化。</p>
+
+<p>OpenAI 等工作展示了自动调整随机化分布的可能性，证明了相比完全人工设计随机化范围，自动搜索可以减少调参成本。</p>
+
+<h3>课程域随机化（Curriculum DR）</h3>
+
+<p>一种常见做法是在训练过程中逐步增加随机化难度——例如从较小范围开始，让策略先学会基本行为，再逐步扩大。这类似于课程学习（curriculum learning）的思路。</p>
+
+<p>课程 DR 的好处是训练更稳定——如果一开始就用很大的随机化范围，策略可能完全学不到东西。</p>
+
+<h3>对抗域随机化（Adversarial DR）</h3>
+
+<p>用一个对抗网络来生成"最坏情况"的仿真参数——专门找策略表现最差的环境参数。策略在这些困难环境中训练，鲁棒性更强。</p>
+
+<p>这种方法理论上很优雅，但实践中训练不稳定，目前用得不多。</p>
+
+<h2>域随机化的局限性</h2>
+
+<p>域随机化虽然有效，但不是万能的。它有几个已知的局限：</p>
+
+<p><strong>1. 无法覆盖所有差异。</strong>有些 Sim-to-Real gap 很难用随机化来覆盖。比如仿真中的接触模型和真实世界的接触力学可能有本质差异，这不是调几个参数能解决的。</p>
+
+<p><strong>2. 可能过于保守。</strong>为了覆盖所有可能的情况，策略可能学到过于保守的行为。比如在抓取任务中，策略可能因为随机化了很大的摩擦范围而用很大的力抓取，这在真实世界中可能损坏物体。</p>
+
+<p><strong>3. 训练成本增加。</strong>随机化意味着每个 episode 的环境都不同，策略需要更多的训练步数才能收敛。</p>
+
+<p>这些局限性也是为什么 Sim-to-Real 领域还有其他技术路线（比如系统辨识、在线自适应、世界模型辅助）的原因。</p>
+
+<h2>域随机化 + 世界模型</h2>
+
+<p>一个正在探索的方向是将域随机化与世界模型结合。思路是让模型学习不同环境参数下的动态规律，从而提升策略面对未知变化时的适应能力。</p>
+
+<p>如果这条路线走通，世界模型可以在隐空间中探索不同的域参数配置，而不需要在仿真中逐一重新渲染。对于基于图像的任务，这可能大幅降低训练成本。但目前这还不是工业主流做法，更多处于研究验证阶段。</p>
+
+<h2>实践检查清单</h2>
+
+<p>如果你在项目中要用域随机化，以下是一个实用的检查清单：</p>
+
+<ul>
+    <li>确认仿真中的标称参数是否合理（和真实机器人对比）</li>
+    <li>从动力学 DR 开始（质量、摩擦、阻尼），这是性价比最高的</li>
+    <li>如果是视觉策略，加上光照和纹理 DR</li>
+    <li>随机化范围从较小扰动开始，根据迁移效果逐步扩大</li>
+    <li>用课程 DR 策略，逐步扩大范围</li>
+    <li>监控仿真中的性能——如果仿真性能下降太多，说明范围太大了</li>
+    <li>如果有真实数据，用数据校准随机化范围</li>
+</ul>
+
+<h2>小结</h2>
+
+<p>域随机化是 Sim-to-Real 迁移中最基础的技术。它的核心思想很简单：让训练环境覆盖合理范围的参数变化，策略就能在真实世界中鲁棒地工作。但工程实现中有很多细节——随机化什么、范围多大、怎么训练——这些细节往往决定了迁移的成败。</p>
+
+<p>域随机化不是唯一的 Sim-to-Real 方法，但它是最通用的。无论你的任务是什么、用什么算法、在哪个仿真平台，域随机化都可以用。这也是为什么它成为了几乎所有 Sim-to-Real 工作的标配。</p>
+
+<p>下一篇我们对比两个主流的机器人仿真平台：MuJoCo 和 Isaac Sim，看看它们各自适合什么场景。</p>
+
+        <hr>
+
+        <p>如果觉得有帮助，欢迎点赞收藏，也欢迎在评论区交流讨论。</p>
+    </main>
+
+    <!-- Article Actions (Like / Bookmark) -->
+    <div class="article-actions" style="max-width:800px;margin:1rem auto;padding:0 2rem;display:flex;gap:1rem;justify-content:center;">
+        <button class="action-btn like-btn" id="btn-like">
+            <span class="icon">&#9829;</span>
+            <span>点赞</span>
+            <span id="like-count">0</span>
+        </button>
+        <button class="action-btn bookmark-btn" id="btn-bookmark">
+            <span class="icon">&#9733;</span>
+            <span>收藏</span>
+            <span id="bookmark-count">0</span>
+        </button>
+    </div>
+
+    <!-- Comments -->
+    <div class="comments-section" style="max-width:800px;margin:2rem auto;padding:0 2rem;">
+        <h3>评论</h3>
+        <div id="giscus-container"></div>
+    </div>
+
+    <div class="author-box">
+        <div class="author-avatar">W</div>
+        <div class="author-info">
+            <p class="author-name">WorldSense</p>
+            <p>机器人AI工程师，西北工业大学硕士。著有《Visual C++入门很容易》《C++程序设计经典300例》。现专注世界模型、Sim-to-Real、具身智能方向。</p>
+        </div>
+    </div>
+
+    <footer>
+        <p>&copy; 2026 WorldSense · <a href="https://worldsensetech.com">worldsensetech.com</a></p>
+    
+<span id="busuanzi_container_site_pv" style="font-size:0.8rem;color:#999;">
+  总访问量 <span id="busuanzi_value_site_pv" style="color:#2563eb;"></span> 次
+</span>
+<span id="busuanzi_container_page_pv" style="font-size:0.8rem;color:#999;margin-left:12px;">
+  本文阅读 <span id="busuanzi_value_page_pv" style="color:#2563eb;"></span> 次
+</span>
+
+    </footer>
+
+    <script src="../blog-interactions.js"></script>
+</body>
+</html>

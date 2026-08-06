@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TD-MPC：世界模型如何用于机器人控制？ - WorldSense 技术笔记</title>
+    <meta name="description" content="TD-MPC（Temporal Difference Model Predictive Control）将世界模型与模型预测控制结合，让机器人通过"想象"来规划动作。本文从原理到工程实现，拆解这条不同于Dreamer的世界模型控制路线。">
+    <link rel="stylesheet" href="../style.css">
+
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-6EQ7ZKS9L8"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-6EQ7ZKS9L8');
+</script>
+
+<!-- Busuanzi Counter -->
+<script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+</head>
+<body>
+
+<!-- NAV_PREV: world-model-synthetic-data-for-vla -->
+<!-- NAV_NEXT: sim-to-real-transfer -->
+
+    <header>
+        <div class="header-inner">
+            <a href="../index.html" class="site-title">WorldSense 技术笔记</a>
+            <nav>
+                <a href="../index.html">文章</a>
+                <a href="../categories.html">分类</a>
+                <a href="../archive.html">归档</a>
+                <a href="../about.html">关于</a>
+                <a href="https://github.com/houxq8888/worldsensetech.github.io" target="_blank">GitHub</a>
+                <a href="../en/index.html">English</a>
+            </nav>
+        </div>
+    </header>
+
+    <div class="article-header">
+        <h1>TD-MPC：世界模型如何用于机器人控制？</h1>
+        <div class="article-info">2026年8月7日 · 阅读约12分钟 · TD-MPC, 模型预测控制, 世界模型, 机器人控制</div>
+    </div>
+
+    <main class="article-content">
+
+<p>上一篇文章我们拆解了 RSSM 的双轨状态设计，理解了 Dreamer 系列如何在隐空间中"想象"未来。但 RSSM 并不是世界模型用于机器人控制的唯一路线。今天聊另一条重要路线：<strong>TD-MPC（Temporal Difference Model Predictive Control）</strong>。</p>
+
+<p>如果说 Dreamer 的核心是利用学习到的世界模型，在隐空间中进行 imagined rollout，并通过 actor-critic 方法优化策略，那 TD-MPC 的核心思路更直接：<strong>学一个世界模型，然后在模型里做规划（planning），选出最优动作序列直接执行</strong>。它不把策略网络作为唯一决策方式，而是利用世界模型进行在线规划，并结合学习到的策略先验提高搜索效率。</p>
+
+<h2>为什么需要 Model Predictive Control</h2>
+
+<p>先退一步。传统的强化学习（比如 DQN、PPO）学的是一个策略 π(a|s)——给定当前状态，直接输出动作。这个策略是在大量试错中训练出来的，一旦训练完成，推理时只需要前向传播一次。</p>
+
+<p>但这种方式有两个问题：</p>
+
+<p><strong>第一，样本效率低。</strong>策略需要大量交互数据才能学好，而真实机器人的交互成本很高。</p>
+
+<p><strong>第二，缺乏"前瞻性"。</strong>策略网络只看当前状态就决定动作，不会主动"想一想如果我这样做，接下来几步会怎样"。</p>
+
+<p>Model Predictive Control（MPC）的思路完全不同：在每个时间步，基于当前状态，在模型中模拟多条未来轨迹，评估每条轨迹的累积回报，选择回报最高的那条轨迹的第一个动作执行。然后到下一个时间步，重新规划。</p>
+
+<p>这就像下棋：不是靠直觉走一步，而是向前推演几步，选最好的走法。</p>
+
+<h2>TD-MPC 的核心设计</h2>
+
+<p>TD-MPC（Hansen et al., 2022）的关键贡献在于：它证明了一个面向控制任务学习的隐空间动力学模型，可以与 MPC 规划结合，并通过 TD 学习目标获得高效控制能力。注意，MPC 和 model-based RL 的结合并不是新概念——TD-MPC 的创新在于用 TD 目标替代重建损失来训练世界模型。</p>
+
+<h3>世界模型的结构</h3>
+
+<p>TD-MPC 的核心组件包括状态编码器、隐空间动力学模型、奖励预测模型，以及用于价值评估的 Q 网络：</p>
+
+<p><strong>1. 状态编码器（Encoder）</strong></p>
+
+<pre><code>z_t = Encoder(o_t)</code></pre>
+
+<p>把高维观测（比如图像）压缩到一个低维的隐状态 z_t。这个隐状态不需要像 RSSM 那样拆成确定性和随机性两部分——TD-MPC 用的是确定性隐状态，结构更简单。</p>
+
+<p><strong>2. 动力学模型（Dynamics Model）</strong></p>
+
+<pre><code>z_{t+1} = f(z_t, a_t)</code></pre>
+
+<p>给定当前隐状态和动作，预测下一步的隐状态。这就是世界模型的核心——它学会了环境的状态转移规律。</p>
+
+<p><strong>3. 奖励模型（Reward Model）</strong></p>
+
+<pre><code>r_t = R(z_t, a_t)</code></pre>
+
+<p>给定隐状态和动作，预测即时奖励。有了奖励模型，规划时就不需要真实环境的奖励信号了。</p>
+
+<p><strong>4. Q 网络（Q-function）</strong></p>
+
+<pre><code>Q(z_t, a_t) ≈ 从状态-动作对出发的长期累积回报</code></pre>
+
+<p>Q 网络用于评估隐状态-动作对的长期价值。在规划末端，Q 网络提供 bootstrap 估计，避免只依赖有限 horizon 内的 reward 累积。</p>
+
+<h3>规划过程</h3>
+
+<p>在每个控制时间步，TD-MPC 做以下事情：</p>
+
+<p>第一步，用编码器把当前观测编码为隐状态 z_0。</p>
+
+<p>第二步，采样 K 条动作序列（每条长度 H），在动力学模型中 rollout，得到 K 条隐状态轨迹。</p>
+
+<p>第三步，用奖励模型评估每条轨迹的累积回报：</p>
+
+<pre><code>G_k = sum_{t=0}^{H-1} gamma^t * R(z_t^k, a_t^k) + gamma^H * Q(z_H^k, a_H^k)</code></pre>
+
+<p>实际实现中通常还会结合 Q-value 对规划末端进行价值估计，避免只依赖短期 reward。这相当于在 rollout 的终点加了一个"远景评估"，让规划不仅看眼前几步，也考虑更长期的后果。</p>
+
+<p>第四步，选择累积回报最高的那条轨迹的第一个动作执行。</p>
+
+<p>这个过程在每个时间步重复——这就是"receding horizon control"（滚动时域控制）。</p>
+
+<h2>TD 学习 vs 重建损失</h2>
+
+<p>这是 TD-MPC 和 Dreamer 系列最大的区别之一。</p>
+
+<p>Dreamer 系列通常通过预测观测、奖励等信号来约束世界模型学习，使隐状态能够保留环境动态信息。这要求模型学到比较完整的环境表示。</p>
+
+<p>TD-MPC 用的是时间差分（TD）目标来训练。核心思想是：</p>
+
+<pre><code>Q(z_t, a_t) = R(z_t, a_t) + gamma * max_a' Q(z_{t+1}, a')</code></pre>
+
+<p>模型只需要学到和控制相关的状态表示，不需要重建像素。这带来两个好处：</p>
+
+<p><strong>第一，训练更高效。</strong>不需要解码器，少了一个大的神经网络组件。</p>
+
+<p><strong>第二，表示更紧凑。</strong>隐状态只编码和控制相关的信息，过滤掉了无关的视觉细节。</p>
+
+<p>当然，代价是 TD-MPC 的隐状态不像 Dreamer 那样能"生成"可理解的观测——它更像一个纯控制导向的表示。这也是 model-based control 中常见的 trade-off：更强的生成能力 vs 更高效的控制表示。</p>
+
+<h2>TD-MPC2 的改进</h2>
+
+<p>2024年发布的 TD-MPC2 在原始版本基础上做了几个重要改进：</p>
+
+<p><strong>1. 支持多任务。</strong>通过条件化目标向量（goal vector），同一个模型可以处理多个不同的任务。这在机器人场景中很实用——一个模型既能抓取物体，也能推开障碍物。</p>
+
+<p><strong>2. 更大的模型规模。</strong>TD-MPC2 使用了更大的动力学模型和更多的规划样本，在复杂操作任务上表现显著提升。</p>
+
+<p><strong>3. 改进的采样策略。</strong>不只是随机采样动作序列，而是结合 learned prior（学习到的先验分布）来引导采样，让规划更高效。</p>
+
+<p>TD-MPC2 在 Meta-World、DMControl 等多个连续控制 benchmark 上取得了非常强的表现，证明了"世界模型+MPC规划"这条路线的竞争力。</p>
+
+<h2>TD-MPC vs Dreamer：两条路线的对比</h2>
+
+<p>为了更清楚地理解 TD-MPC 的定位，我们把它和 Dreamer 做个系统对比：</p>
+
+<table style="width:100%; border-collapse:collapse; margin:20px 0; font-size:15px;">
+<thead>
+<tr style="background:#f1f5f9;">
+    <th style="border:1px solid #e2e8f0; padding:10px 12px; text-align:left; font-weight:600;">维度</th>
+    <th style="border:1px solid #e2e8f0; padding:10px 12px; text-align:left; font-weight:600;">Dreamer</th>
+    <th style="border:1px solid #e2e8f0; padding:10px 12px; text-align:left; font-weight:600;">TD-MPC</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+    <td style="border:1px solid #e2e8f0; padding:10px 12px; font-weight:600;">状态表示</td>
+    <td style="border:1px solid #e2e8f0; padding:10px 12px;">RSSM 双轨状态（确定性+随机性），能表达不确定性</td>
+    <td style="border:1px solid #e2e8f0; padding:10px 12px;">确定性隐状态，结构更紧凑</td>
+</tr>
+<tr style="background:#f8fafc;">
+    <td style="border:1px solid #e2e8f0; padding:10px 12px; font-weight:600;">学习目标</td>
+    <td style="border:1px solid #e2e8f0; padding:10px 12px;">观测/奖励预测 + KL 散度</td>
+    <td style="border:1px solid #e2e8f0; padding:10px 12px;">TD 目标 / value learning</td>
+</tr>
+<tr>
+    <td style="border:1px solid #e2e8f0; padding:10px 12px; font-weight:600;">控制方式</td>
+    <td style="border:1px solid #e2e8f0; padding:10px 12px;">Actor 策略网络执行</td>
+    <td style="border:1px solid #e2e8f0; padding:10px 12px;">MPC 在线规划</td>
+</tr>
+<tr style="background:#f8fafc;">
+    <td style="border:1px solid #e2e8f0; padding:10px 12px; font-weight:600;">优势</td>
+    <td style="border:1px solid #e2e8f0; padding:10px 12px;">样本效率高，适合长期学习</td>
+    <td style="border:1px solid #e2e8f0; padding:10px 12px;">规划能力强，支持约束处理</td>
+</tr>
+<tr>
+    <td style="border:1px solid #e2e8f0; padding:10px 12px; font-weight:600;">缺点</td>
+    <td style="border:1px solid #e2e8f0; padding:10px 12px;">策略泛化依赖训练数据分布</td>
+    <td style="border:1px solid #e2e8f0; padding:10px 12px;">推理成本高（需 rollout 多条轨迹）</td>
+</tr>
+</tbody>
+</table>
+
+<p>两者不是替代关系，而是互补的。Dreamer 更偏向通过模型学习策略，适合需要通过环境交互学习并利用想象提升样本效率的任务；TD-MPC 更偏向在线规划，在需要精细控制、实时规划和约束处理的机器人任务中具有优势。</p>
+
+<h2>工程实现要点</h2>
+
+<p>如果你打算自己实现 TD-MPC，以下是一些实际需要注意的点：</p>
+
+<p><strong>1. 规划参数选择。</strong>轨迹数量 K 和轨迹长度 H 是最关键的两个超参数。K 太小，采样不够充分；K 太大，推理太慢。H 太小，规划视野不够；H 太大，模型误差累积严重。TD-MPC 系列论文中常使用几十到数百条候选轨迹，并根据任务类型调整规划 horizon。</p>
+
+<p><strong>2. 动作采样策略。</strong>纯随机采样效率很低。TD-MPC2 使用 learned prior 来引导采样——先用一个小的策略网络生成初始动作序列，然后在这个基础上加噪声采样。这比纯随机采样效率高很多。</p>
+
+<p><strong>3. 模型容量。</strong>动力学模型不需要太大。TD-MPC 原始论文用的是 3 层 MLP，每层 512 维。太大的模型容易过拟合，尤其是在数据有限的情况下。</p>
+
+<p><strong>4. 目标传播。</strong>TD 目标的传播步数（n-step）影响训练稳定性。n 太小，目标方差大；n 太大，目标偏差大。通常 n=3 到 n=5 是比较好的选择。</p>
+
+<h2>世界模型控制路线的全景</h2>
+
+<p>到目前为止，我们已经看到了世界模型用于机器人控制的三条主要路线：</p>
+
+<p><strong>路线一：Dreamer 系列（RSSM + Actor-Critic）。</strong>在隐空间中训练策略网络，策略在想象中学习，然后在真实世界执行。适合需要通过环境交互学习策略，并利用模型想象提升样本效率的任务。</p>
+
+<p><strong>路线二：TD-MPC 系列（确定性世界模型 + MPC规划）。</strong>在隐空间中做在线规划，每次选择最优动作。适合需要精确规划的任务。</p>
+
+<p><strong>路线三：VLA（视觉-语言-动作模型）。</strong>通常不显式构建世界模型，而是通过大规模视觉语言数据学习从感知到动作的映射。适合需要语言指令理解的任务。</p>
+
+<p>这三条路线不是互斥的。实际上，最新的研究趋势是把它们结合起来——比如用 VLA 做高层任务规划，用 TD-MPC 做底层动作规划，用 Dreamer 做探索和数据增强。一个可能的未来架构是：LLM/VLM 负责任务理解，VLA 负责视觉语言条件下的动作生成，世界模型负责预测未来状态，TD-MPC 负责实时控制和约束处理。各层分工，形成完整的具身智能系统。</p>
+
+<h2>小结</h2>
+
+<p>TD-MPC 的核心贡献在于：它证明了不需要重建像素，也能学到有效的世界模型用于控制。通过 TD 学习目标，它让模型专注于和控制相关的状态表示，而不是环境的完整动态。</p>
+
+<p>对于机器人控制来说，TD-MPC 的"规划即控制"范式有一个直观的优势：你可以在规划时加入约束（比如关节限位、碰撞避免），这些约束在策略网络中很难显式表达。</p>
+
+<p>如果你对 TD-MPC 的实现感兴趣，TD-MPC2 官方实现已在 GitHub 开源：<a href="https://github.com/nicklash/td-mpc2" target="_blank">GitHub/nicklash/td-mpc2</a>，代码结构清晰，适合作为学习 model-based RL 和机器人控制的入口。下一篇我们聊 Sim-to-Real 迁移中最核心的技术：域随机化。</p>
+
+        <hr>
+
+        <p>如果觉得有帮助，欢迎点赞收藏，也欢迎在评论区交流讨论。</p>
+    </main>
+
+    <!-- Article Actions (Like / Bookmark) -->
+    <div class="article-actions" style="max-width:800px;margin:1rem auto;padding:0 2rem;display:flex;gap:1rem;justify-content:center;">
+        <button class="action-btn like-btn" id="btn-like">
+            <span class="icon">&#9829;</span>
+            <span>点赞</span>
+            <span id="like-count">0</span>
+        </button>
+        <button class="action-btn bookmark-btn" id="btn-bookmark">
+            <span class="icon">&#9733;</span>
+            <span>收藏</span>
+            <span id="bookmark-count">0</span>
+        </button>
+    </div>
+
+    <!-- Comments -->
+    <div class="comments-section" style="max-width:800px;margin:2rem auto;padding:0 2rem;">
+        <h3>评论</h3>
+        <div id="giscus-container"></div>
+    </div>
+
+    <div class="author-box">
+        <div class="author-avatar">W</div>
+        <div class="author-info">
+            <p class="author-name">WorldSense</p>
+            <p>机器人AI工程师，西北工业大学硕士。著有《Visual C++入门很容易》《C++程序设计经典300例》。现专注世界模型、Sim-to-Real、具身智能方向。</p>
+        </div>
+    </div>
+
+    <footer>
+        <p>&copy; 2026 WorldSense · <a href="https://worldsensetech.com">worldsensetech.com</a></p>
+    
+<span id="busuanzi_container_site_pv" style="font-size:0.8rem;color:#999;">
+  总访问量 <span id="busuanzi_value_site_pv" style="color:#2563eb;"></span> 次
+</span>
+<span id="busuanzi_container_page_pv" style="font-size:0.8rem;color:#999;margin-left:12px;">
+  本文阅读 <span id="busuanzi_value_page_pv" style="color:#2563eb;"></span> 次
+</span>
+
+    </footer>
+
+    <script src="../blog-interactions.js"></script>
+</body>
+</html>
