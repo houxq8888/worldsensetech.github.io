@@ -15,3 +15,14 @@
 [2026-08-06 08:35:15] Publish output:   PUBLISHING: 2026-08-06-world-model-synthetic-data-for-vla.html (date: 2026-08-06)     -> articles/world-model-synthetic-data-for-vla.html     -> WARNING: no INDEX_ENTRY found, index.html not updated     -> Removed _drafts/2026-08-06-world-model-synthetic-data-for-vla.html     -> Updated sitemap.xml  Done. Published: 1
 [2026-08-06 08:35:15] Publish script completed successfully
 [2026-08-06 08:35:15] Committing and pushing changes...
+[2026-08-06 08:35:15] Push successful
+[2026-08-06 08:35:15] Checking for remote updates...
+[2026-08-06 08:35:15] Already up to date
+[2026-08-06 08:35:15] === Auto-publish check completed ===
+[2026-08-07 08:00:06] === Starting auto-publish check ===
+[2026-08-07 08:00:06] Found ready draft: 2026-08-07-td-mpc-world-model-control.html
+[2026-08-07 08:00:06] Found 1 draft(s) ready to publish
+[2026-08-07 08:00:06] Running publish script...
+[2026-08-07 08:00:06] Publish output:   PUBLISHING: 2026-08-07-td-mpc-world-model-control.html (date: 2026-08-07)     Title: TD-MPC：世界模型如何用于机器人控制？     Tags: TD-MPC, 模型预测控制, 世界模型, 机器人控制     Nav: prev=world-model-synthetic-data-for-vla, next=sim-to-real-transfer     -> articles/td-mpc-world-model-control.html     -> Inserted nav (prev=world-model-synthetic-data-for-vla, next=sim-to-real-transfer)     -> Updated nav in world-model-synthetic-data-for-vla (next -> td-mpc-world-model-control)     -> Updated nav in sim-to-real-transfer (prev -> td-mpc-world-model-control)     -> Updated index.html (auto)     -> Updated categories.html (世界模型理论)     -> Updated archive.html     -> Removed _drafts/2026-08-07-td-mpc-world-model-control.html     -> Updated sitemap.xml   SKIP: 2026-08-08-domain-randomization-sim-to-real.html scheduled for 2026-08-08 (future)   SKIP: 2026-08-09-mujoco-vs-isaac-sim.html scheduled for 2026-08-09 (future)  Done. Published: 1
+[2026-08-07 08:00:06] Publish script completed successfully
+[2026-08-07 08:00:06] Committing and pushing changes...
