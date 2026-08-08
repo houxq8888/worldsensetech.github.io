@@ -302,6 +302,48 @@ def extract_block(content, tag):
     return None
 
 
+def inject_canonical_tags(html_content, slug, has_en=False):
+    """Inject canonical and hreflang tags into HTML content before </head>."""
+    SITE_URL = "https://worldsensetech.com"
+
+    # Skip if canonical already exists
+    if '<link rel="canonical"' in html_content:
+        return html_content
+
+    cn_url = f"{SITE_URL}/articles/{slug}.html"
+    tags = [f'    <link rel="canonical" href="{cn_url}">']
+
+    if has_en:
+        en_url = f"{SITE_URL}/en/articles/{slug}.html"
+        tags.append(f'    <link rel="alternate" hreflang="zh-CN" href="{cn_url}">')
+        tags.append(f'    <link rel="alternate" hreflang="en" href="{en_url}">')
+        tags.append(f'    <link rel="alternate" hreflang="x-default" href="{cn_url}">')
+
+    tags_str = '\n'.join(tags)
+    html_content = html_content.replace('</head>', f'{tags_str}\n</head>')
+    return html_content
+
+
+def inject_en_canonical_tags(html_content, slug):
+    """Inject canonical tag into English article HTML."""
+    SITE_URL = "https://worldsensetech.com"
+
+    if '<link rel="canonical"' in html_content:
+        return html_content
+
+    en_url = f"{SITE_URL}/en/articles/{slug}.html"
+    cn_url = f"{SITE_URL}/articles/{slug}.html"
+    tags = [
+        f'    <link rel="canonical" href="{en_url}">',
+        f'    <link rel="alternate" hreflang="zh-CN" href="{cn_url}">',
+        f'    <link rel="alternate" hreflang="en" href="{en_url}">',
+        f'    <link rel="alternate" hreflang="x-default" href="{cn_url}">',
+    ]
+    tags_str = '\n'.join(tags)
+    html_content = html_content.replace('</head>', f'{tags_str}\n</head>')
+    return html_content
+
+
 def clean_draft_content(content):
     """Remove INDEX_ENTRY, EN_INDEX_ENTRY, and NAV metadata comment blocks from draft."""
     content = re.sub(
@@ -596,6 +638,25 @@ def publish_draft(filename):
         os.remove(en_draft_path)
         has_en = True
         print(f"    -> en/articles/{slug}.html")
+
+    # ── Inject canonical and hreflang tags ──
+    # Re-read and inject into Chinese article
+    with open(dest_path, "r", encoding="utf-8") as f:
+        clean_content = f.read()
+    clean_content = inject_canonical_tags(clean_content, slug, has_en=has_en)
+    with open(dest_path, "w", encoding="utf-8") as f:
+        f.write(clean_content)
+    print(f"    -> Injected canonical tags (has_en={has_en})")
+
+    # Inject into English article if exists
+    if has_en:
+        en_dest_path = os.path.join(EN_ARTICLES_DIR, f"{slug}.html")
+        with open(en_dest_path, "r", encoding="utf-8") as f:
+            en_content = f.read()
+        en_content = inject_en_canonical_tags(en_content, slug)
+        with open(en_dest_path, "w", encoding="utf-8") as f:
+            f.write(en_content)
+        print(f"    -> Injected canonical tags into English article")
 
     # Update index.html
     if cn_entry:
