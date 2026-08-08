@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WorldSense 技术笔记</title>
-    <meta name="description" content="一个关于世界模型、机器人智能和Sim-to-Real技术的个人博客">
+    <meta name="description" content="专注具身智能、世界模型与 Sim-to-Real 的技术博客。从算法研究到工程实践，记录机器人 AI 的探索之路。">
     <link rel="stylesheet" href="style.css">
 
 <!-- Google tag (gtag.js) -->
@@ -39,18 +39,67 @@
 
     <section class="hero">
         <h1>用世界模型让机器人理解世界</h1>
-        <p>这里是一个机器人AI研究者的技术笔记。记录我对世界模型、Sim-to-Real迁移、强化学习等方向的思考与实践。西北工业大学硕士，著有《Visual C++入门很简单》《C++程序设计经典300例》，现专注世界模型与Sim-to-Real方向。</p>
+        <p>专注具身智能、世界模型与 Sim-to-Real 的技术博客。从算法研究到工程实践，记录机器人 AI 的探索之路。</p>
+        <p style="font-size:0.9rem; color:#64748b; margin-top:0.5rem;">作者：西北工业大学硕士 · 机器人 AI 工程师 · 著有《Visual C++入门很容易》</p>
     </section>
 
-    <section class="reading-path" style="max-width:800px; margin:2rem auto; padding:1.5rem; background:linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border-radius:12px; border:1px solid #bae6fd;">
-        <h3 style="margin:0 0 1rem; font-size:1.1rem; color:#0c4a6e;">从这里开始</h3>
-        <p style="margin:0 0 1rem; font-size:0.95rem; color:#475569;">新手入门世界模型与具身智能的推荐阅读顺序：</p>
-        <ol style="margin:0; padding-left:1.5rem; font-size:0.95rem; color:#334155; line-height:1.8;">
-            <li><a href="articles/world-model-intro.html" style="color:#2563eb; text-decoration:none;">什么是机器人世界模型？一个工程师的深度解读</a></li>
-            <li><a href="articles/rssm-deep-dive.html" style="color:#2563eb; text-decoration:none;">RSSM状态空间模型详解：世界模型的核心引擎</a></li>
-            <li><a href="articles/vla-vs-world-model.html" style="color:#2563eb; text-decoration:none;">VLA vs 世界模型，谁主沉浮？</a></li>
-        </ol>
+    <!-- 热门阅读 - 基于 GA 数据 -->
+    <section style="max-width:800px; margin:2rem auto; padding:0 1.5rem;">
+        <h2 style="font-size:1.3rem; color:#1e293b; margin-bottom:1rem; border-bottom:2px solid #2563eb; padding-bottom:0.5rem;">🔥 热门阅读</h2>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:1rem;">
+            <a href="articles/vla-vs-world-model.html" style="text-decoration:none; padding:1rem; background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0; transition:all 0.2s;">
+                <div style="font-size:0.8rem; color:#64748b;">技术路线对比</div>
+                <div style="font-size:1rem; color:#1e293b; font-weight:600; margin:0.5rem 0;">VLA vs 世界模型，谁主沉浮？</div>
+                <div style="font-size:0.85rem; color:#475569;">两大技术路线的全面对比，从核心逻辑到未来融合趋势</div>
+            </a>
+            <a href="articles/rssm-deep-dive.html" style="text-decoration:none; padding:1rem; background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0; transition:all 0.2s;">
+                <div style="font-size:0.8rem; color:#64748b;">核心技术详解</div>
+                <div style="font-size:1rem; color:#1e293b; font-weight:600; margin:0.5rem 0;">RSSM 状态空间模型详解</div>
+                <div style="font-size:0.85rem; color:#475569;">Dreamer 系列世界模型的核心引擎，从数学原理到工程实现</div>
+            </a>
+            <a href="articles/world-model-lab-setup.html" style="text-decoration:none; padding:1rem; background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0; transition:all 0.2s;">
+                <div style="font-size:0.8rem; color:#64748b;">实战教程</div>
+                <div style="font-size:1rem; color:#1e293b; font-weight:600; margin:0.5rem 0;">从零搭建世界模型实验环境</div>
+                <div style="font-size:0.85rem; color:#475569;">MuJoCo + DreamerV3 手把手教程，从安装到训练到可视化</div>
+            </a>
+        </div>
+    </section>
+
+    <!-- 学习路径 -->
+    <section style="max-width:800px; margin:2.5rem auto; padding:1.5rem; background:linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border-radius:12px; border:1px solid #bae6fd;">
+        <h2 style="font-size:1.2rem; color:#0c4a6e; margin-bottom:1rem;">📚 学习路径</h2>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:1.5rem;">
+            <div>
+                <div style="font-size:0.9rem; font-weight:600; color:#0369a1; margin-bottom:0.5rem;">世界模型入门</div>
+                <ol style="margin:0; padding-left:1.2rem; font-size:0.9rem; color:#334155; line-height:1.8;">
+                    <li><a href="articles/world-model-intro.html" style="color:#2563eb; text-decoration:none;">什么是世界模型？</a></li>
+                    <li><a href="articles/rssm-deep-dive.html" style="color:#2563eb; text-decoration:none;">RSSM 核心引擎</a></li>
+                    <li><a href="articles/vla-vs-world-model.html" style="color:#2563eb; text-decoration:none;">VLA vs 世界模型</a></li>
+                </ol>
+            </div>
+            <div>
+                <div style="font-size:0.9rem; font-weight:600; color:#0369a1; margin-bottom:0.5rem;">Sim-to-Real 迁移</div>
+                <ol style="margin:0; padding-left:1.2rem; font-size:0.9rem; color:#334155; line-height:1.8;">
+                    <li><a href="articles/sim-to-real-transfer.html" style="color:#2563eb; text-decoration:none;">自适应迁移方法</a></li>
+                    <li><a href="articles/domain-randomization-sim-to-real.html" style="color:#2563eb; text-decoration:none;">域随机化详解</a></li>
+                    <li><a href="articles/world-model-8year-bottleneck.html" style="color:#2563eb; text-decoration:none;">8年技术瓶颈</a></li>
+                </ol>
+            </div>
+            <div>
+                <div style="font-size:0.9rem; font-weight:600; color:#0369a1; margin-bottom:0.5rem;">实践与工具</div>
+                <ol style="margin:0; padding-left:1.2rem; font-size:0.9rem; color:#334155; line-height:1.8;">
+                    <li><a href="articles/world-model-lab-setup.html" style="color:#2563eb; text-decoration:none;">MuJoCo+DreamerV3</a></li>
+                    <li><a href="articles/td-mpc-world-model-control.html" style="color:#2563eb; text-decoration:none;">TD-MPC 控制</a></li>
+                    <li><a href="articles/reinforcement-learning-how-to-start.html" style="color:#2563eb; text-decoration:none;">强化学习入门</a></li>
+                </ol>
+            </div>
+        </div>
         <p style="margin:1rem 0 0; font-size:0.9rem; color:#64748b;"><a href="categories.html" style="color:#2563eb; text-decoration:none;">查看全部文章 →</a></p>
+    </section>
+
+    <!-- 最新文章 -->
+    <section style="max-width:800px; margin:2rem auto; padding:0 1.5rem;">
+        <h2 style="font-size:1.2rem; color:#1e293b; margin-bottom:1rem; border-bottom:1px solid #e2e8f0; padding-bottom:0.5rem;">最新文章</h2>
     </section>
 
     <main class="article-list">
