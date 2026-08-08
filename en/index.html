@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WorldSense Tech Blog</title>
-    <meta name="description" content="A personal tech blog about world models, robot intelligence, and Sim-to-Real transfer.">
+    <meta name="description" content="A tech blog focused on embodied AI, world models, and Sim-to-Real transfer. From algorithm research to engineering practice.">
     <link rel="stylesheet" href="style.css">
 
 <!-- Google tag (gtag.js) -->
@@ -20,6 +20,9 @@
 <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
 
     <link rel="canonical" href="https://worldsensetech.com/en/">
+    <link rel="alternate" hreflang="en" href="https://worldsensetech.com/en/">
+    <link rel="alternate" hreflang="zh-CN" href="https://worldsensetech.com/">
+    <link rel="alternate" hreflang="x-default" href="https://worldsensetech.com/">
 </head>
 <body>
     <header>
@@ -38,7 +41,67 @@
 
     <section class="hero">
         <h1>Making Robots Understand the World Through World Models</h1>
-        <p>A personal tech blog by a robotics AI engineer. Notes on world models, Sim-to-Real transfer, and reinforcement learning. M.S. from Northwestern Polytechnical University, author of two C++ programming books, now focused on world models and embodied intelligence.</p>
+        <p>A tech blog on embodied AI, world models, and Sim-to-Real transfer. From algorithm research to engineering practice — documenting the journey of robotics AI.</p>
+        <p style="font-size:0.9rem; color:#64748b; margin-top:0.5rem;">Author: M.S. from Northwestern Polytechnical University · Robotics AI Engineer · Author of C++ programming books</p>
+    </section>
+
+    <!-- Popular Reads -->
+    <section style="max-width:800px; margin:2rem auto; padding:0 1.5rem;">
+        <h2 style="font-size:1.3rem; color:#1e293b; margin-bottom:1rem; border-bottom:2px solid #2563eb; padding-bottom:0.5rem;">🔥 Popular Reads</h2>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:1rem;">
+            <a href="articles/vla-vs-world-model.html" style="text-decoration:none; padding:1rem; background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0; transition:all 0.2s;">
+                <div style="font-size:0.8rem; color:#64748b;">Tech Roadmap Comparison</div>
+                <div style="font-size:1rem; color:#1e293b; font-weight:600; margin:0.5rem 0;">VLA vs World Models: Which Will Prevail?</div>
+                <div style="font-size:0.85rem; color:#475569;">A comprehensive comparison of the two major robotics AI approaches</div>
+            </a>
+            <a href="articles/rssm-deep-dive.html" style="text-decoration:none; padding:1rem; background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0; transition:all 0.2s;">
+                <div style="font-size:0.8rem; color:#64748b;">Core Technology Deep Dive</div>
+                <div style="font-size:1rem; color:#1e293b; font-weight:600; margin:0.5rem 0;">RSSM State-Space Model Explained</div>
+                <div style="font-size:0.85rem; color:#475569;">The core engine of Dreamer-series world models, from math to implementation</div>
+            </a>
+            <a href="articles/world-model-lab-setup.html" style="text-decoration:none; padding:1rem; background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0; transition:all 0.2s;">
+                <div style="font-size:0.8rem; color:#64748b;">Practical Tutorial</div>
+                <div style="font-size:1rem; color:#1e293b; font-weight:600; margin:0.5rem 0;">Building a World Model Lab from Scratch</div>
+                <div style="font-size:0.85rem; color:#475569;">MuJoCo + DreamerV3 step-by-step guide, from setup to training to visualization</div>
+            </a>
+        </div>
+    </section>
+
+    <!-- Learning Paths -->
+    <section style="max-width:800px; margin:2.5rem auto; padding:1.5rem; background:linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border-radius:12px; border:1px solid #bae6fd;">
+        <h2 style="font-size:1.2rem; color:#0c4a6e; margin-bottom:1rem;">📚 Learning Paths</h2>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:1.5rem;">
+            <div>
+                <div style="font-size:0.9rem; font-weight:600; color:#0369a1; margin-bottom:0.5rem;">World Models Introduction</div>
+                <ol style="margin:0; padding-left:1.2rem; font-size:0.9rem; color:#334155; line-height:1.8;">
+                    <li><a href="articles/world-model-intro.html" style="color:#2563eb; text-decoration:none;">What Are World Models?</a></li>
+                    <li><a href="articles/rssm-deep-dive.html" style="color:#2563eb; text-decoration:none;">RSSM Core Engine</a></li>
+                    <li><a href="articles/vla-vs-world-model.html" style="color:#2563eb; text-decoration:none;">VLA vs World Models</a></li>
+                </ol>
+            </div>
+            <div>
+                <div style="font-size:0.9rem; font-weight:600; color:#0369a1; margin-bottom:0.5rem;">Sim-to-Real Transfer</div>
+                <ol style="margin:0; padding-left:1.2rem; font-size:0.9rem; color:#334155; line-height:1.8;">
+                    <li><a href="articles/sim-to-real-transfer.html" style="color:#2563eb; text-decoration:none;">Adaptive Transfer Methods</a></li>
+                    <li><a href="../articles/domain-randomization-sim-to-real.html" style="color:#2563eb; text-decoration:none;">Domain Randomization</a></li>
+                    <li><a href="../articles/world-model-8year-bottleneck.html" style="color:#2563eb; text-decoration:none;">8-Year Bottlenecks</a></li>
+                </ol>
+            </div>
+            <div>
+                <div style="font-size:0.9rem; font-weight:600; color:#0369a1; margin-bottom:0.5rem;">Practice & Tools</div>
+                <ol style="margin:0; padding-left:1.2rem; font-size:0.9rem; color:#334155; line-height:1.8;">
+                    <li><a href="articles/world-model-lab-setup.html" style="color:#2563eb; text-decoration:none;">MuJoCo + DreamerV3</a></li>
+                    <li><a href="../articles/td-mpc-world-model-control.html" style="color:#2563eb; text-decoration:none;">TD-MPC Control</a></li>
+                    <li><a href="articles/embodied-ai-guide.html" style="color:#2563eb; text-decoration:none;">Career Guide</a></li>
+                </ol>
+            </div>
+        </div>
+        <p style="margin:1rem 0 0; font-size:0.9rem; color:#64748b;"><a href="../categories.html" style="color:#2563eb; text-decoration:none;">View all articles →</a></p>
+    </section>
+
+    <!-- Latest Articles -->
+    <section style="max-width:800px; margin:2rem auto; padding:0 1.5rem;">
+        <h2 style="font-size:1.2rem; color:#1e293b; margin-bottom:1rem; border-bottom:1px solid #e2e8f0; padding-bottom:0.5rem;">Latest Articles</h2>
     </section>
 
     <main class="article-list">
