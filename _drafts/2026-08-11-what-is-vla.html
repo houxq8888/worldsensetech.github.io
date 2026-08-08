@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>什么是VLA模型？一篇讲清楚视觉-语言-动作 - WorldSense 技术笔记</title>
+    <meta name="description" content="VLA（Vision-Language-Action）模型是具身智能领域最热的技术方向之一。本文从核心概念、架构设计、代表模型（RT-2、OpenVLA、π0）到工程实践，系统介绍VLA模型。">
+    <link rel="stylesheet" href="../style.css">
+
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-6EQ7ZKS9L8"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-6EQ7ZKS9L8');
+</script>
+
+<!-- Busuanzi Counter -->
+<script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+</head>
+<body>
+
+<!-- NAV_PREV: isaac-lab-robot-rl -->
+<!-- NAV_NEXT: nvidia-physical-ai -->
+
+    <header>
+        <div class="header-inner">
+            <a href="../index.html" class="site-title">WorldSense 技术笔记</a>
+            <nav>
+                <a href="../index.html">文章</a>
+                <a href="../categories.html">分类</a>
+                <a href="../archive.html">归档</a>
+                <a href="../about.html">关于</a>
+                <a href="https://github.com/houxq8888/worldsensetech.github.io" target="_blank">GitHub</a>
+                <a href="../en/index.html">English</a>
+            </nav>
+        </div>
+    </header>
+
+    <div class="article-header">
+        <h1>什么是VLA模型？一篇讲清楚视觉-语言-动作</h1>
+        <div class="article-info">2026年8月11日 · 阅读约12分钟 · VLA, 视觉语言动作, 机器人学习, RT-2, OpenVLA</div>
+    </div>
+
+    <main class="article-content">
+
+<p>如果你关注具身智能领域，一定听过 VLA 这个词。RT-2、OpenVLA、π0……这些名字背后，都是 VLA 模型的不同实现。</p>
+
+<p>但 VLA 到底是什么？它和传统的机器人控制方法有什么区别？为什么 2024-2025 年突然火了？</p>
+
+<p>这篇文章从最基础的概念出发，把 VLA 讲清楚。</p>
+
+<h2>VLA 的核心思想</h2>
+
+<p>VLA 是 Vision-Language-Action 的缩写，翻译过来就是"视觉-语言-动作"。</p>
+
+<p>它的核心思想是：用一个统一的模型，把视觉输入、语言指令和机器人动作连接起来。</p>
+
+<p>传统的机器人控制通常是分模块的：视觉模块识别物体，规划模块生成路径，控制模块执行动作。每个模块独立训练，系统复杂且难以泛化。</p>
+
+<p>VLA 的做法不同：它用一个大的神经网络，直接从图像和语言指令映射到机器人动作。输入是"看到什么"和"要做什么"，输出是"怎么动"。</p>
+
+<p>这类似于大语言模型（LLM）的思路：用一个统一的 Transformer 架构，处理各种任务。</p>
+
+<h2>为什么需要 VLA？</h2>
+
+<p>传统机器人控制的痛点很明显：</p>
+
+<p><strong>泛化能力差。</strong>针对特定任务训练的模型，换个场景就失效。比如训练了抓取红色杯子，换成蓝色杯子就不行了。</p>
+
+<p><strong>需要大量工程。</strong>每个任务都要手动设计特征、编写规则、调试参数。开发周期长，维护成本高。</p>
+
+<p><strong>难以利用语言指令。</strong>传统方法很难理解"把红色的杯子放到桌子上"这样的自然语言指令。</p>
+
+<p>VLA 试图解决这些问题。通过大规模预训练，VLA 模型可以：</p>
+
+<ul>
+    <li>理解视觉场景中的物体和关系</li>
+    <li>理解语言指令的意图</li>
+    <li>生成对应的机器人动作</li>
+</ul>
+
+<p>更重要的是，VLA 展现出了一定的泛化能力——在未见过的物体和场景上也能工作。</p>
+
+<h2>VLA 的架构设计</h2>
+
+<p>典型的 VLA 模型包含三个部分：</p>
+
+<h3>1. 视觉编码器（Vision Encoder）</h3>
+
+<p>负责处理图像输入，提取视觉特征。常用的视觉编码器包括：</p>
+
+<ul>
+    <li><strong>ViT（Vision Transformer）。</strong>最主流的选择，和 Transformer 架构天然兼容。</li>
+    <li><strong>SigLIP。</strong>Google 开发的视觉-语言对齐模型，特征和语言空间对齐。</li>
+    <li><strong>DINOv2。</strong>自监督学习的视觉特征，泛化能力强。</li>
+</ul>
+
+<p>视觉编码器的输出是一组视觉 token，和语言 token 一起输入到后续的 Transformer 中。</p>
+
+<h3>2. 语言模型（Language Model）</h3>
+
+<p>负责处理语言指令，并提供世界知识。通常直接复用预训练的大语言模型，比如：</p>
+
+<ul>
+    <li>PaLM-E 用的 PaLM</li>
+    <li>RT-2 用的 PaLM-E</li>
+    <li>OpenVLA 用的 Llama 2</li>
+    <li>π0 用的 自定义 Transformer</li>
+</ul>
+
+<p>语言模型的作用是理解指令意图，并结合预训练知识推理出合理的动作序列。</p>
+
+<h3>3. 动作头（Action Head）</h3>
+
+<p>负责输出机器人动作。动作头的设计因模型而异：</p>
+
+<ul>
+    <li><strong>离散化动作。</strong>把动作空间离散化成 token，和语言 token 一起预测。RT-2 用这种方式。</li>
+    <li><strong>连续动作。</strong>直接回归连续的动作值。OpenVLA 的后续工作多用这种方式。</li>
+    <li><strong>扩散模型。</strong>用扩散过程生成动作序列。π0 用这种方式。</li>
+</ul>
+
+<p>不同的动作头设计，影响模型的精度和泛化能力。</p>
+
+<h2>代表性 VLA 模型</h2>
+
+<p>下面介绍几个最有影响力的 VLA 模型。</p>
+
+<h3>RT-2：第一个真正的 VLA</h3>
+
+<p>RT-2（Robotic Transformer 2）是 Google DeepMind 在 2023 年发布的工作，被认为是第一个真正的 VLA 模型。</p>
+
+<p>RT-2 的核心创新是：把机器人动作离散化成 token，和语言 token 用同一个 Transformer 预测。这样，机器人控制就变成了一个"续写"问题——给定图像和指令，续写动作序列。</p>
+
+<p>RT-2 展示了 VLA 的几个重要能力：</p>
+
+<ul>
+    <li>零样本泛化到新物体</li>
+    <li>理解抽象指令（如"把危险的东西扔掉"）</li>
+    <li>利用 LLM 的世界知识推理</li>
+</ul>
+
+<p>但 RT-2 也有局限：动作离散化导致精度受限，训练数据需求大，推理速度慢。</p>
+
+<h3>OpenVLA：开源的 VLA</h3>
+
+<p>OpenVLA 是斯坦福和 UC Berkeley 在 2024 年发布的开源 VLA 模型。</p>
+
+<p>OpenVLA 基于 Llama 2 和 SigLIP，在 Open X-Embodiment 数据集上训练。它的贡献是：</p>
+
+<ul>
+    <li>开源了模型权重和训练代码</li>
+    <li>证明了开源 VLA 可以达到接近闭源模型的性能</li>
+    <li>提供了微调接口，方便适配特定任务</li>
+</ul>
+
+<p>OpenVLA 的出现降低了 VLA 的研究门槛，推动了社区的发展。</p>
+
+<h3>π0：Physical Intelligence 的方案</h3>
+
+<p>π0 是 Physical Intelligence 公司在 2024 年底发布的 VLA 模型，被认为是目前最先进的 VLA 之一。</p>
+
+<p>π0 的核心创新是用扩散模型生成动作，而不是离散 token 或简单回归。扩散模型可以更好地建模多模态动作分布，处理复杂的操作任务。</p>
+
+<p>π0 展示了在多种机器人上的泛化能力，包括折叠衣服、整理桌面等复杂任务。</p>
+
+<h2>VLA 的训练数据</h2>
+
+<p>VLA 模型需要大量的（图像，语言，动作）三元组数据。数据来源主要有：</p>
+
+<p><strong>遥操作数据。</strong>人类操作机器人完成任务，同时记录图像、指令和动作。这是最主流的数据来源，但采集成本高。</p>
+
+<p><strong>仿真数据。</strong>在仿真环境中自动生成数据。成本低，但存在 Sim-to-Real 鸿沟。</p>
+
+<p><strong>视频数据。</strong>从人类操作视频中提取动作标签。数据量大，但标注困难。</p>
+
+<p>目前最大的公开数据集是 Open X-Embodiment，包含多个机器人、多个任务的遥操作数据。但相比 LLM 的文本数据，机器人数据仍然非常稀缺。</p>
+
+<h2>VLA vs 世界模型</h2>
+
+<p>我们在之前的文章中介绍过世界模型。VLA 和世界模型有什么区别和联系？</p>
+
+<p><strong>VLA 是端到端的策略模型。</strong>输入感知，直接输出动作。目标是"怎么做"。</p>
+
+<p><strong>世界模型是环境的预测模型。</strong>输入当前状态和动作，预测下一个状态。目标是"会发生什么"。</p>
+
+<p>两者可以结合：世界模型可以作为 VLA 的"想象力"，帮助 VLA 在行动前预测后果。这也是我们之前讨论的方向。</p>
+
+<p>从发展趋势看，VLA 和世界模型正在融合。未来的机器人系统可能同时具备 VLA 的行动能力和世界模型的预测能力。</p>
+
+<h2>工程实践中的挑战</h2>
+
+<p>如果你想在项目中尝试 VLA，需要注意几个挑战：</p>
+
+<p><strong>数据需求大。</strong>VLA 模型通常需要数万到数十万条演示数据。对于特定任务，采集这些数据需要大量时间和人力。</p>
+
+<p><strong>计算资源要求高。</strong>训练 VLA 需要多张高端 GPU（如 A100、H100）。推理也需要较强的算力，实时性是个挑战。</p>
+
+<p><strong>泛化能力有限。</strong>虽然 VLA 展现了一定的泛化能力，但在分布外场景仍然容易失败。实际部署时需要谨慎评估。</p>
+
+<p><strong>安全性问题。</strong>VLA 的输出是直接的机器人动作，如果模型出错，可能导致危险。安全约束和人工监督必不可少。</p>
+
+<h2>小结</h2>
+
+<p>VLA 是具身智能领域最有前景的技术方向之一。它通过统一的模型，把视觉、语言和动作连接起来，展现了前所未有的泛化能力。</p>
+
+<p>虽然还面临数据、算力、安全性等挑战，但 VLA 的发展速度很快。从 RT-2 到 OpenVLA 再到 π0，每一代模型都有显著进步。</p>
+
+<p>对于机器人 AI 从业者来说，理解 VLA 的核心思想和技术细节，是把握行业趋势的必要条件。</p>
+
+        <hr>
+
+        <p>如果觉得有帮助，欢迎点赞收藏，也欢迎在评论区交流讨论。</p>
+    </main>
+
+    <!-- Article Actions (Like / Bookmark) -->
+    <div class="article-actions" style="max-width:800px;margin:1rem auto;padding:0 2rem;display:flex;gap:1rem;justify-content:center;">
+        <button class="action-btn like-btn" id="btn-like">
+            <span class="icon">&#9829;</span>
+            <span>点赞</span>
+            <span id="like-count">0</span>
+        </button>
+        <button class="action-btn bookmark-btn" id="btn-bookmark">
+            <span class="icon">&#9730;</span>
+            <span>收藏</span>
+            <span id="bookmark-count">0</span>
+        </button>
+    </div>
+
+    <!-- Comments -->
+    <div class="comments-section" style="max-width:800px;margin:2rem auto;padding:0 2rem;">
+        <h3>评论</h3>
+        <div id="giscus-container"></div>
+    </div>
+
+    <div class="author-box">
+        <div class="author-avatar">W</div>
+        <div class="author-info">
+            <p class="author-name">WorldSense</p>
+            <p>机器人AI工程师，西北工业大学硕士。著有《Visual C++入门很容易》《C++程序设计经典300例》。现专注世界模型、Sim-to-Real、具身智能方向。</p>
+        </div>
+    </div>
+
+    <footer>
+        <p>&copy; 2026 WorldSense · <a href="https://worldsensetech.com">worldsensetech.com</a></p>
+    
+<span id="busuanzi_container_site_pv" style="font-size:0.8rem;color:#999;">
+  总访问量 <span id="busuanzi_value_site_pv" style="color:#2563eb;"></span> 次
+</span>
+<span id="busuanzi_container_page_pv" style="font-size:0.8rem;color:#999;margin-left:12px;">
+  本文阅读 <span id="busuanzi_value_page_pv" style="color:#2563eb;"></span> 次
+</span>
+
+    </footer>
+
+    <script src="../blog-interactions.js"></script>
+</body>
+</html>

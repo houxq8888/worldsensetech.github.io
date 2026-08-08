@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DreamerV3 训练技巧：从踩坑到收敛的实战经验 - WorldSense 技术笔记</title>
+    <meta name="description" content="DreamerV3 是当前最开源的世界模型实现之一，但训练过程容易遇到各种问题。本文总结 DreamerV3 训练中的常见坑、调试技巧、超参数选择，帮助你从踩坑到收敛。">
+    <link rel="stylesheet" href="../style.css">
+
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-6EQ7ZKS9L8"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-6EQ7ZKS9L8');
+</script>
+
+<!-- Busuanzi Counter -->
+<script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+</head>
+<body>
+
+<!-- NAV_PREV: nvidia-physical-ai -->
+<!-- NAV_NEXT: robot-data-challenge -->
+
+    <header>
+        <div class="header-inner">
+            <a href="../index.html" class="site-title">WorldSense 技术笔记</a>
+            <nav>
+                <a href="../index.html">文章</a>
+                <a href="../categories.html">分类</a>
+                <a href="../archive.html">归档</a>
+                <a href="../about.html">关于</a>
+                <a href="https://github.com/houxq8888/worldsensetech.github.io" target="_blank">GitHub</a>
+                <a href="../en/index.html">English</a>
+            </nav>
+        </div>
+    </header>
+
+    <div class="article-header">
+        <h1>DreamerV3 训练技巧：从踩坑到收敛的实战经验</h1>
+        <div class="article-info">2026年8月13日 · 阅读约15分钟 · DreamerV3, 世界模型, 训练技巧, 强化学习, MuJoCo</div>
+    </div>
+
+    <main class="article-content">
+
+<p>上一篇我们介绍了 Isaac Lab 作为机器人强化学习训练框架的使用。今天回到世界模型的主题，聊聊 DreamerV3 的训练实战。</p>
+
+<p>DreamerV3 是目前最开源、最成熟的世界模型实现之一。但如果你真的动手训练过，一定知道这个过程并不轻松——环境配置、超参数调优、训练不稳定、收敛慢……各种坑。</p>
+
+<p>这篇文章总结我在训练 DreamerV3 过程中遇到的常见问题和解决方案，希望能帮你少走弯路。</p>
+
+<h2>环境配置的坑</h2>
+
+<h3>1. MuJoCo 版本问题</h3>
+
+<p>DreamerV3 的官方实现基于 JAX + MuJoCo。但 MuJoCo 的版本选择很关键：</p>
+
+<ul>
+    <li><strong>MuJoCo 2.x vs 3.x。</strong>官方代码基于 MuJoCo 2.x，但 3.x 版本有性能改进。如果用 3.x，需要修改部分 API 调用。</li>
+    <li><strong>mujoco-py vs mujoco。</strong>mujoco-py 是旧的 Python 绑定，已经停止维护。建议直接用官方的 mujoco 包。</li>
+</ul>
+
+<p>建议：先用 MuJoCo 2.x 跑通 baseline，再考虑升级到 3.x。</p>
+
+<h3>2. JAX 的 GPU 配置</h3>
+
+<p>JAX 的 GPU 支持需要正确安装 CUDA 和 cuDNN。常见问题：</p>
+
+<ul>
+    <li><strong>CUDA 版本不匹配。</strong>JAX 对 CUDA 版本有严格要求，安装前查看官方文档。</li>
+    <li><strong>GPU 内存不足。</strong>JAX 默认会占用所有 GPU 内存。可以设置 <code>XLA_PYTHON_CLIENT_MEM_FRACTION=0.9</code> 限制内存使用。</li>
+    <li><strong>多 GPU 问题。</strong>JAX 的多 GPU 支持和 PyTorch 不同，需要特别配置。</li>
+</ul>
+
+<p>建议：先用 CPU 跑小实验验证代码，再切换到 GPU 训练。</p>
+
+<h3>3. 依赖包版本冲突</h3>
+
+<p>DreamerV3 的依赖包括 jax、flax、optax、mujoco 等，版本之间可能有冲突。常见问题：</p>
+
+<ul>
+    <li>flax 和 jax 版本不兼容</li>
+    <li>optax 的 API 变化导致代码报错</li>
+    <li>gymnasium 和 gym 混用</li>
+</ul>
+
+<p>建议：使用官方提供的 requirements.txt 或 conda 环境，不要自己随意升级包。</p>
+
+<h2>超参数调优</h2>
+
+<p>DreamerV3 的超参数比一般 RL 算法多，调优是个挑战。下面是一些关键参数的经验：</p>
+
+<h3>1. 世界模型相关</h3>
+
+<p><strong>RSSM 的隐状态维度（deter_size, stoch_size）。</strong>默认值是 4096 和 32。如果任务简单，可以减小到 2048 和 16，加快训练速度。如果任务复杂（如视觉输入），可能需要增大。</p>
+
+<p><strong>想象训练的 batch size（imag_batch）。</strong>默认 1024。如果 GPU 内存不足，可以减小到 512 或 256，但要增加梯度累积步数。</p>
+
+<p><strong>自由比特 KL 散度（free_bits）。</strong>默认 1.0。这个参数控制世界模型的正则化强度。如果训练不稳定，可以增大到 2.0；如果模型欠拟合，可以减小到 0.5。</p>
+
+<h3>2. Actor-Critic 相关</h3>
+
+<p><strong>学习率（actor_lr, critic_lr）。</strong>默认 3e-4。如果训练震荡，可以减小到 1e-4；如果收敛太慢，可以增大到 5e-4。</p>
+
+<p><strong>折扣因子（discount）。</strong>默认 0.997。对于长 horizon 任务，可以增大到 0.999；对于短 horizon 任务，可以减小到 0.99。</p>
+
+<p><strong>熵正则（act_entropy）。</strong>默认 1e-4。这个参数鼓励探索。如果策略过早收敛到局部最优，可以增大到 3e-4；如果策略一直在随机探索，可以减小到 5e-5。</p>
+
+<h3>3. 数据收集相关</h3>
+
+<p><strong>训练步数（train_steps）。</strong>默认 5e5 或 1e6。对于简单任务，5e5 可能就够了；对于复杂任务，可能需要 2e6。</p>
+
+<p><strong>数据收集频率（collect_every）。</strong>默认每 16 步收集一次数据。如果环境运行很快，可以增大到 32；如果环境运行慢，可以减小到 8。</p>
+
+<h2>训练不稳定的常见原因</h2>
+
+<p>DreamerV3 训练不稳定是最常见的问题。下面是一些常见原因和解决方案：</p>
+
+<h3>1. 奖励尺度问题</h3>
+
+<p>DreamerV3 对奖励尺度比较敏感。如果奖励值太大（如 100+）或太小（如 0.001），训练容易不稳定。</p>
+
+<p><strong>解决方案：</strong>对奖励做归一化。可以用 running mean 或固定尺度。官方代码中有 <code>reward_scaling</code> 参数，建议设为 1.0 或根据任务调整。</p>
+
+<h3>2. 观测归一化问题</h3>
+
+<p>如果观测值的范围变化很大（如某些维度是 0-1，某些是 0-1000），世界模型难以学习。</p>
+
+<p><strong>解决方案：</strong>对观测做归一化。可以用 <code>obs_rms</code>（观测运行统计）来动态归一化。确保所有观测维度在相似的范围（如 -1 到 1）。</p>
+
+<h3>3. 想象训练崩溃</h3>
+
+<p>想象训练（imagined rollouts）是 DreamerV3 的核心，但也容易崩溃。常见表现：</p>
+
+<ul>
+    <li>想象中的状态值爆炸（NaN 或 Inf）</li>
+    <li>想象中的动作值异常大</li>
+    <li>Critic 损失突然增大</li>
+</ul>
+
+<p><strong>解决方案：</strong></p>
+
+<ul>
+    <li>减小想象训练的 batch size</li>
+    <li>增大 free_bits KL 散度</li>
+    <li>对想象状态做梯度裁剪（gradient clipping）</li>
+    <li>检查世界模型的损失是否正常</li>
+</ul>
+
+<h3>4. 数据缓冲区问题</h3>
+
+<p>DreamerV3 使用经验回放缓冲区存储数据。如果缓冲区太小或数据质量差，训练会受影响。</p>
+
+<p><strong>解决方案：</strong></p>
+
+<ul>
+    <li>增大缓冲区大小（默认 1e6）</li>
+    <li>确保缓冲区中有足够的正样本（高奖励数据）</li>
+    <li>定期清理过时的数据</li>
+</ul>
+
+<h2>调试技巧</h2>
+
+<h3>1. 先用小模型快速迭代</h3>
+
+<p>不要一开始就用默认的大模型。先用小模型（隐状态维度减半）跑 1e5 步，验证代码和流程是否正确。确认没问题后，再切换到完整模型。</p>
+
+<h3>2. 监控关键指标</h3>
+
+<p>训练过程中，重点关注这些指标：</p>
+
+<ul>
+    <li><strong>世界模型损失。</strong>包括重建损失、KL 散度、奖励预测损失。应该稳定下降。</li>
+    <li><strong>Actor 损失。</strong>包括策略损失和熵。策略损失应该下降，熵应该缓慢下降（表示探索减少）。</li>
+    <li><strong>Critic 损失。</strong>应该稳定下降。如果震荡严重，说明训练不稳定。</li>
+    <li><strong> episode 奖励。</strong>应该逐渐上升。如果一直不升，说明策略没有学习。</li>
+</ul>
+
+<h3>3. 可视化想象轨迹</h3>
+
+<p>DreamerV3 的一个优势是可以可视化想象中的轨迹。定期检查：</p>
+
+<ul>
+    <li>想象中的图像是否合理</li>
+    <li>想象中的奖励是否和真实奖励一致</li>
+    <li>想象中的动作是否合理</li>
+</ul>
+
+<p>如果想象中的内容和现实差距很大，说明世界模型没有学好。</p>
+
+<h3>4. 对比 baseline</h3>
+
+<p>如果可能，先跑一个 baseline（如 PPO 或 SAC）作为对比。DreamerV3 应该在样本效率上优于 baseline，但最终性能可能相近。如果 DreamerV3 明显差于 baseline，说明有问题。</p>
+
+<h2>收敛判断</h2>
+
+<p>如何判断 DreamerV3 是否已经收敛？</p>
+
+<p><strong>episode 奖励稳定。</strong>最近 100 个 episode 的平均奖励不再明显上升。</p>
+
+<p><strong>世界模型损失稳定。</strong>损失曲线趋于平稳，没有明显波动。</p>
+
+<p><strong>想象轨迹合理。</strong>想象中的行为和真实行为一致。</p>
+
+<p>如果满足以上条件，可以认为模型已经收敛。此时可以停止训练，或继续训练看是否有进一步提升。</p>
+
+<h2>小结</h2>
+
+<p>DreamerV3 的训练是一个工程问题，需要耐心和细心。本文总结了环境配置、超参数调优、训练不稳定、调试技巧等方面的经验，希望能帮助你从踩坑到收敛。</p>
+
+<p>记住，没有万能的超参数。每个任务都有自己的特点，需要根据实际情况调整。多实验、多观察、多总结，是掌握 DreamerV3 的关键。</p>
+
+        <hr>
+
+        <p>如果觉得有帮助，欢迎点赞收藏，也欢迎在评论区交流讨论。</p>
+    </main>
+
+    <!-- Article Actions (Like / Bookmark) -->
+    <div class="article-actions" style="max-width:800px;margin:1rem auto;padding:0 2rem;display:flex;gap:1rem;justify-content:center;">
+        <button class="action-btn like-btn" id="btn-like">
+            <span class="icon">&#9829;</span>
+            <span>点赞</span>
+            <span id="like-count">0</span>
+        </button>
+        <button class="action-btn bookmark-btn" id="btn-bookmark">
+            <span class="icon">&#9730;</span>
+            <span>收藏</span>
+            <span id="bookmark-count">0</span>
+        </button>
+    </div>
+
+    <!-- Comments -->
+    <div class="comments-section" style="max-width:800px;margin:2rem auto;padding:0 2rem;">
+        <h3>评论</h3>
+        <div id="giscus-container"></div>
+    </div>
+
+    <div class="author-box">
+        <div class="author-avatar">W</div>
+        <div class="author-info">
+            <p class="author-name">WorldSense</p>
+            <p>机器人AI工程师，西北工业大学硕士。著有《Visual C++入门很容易》《C++程序设计经典300例》。现专注世界模型、Sim-to-Real、具身智能方向。</p>
+        </div>
+    </div>
+
+    <footer>
+        <p>&copy; 2026 WorldSense · <a href="https://worldsensetech.com">worldsensetech.com</a></p>
+    
+<span id="busuanzi_container_site_pv" style="font-size:0.8rem;color:#999;">
+  总访问量 <span id="busuanzi_value_site_pv" style="color:#2563eb;"></span> 次
+</span>
+<span id="busuanzi_container_page_pv" style="font-size:0.8rem;color:#999;margin-left:12px;">
+  本文阅读 <span id="busuanzi_value_page_pv" style="color:#2563eb;"></span> 次
+</span>
+
+    </footer>
+
+    <script src="../blog-interactions.js"></script>
+</body>
+</html>
