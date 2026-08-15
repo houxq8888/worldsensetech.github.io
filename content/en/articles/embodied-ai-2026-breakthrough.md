@@ -1,7 +1,7 @@
 ---
 title: "Embodied AI in 2026: What Breakthroughs Can We Expect?"
 slug: "embodied-ai-2026-breakthrough"
-date: 2026-08-04
+date: 2026-08-03
 draft: false
 categories: ["Embodied AI"]
 tags: ["Embodied AI", "2026 Trends", "World Models", "Sim-to-Real", "Humanoid"]

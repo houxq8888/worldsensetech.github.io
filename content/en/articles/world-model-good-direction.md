@@ -1,7 +1,7 @@
 ---
 title: "Is World Model a Good Research Direction? An Engineer's Honest Assessment"
 slug: "world-model-good-direction"
-date: 2026-07-29
+date: 2026-08-03
 draft: false
 categories: ["World Models"]
 tags: ["World Models", "Research Direction", "Career", "DreamerV3"]

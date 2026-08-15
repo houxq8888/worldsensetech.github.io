@@ -1,7 +1,7 @@
 ---
 title: "Embodied AI and RL: Career Prospects and Salary Guide in 2026"
 slug: "embodied-ai-rl-prospects"
-date: 2026-08-03
+date: 2026-08-04
 draft: false
 categories: ["Embodied AI"]
 tags: ["Career", "RL", "Embodied AI", "Salary", "Job Market"]

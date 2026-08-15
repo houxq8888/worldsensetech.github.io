@@ -1,7 +1,7 @@
 ---
 title: "How to Get Started with Reinforcement Learning: A Practical Guide"
 slug: "reinforcement-learning-how-to-start"
-date: 2026-08-02
+date: 2026-08-03
 draft: false
 categories: ["Tutorial"]
 tags: ["RL", "Tutorial", "PyTorch", "MuJoCo", "Beginner"]

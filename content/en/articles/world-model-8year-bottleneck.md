@@ -1,7 +1,7 @@
 ---
 title: "World Models: 8 Years and the Same Bottleneck"
 slug: "world-model-8year-bottleneck"
-date: 2026-07-30
+date: 2026-08-03
 draft: false
 categories: ["World Models"]
 tags: ["World Models", "Bottleneck", "Sim-to-Real", "Challenges"]

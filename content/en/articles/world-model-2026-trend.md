@@ -1,7 +1,7 @@
 ---
 title: "World Models in 2026: Where Are the Real Opportunities?"
 slug: "world-model-2026-trend"
-date: 2026-08-01
+date: 2026-08-03
 draft: false
 categories: ["World Models"]
 tags: ["World Models", "2026 Trends", "Opportunities", "Robotics", "Industry"]
