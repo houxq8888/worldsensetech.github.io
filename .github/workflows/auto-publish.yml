@@ -7,7 +7,7 @@ on:
   
   # 手动推送代码时也触发部署
   push:
-    branches: [main]
+    branches: [master]
   
   # 允许手动触发
   workflow_dispatch:
@@ -42,8 +42,20 @@ jobs:
           cname: worldsensetech.com
           commit_message: "Deploy: ${{ github.sha }}"
       
+      - name: Clean old files on Aliyun Server
+        if: github.ref == 'refs/heads/master'
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.ALIYUN_SERVER_IP }}
+          username: ${{ secrets.ALIYUN_SERVER_USER }}
+          key: ${{ secrets.ALIYUN_SSH_KEY }}
+          port: 22
+          script: |
+            # 清空旧文件，保留目录本身
+            rm -rf /var/www/worldsense/*
+      
       - name: Sync to Aliyun Server
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/master'
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.ALIYUN_SERVER_IP }}
@@ -56,7 +68,7 @@ jobs:
           overwrite: true
       
       - name: Fix server permissions
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/master'
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.ALIYUN_SERVER_IP }}
@@ -64,11 +76,11 @@ jobs:
           key: ${{ secrets.ALIYUN_SSH_KEY }}
           port: 22
           script: |
-            sudo chown -R www-data:www-data /var/www/worldsense
-            sudo chmod -R 755 /var/www/worldsense
+            chown -R www-data:www-data /var/www/worldsense
+            chmod -R 755 /var/www/worldsense
       
       - name: Submit to Baidu
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/master'
         run: |
           # 生成 sitemap 并提交到百度
           SITEMAP_URL="https://worldsensetech.com/sitemap.xml"
