@@ -12,20 +12,12 @@ on:
   # 允许手动触发
   workflow_dispatch:
 
-# 设置 GitHub Pages 部署权限
+# 设置权限：需要写内容权限来推送 gh-pages 分支
 permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-# 允许一个并发部署
-concurrency:
-  group: "pages"
-  cancel-in-progress: false
+  contents: write
 
 jobs:
-  # 构建任务
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -43,41 +35,15 @@ jobs:
         run: |
           hugo --minify --gc
       
-      - name: Upload artifact for GitHub Pages
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: ./public
-      
-      - name: Upload artifact for Aliyun deployment
-        uses: actions/upload-artifact@v4
-        with:
-          name: hugo-site
-          path: ./public
-          retention-days: 1
-
-  # 部署到 GitHub Pages
-  deploy-pages:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
       - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
-
-  # 部署到阿里云服务器
-  deploy-aliyun:
-    needs: build
-    if: github.ref == 'refs/heads/master'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download artifact
-        uses: actions/download-artifact@v4
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          name: hugo-site
-          path: ./public
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public
+          publish_branch: gh-pages
+          cname: worldsensetech.com
+          commit_message: "Deploy: ${{ github.sha }}"
+          force_orphan: true
       
       - name: Clean old files on Aliyun Server
         uses: appleboy/ssh-action@v1.0.3
