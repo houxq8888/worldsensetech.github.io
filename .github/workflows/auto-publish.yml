@@ -41,6 +41,7 @@ jobs:
           publish_branch: gh-pages
           cname: worldsensetech.com
           commit_message: "Deploy: ${{ github.sha }}"
+          force_orphan: true
       
       - name: Clean old files on Aliyun Server
         if: github.ref == 'refs/heads/master'
