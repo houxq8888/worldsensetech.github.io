@@ -11,6 +11,9 @@ description: "世界模型风口被放大了：技术辨析与冷思考 - WorldS
 toc: true
 ---
 
+<figure style="margin:0 0 2rem 0;text-align:center;">
+    <img src="/images/world-model-ai-trend-cover.png" alt="世界模型 AI 趋势封面图" style="max-width:100%;border-radius:8px;">
+</figure>
 
 说说我的看法：世界模型不是风口叙事，它是一个真实存在的技术方向，但目前市面上大量讨论关注的是生成能力，而不是世界模型真正需要解决的环境预测、因果建模和规划问题。
  
