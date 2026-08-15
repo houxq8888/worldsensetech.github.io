@@ -12,15 +12,26 @@ on:
   # 允许手动触发
   workflow_dispatch:
 
+# 设置 GitHub Pages 部署权限
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 允许一个并发部署
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
 jobs:
-  build-and-deploy:
+  # 构建任务
+  build:
     runs-on: ubuntu-latest
-    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # 获取完整历史用于 git diff
+          fetch-depth: 0
       
       - name: Setup Hugo
         uses: peaceiris/actions-hugo@v3
@@ -30,21 +41,45 @@ jobs:
       
       - name: Build Hugo site
         run: |
-          # 不加 --buildFuture，只发布 publishDate 已到的文章
           hugo --minify --gc
       
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
+      - name: Upload artifact for GitHub Pages
+        uses: actions/upload-pages-artifact@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./public
-          publish_branch: gh-pages
-          cname: worldsensetech.com
-          commit_message: "Deploy: ${{ github.sha }}"
-          force_orphan: true
+          path: ./public
+      
+      - name: Upload artifact for Aliyun deployment
+        uses: actions/upload-artifact@v4
+        with:
+          name: hugo-site
+          path: ./public
+          retention-days: 1
+
+  # 部署到 GitHub Pages
+  deploy-pages:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  # 部署到阿里云服务器
+  deploy-aliyun:
+    needs: build
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: hugo-site
+          path: ./public
       
       - name: Clean old files on Aliyun Server
-        if: github.ref == 'refs/heads/master'
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.ALIYUN_SERVER_IP }}
@@ -52,11 +87,9 @@ jobs:
           key: ${{ secrets.ALIYUN_SSH_KEY }}
           port: 22
           script: |
-            # 清空旧文件，保留目录本身
             rm -rf /var/www/worldsense/*
       
       - name: Sync to Aliyun Server
-        if: github.ref == 'refs/heads/master'
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.ALIYUN_SERVER_IP }}
@@ -69,7 +102,6 @@ jobs:
           overwrite: true
       
       - name: Fix server permissions
-        if: github.ref == 'refs/heads/master'
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.ALIYUN_SERVER_IP }}
@@ -81,14 +113,11 @@ jobs:
             chmod -R 755 /var/www/worldsense
       
       - name: Submit to Baidu
-        if: github.ref == 'refs/heads/master'
         run: |
-          # 生成 sitemap 并提交到百度
           SITEMAP_URL="https://worldsensetech.com/sitemap.xml"
           BAIDU_TOKEN="${{ secrets.BAIDU_PUSH_TOKEN }}"
           
           if [ -n "$BAIDU_TOKEN" ]; then
-            # 提取最新 URL 并提交
             curl -s "$SITEMAP_URL" | grep -oP '(?<=<loc>)[^<]+' | head -10 > urls.txt
             if [ -s urls.txt ]; then
               curl -H "Content-Type: text/plain" \
