@@ -1,0 +1,64 @@
+=== td-mpc-world-model-control.html: 1 table(s) ===
+| 维度 | Dreamer | TD-MPC |
+| --- | --- | --- |
+| 状态表示 | RSSM 双轨状态（确定性+随机性），能表达不确定性 | 确定性隐状态，结构更紧凑 |
+| 学习目标 | 观测/奖励预测 + KL 散度 | TD 目标 / value learning |
+| 控制方式 | Actor 策略网络执行 | MPC 在线规划 |
+| 优势 | 样本效率高，适合长期学习 | 规划能力强，支持约束处理 |
+| 缺点 | 策略泛化依赖训练数据分布 | 推理成本高（需 rollout 多条轨迹） |
+
+
+=== mujoco-vs-isaac-sim.html: 2 table(s) ===
+| 维度 | MuJoCo | Isaac Sim |
+| --- | --- | --- |
+| 单环境 rollout 速度 | CPU 高效，单线程即可快速运行 | 受 Omniverse 启动和渲染开销影响，单环境启动较慢 |
+| 大规模并行吞吐 | 多进程方式，扩展性受 CPU 核心数限制 | GPU 并行 + vectorized environments，大规模训练优势明显 |
+| 调试效率 | 高——启动快、日志清晰、断点方便 | 较低——Omniverse 环境调试链路较长 |
+| 典型使用模式 | 算法开发 → 快速迭代 → 小规模验证 | 视觉训练 → 大规模数据采集 → 并行 RL |
+
+| 需求场景 | 推荐平台 | 原因 |
+| --- | --- | --- |
+| 算法研究、快速原型 | MuJoCo | 上手快、迭代快、社区资源丰富 |
+| 状态空间控制任务 | MuJoCo | 接触动力学精度高，CPU 即可运行 |
+| 视觉策略训练 | Isaac Sim | 光线追踪渲染、合成数据生成 |
+| 大规模并行 RL 训练 | Isaac Sim + Isaac Lab | GPU 并行、环境实例大规模并发 |
+| 合成数据 / 感知模型训练 | Isaac Sim | Replicator 框架、自动标注 |
+| Dreamer / RSSM 系列研究 | MuJoCo | 官方实现基于 JAX + MuJoCo |
+| Sim-to-Real 全流程部署 | 两者结合 | MuJoCo 做控制验证，Isaac Sim 做视觉验证 |
+
+
+=== vla-vs-world-model.html: 1 table(s) ===
+| 维度 | VLA | 世界模型 |
+| --- | --- | --- |
+| 核心思路 | 观察→动作的直接映射 | 学习环境动态，想象后行动 |
+| 类比 | 直觉反应（老司机） | 心理模拟（谨慎新手） |
+| 数据需求 | 大量（需要海量操作数据） | 较少（想象空间增强） |
+| 泛化能力 | 强（语言接地，可zero-shot） | 中（受限于训练环境分布） |
+| 规划能力 | 弱（单步决策为主） | 强（可多步想象推演） |
+| 语言理解 | 强（天然支持语言指令） | 弱（需要额外模块） |
+| 规模化 | 容易（可复用LLM基础设施） | 困难（环境建模复杂度高） |
+| 代表工作 | RT-2, &pi;0, OpenVLA | DreamerV3, DIAMOND, Genie 2 |
+
+
+=== world-model-representations.html: 1 table(s) ===
+| 维度 | 隐状态 | 像素/视频 | 3D 结构 | 物体中心 |
+| --- | --- | --- | --- | --- |
+| 样本效率 | 高 | 低 | 中 | 中高 |
+| 实时控制 | 强 | 弱 | 弱 | 强 |
+| 空间显式性 | 低 | 低 | 强 | 中强 |
+| 数据规模优势 | 低 | 强 | 弱 | 中 |
+| 组合泛化潜力 | 中 | 中 | 中 | 强 |
+| 物理一致性 | 中 | 低-中 | 中-高 | 中-高 |
+| 数据获取难度 | 低 | 低（互联网数据） | 高（多视角/深度/标定） | 中高 |
+
+
+=== world-model-transformer.html: 1 table(s) ===
+| 维度 | RSSM（DreamerV3） | Transformer 世界模型 |
+| --- | --- | --- |
+| 序列建模 | GRU 循环，逐步更新隐状态 | Self-attention，全局并行计算 |
+| 并行训练 | 时间维度序列化（encoder/rollout 可并行） | 沿序列维度高度并行 |
+| 长程依赖 | 受限于固定隐状态容量 | 强（直接 attention） |
+| 隐表示 | 结构化 latent state（deterministic + stochastic） | token / latent representation |
+| 数据需求 | 小中规模数据友好 | 通常需要大规模预训练 |
+| 代表工作 | DreamerV3 | UniSim, GAIA-1, Cosmos |
+

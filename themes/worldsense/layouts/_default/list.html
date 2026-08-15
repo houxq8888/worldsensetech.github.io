@@ -1,0 +1,13 @@
+{{ define "main" }}
+    <div class="categories-page">
+        <h1>{{ .Title }}</h1>
+        <ul class="category-articles">
+            {{ range .Pages.ByDate.Reverse }}
+            <li>
+                <a href="{{ .Permalink }}">{{ .Title }}</a>
+                <span class="article-date">{{ .Date.Format "2006-01-02" }}</span>
+            </li>
+            {{ end }}
+        </ul>
+    </div>
+{{ end }}

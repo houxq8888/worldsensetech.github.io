@@ -1,0 +1,25 @@
+{{ define "main" }}
+    <div class="categories-page">
+        <h1>{{ if eq .Site.Language.Lang "zh" }}文章分类{{ else }}Categories{{ end }}</h1>
+
+        <div class="category-nav">
+            {{ range .Pages }}
+            <a href="#{{ .Title | urlize }}">{{ .Title }} ({{ len .Pages }})</a>
+            {{ end }}
+        </div>
+
+        {{ range .Pages }}
+        <section class="category-section" id="{{ .Title | urlize }}">
+            <h2 class="category-title">{{ .Title }} <span class="category-count">({{ len .Pages }}{{ if eq $.Site.Language.Lang "zh" }}篇{{ else }} articles{{ end }})</span></h2>
+            <ul class="category-articles">
+                {{ range .Pages.ByDate.Reverse }}
+                <li>
+                    <a href="{{ .Permalink }}">{{ .Title }}</a>
+                    <span class="article-date">{{ .Date.Format "2006-01-02" }}</span>
+                </li>
+                {{ end }}
+            </ul>
+        </section>
+        {{ end }}
+    </div>
+{{ end }}

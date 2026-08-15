@@ -1,0 +1,12 @@
+name = "WorldSense"
+license = "MIT"
+licenselink = ""
+description = "A clean, technical blog theme for WorldSense"
+homepage = "https://worldsensetech.com"
+tags = ["blog", "technical", "bilingual", "minimal"]
+features = ["bilingual", "responsive", "code-highlight"]
+min_version = "0.100.0"
+
+[author]
+  name = "WorldSense"
+  homepage = "https://worldsensetech.com"

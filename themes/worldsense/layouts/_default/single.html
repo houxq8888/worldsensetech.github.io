@@ -1,0 +1,85 @@
+{{ define "main" }}
+    <div class="article-header">
+        <h1>{{ .Title }}</h1>
+        <div class="article-info">
+            {{ if eq .Site.Language.Lang "zh" }}
+            {{ $charCount := len .Plain }}
+            {{ $readTime := div (add $charCount 799) 800 }}
+            {{ .Date.Format "2006年1月2日" }} · 阅读约{{ if lt $readTime 1 }}1{{ else }}{{ $readTime }}{{ end }}分钟
+            {{ else }}
+            {{ .Date.Format "Jan 2, 2006" }} · ~{{ div (add .WordCount 199) 200 }} min read
+            {{ end }}
+            {{ with .Params.tags }} · {{ delimit . ", " }}{{ end }}
+        </div>
+    </div>
+
+    {{ if and .Params.toc (gt .WordCount 400) }}
+    <div class="toc">
+        <details class="toc-container" open>
+            <summary>{{ if eq .Site.Language.Lang "zh" }}目录{{ else }}Table of Contents{{ end }}</summary>
+            {{ .TableOfContents }}
+        </details>
+    </div>
+    {{ end }}
+
+    <main class="article-content">
+        {{ .Content }}
+    </main>
+
+    <hr>
+
+    <div class="article-actions">
+        <button id="btn-like" class="action-btn like-btn">
+            <span class="icon">♡</span>
+            <span>{{ if eq .Site.Language.Lang "zh" }}点赞{{ else }}Like{{ end }}</span>
+            (<span id="like-count">0</span>)
+        </button>
+        <button id="btn-bookmark" class="action-btn bookmark-btn">
+            <span class="icon">☆</span>
+            <span>{{ if eq .Site.Language.Lang "zh" }}收藏{{ else }}Bookmark{{ end }}</span>
+        </button>
+    </div>
+
+    {{ $articles := where .Site.RegularPages "Section" "articles" }}
+    {{ $articlesByDate := $articles.ByDate }}
+    {{ $current := . }}
+    {{ $prev := false }}
+    {{ $next := false }}
+    {{ range $i, $p := $articlesByDate }}
+        {{ if eq $p.Permalink $current.Permalink }}
+            {{ if gt $i 0 }}
+                {{ $prev = (index $articlesByDate (sub $i 1)) }}
+            {{ end }}
+            {{ if lt $i (sub (len $articlesByDate) 1) }}
+                {{ $next = (index $articlesByDate (add $i 1)) }}
+            {{ end }}
+        {{ end }}
+    {{ end }}
+    <div class="article-nav">
+        {{ if $prev }}
+        <a href="{{ $prev.RelPermalink }}">← {{ $prev.Title }}</a>
+        {{ else }}<span></span>{{ end }}
+        {{ if $next }}
+        <a href="{{ $next.RelPermalink }}">{{ $next.Title }} →</a>
+        {{ else }}<span></span>{{ end }}
+    </div>
+
+    <div class="comments-section">
+        <h3>{{ if eq .Site.Language.Lang "zh" }}评论{{ else }}Comments{{ end }}</h3>
+        <div id="giscus-container"></div>
+    </div>
+
+    <div class="author-box">
+        <div class="author-avatar">W</div>
+        <div class="author-info">
+            <div class="author-name">{{ .Site.Params.author }}</div>
+            {{ if eq .Site.Language.Lang "zh" }}
+            <p>西北工业大学硕士，十余年自动化与 AI 工程经验。著有《Visual C++入门很容易》《C++程序设计经典300例》。目前聚焦世界模型与具身智能方向，记录从传统自动化到机器人 AI 的转型之路。</p>
+            {{ else }}
+            <p>MSc at Northwestern Polytechnical University, 10+ years in automation and AI engineering. Author of "Visual C++ Made Easy" and "300 Classic C++ Programming Examples". Currently focused on World Models and Embodied AI.</p>
+            {{ end }}
+        </div>
+    </div>
+
+    <script src="{{ "js/blog-interactions.js" | relURL }}"></script>
+{{ end }}

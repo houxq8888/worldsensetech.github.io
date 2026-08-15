@@ -1,0 +1,224 @@
+---
+title: "DreamerV3 训练技巧：从踩坑到收敛的实战经验"
+slug: "dreamerv3-training-tips"
+aliases:
+  - /articles/dreamerv3-training-tips.html
+date: 2026-08-11
+draft: false
+categories: ["世界模型", "教程"]
+tags: ["DreamerV3", "世界模型", "训练技巧", "强化学习", "MuJoCo"]
+description: "DreamerV3 训练技巧：从踩坑到收敛的实战经验 - WorldSense 技术笔记"
+toc: true
+---
+
+
+上一篇文章梳理了世界模型的四条表征路线。今天我们回到 DreamerV3 的实战主题，聊聊训练过程中的那些坑和技巧。本文基于 DreamerV3 commit `e3f02248`、JAX + Haiku、MuJoCo + DM Control 的本地实验环境，不同版本的参数名和配置可能有差异。
+ 
+
+DreamerV3 是目前最开源、最成熟的世界模型实现之一。但如果你真的动手训练过，一定知道这个过程并不轻松——环境配置、超参数调优、训练不稳定、收敛慢……各种坑。
+ 
+
+这篇文章总结我在训练 DreamerV3 过程中遇到的常见问题和解决方案，希望能帮你少走弯路。
+ 
+## 环境配置的坑
+ 
+### 1. MuJoCo 版本问题
+ 
+
+DreamerV3 的官方实现基于 JAX + MuJoCo。但 MuJoCo 的版本选择很关键：
+ 
+ 
+- MuJoCo 2.x vs 3.x。官方代码基于 MuJoCo 2.x，但 3.x 版本有性能改进。如果用 3.x，需要修改部分 API 调用。 
+- mujoco-py vs mujoco。mujoco-py 是旧的 Python 绑定，已经停止维护。建议直接用官方的 mujoco 包。 
+ 
+
+建议：优先使用与你当前 DreamerV3 commit 匹配的 MuJoCo 版本，不要一开始就升级整个环境。
+ 
+### 2. JAX 的 GPU 配置
+ 
+
+JAX 的 GPU 支持需要正确安装 CUDA 和 cuDNN。常见问题：
+ 
+ 
+- CUDA 版本不匹配。JAX 对 CUDA 版本有严格要求，安装前查看官方文档。 
+- GPU 内存不足。JAX 默认会占用所有 GPU 内存。可以设置 `XLA_PYTHON_CLIENT_MEM_FRACTION=0.9` 限制内存使用。如果遇到编译阶段内存峰值过高，也可以设置 `XLA_PYTHON_CLIENT_PREALLOCATE=false` 关闭预分配。 
+- 多 GPU 问题。JAX 的多 GPU 支持和 PyTorch 不同，需要特别配置。 
+ 
+
+下图是 DreamerV3 在 RTX 5090D 上训练时的实际 GPU 占用情况，显存占用约 25.6GB（32GB 的 78%），GPU 利用率 91%：
+  ![DreamerV3 训练时 GPU 占用情况](/images/nvidia smi.png) 图：RTX 5090D 上 DreamerV3 训练时的 GPU 显存占用（25.6GB / 32GB，利用率 91%）  
+
+建议：先用 CPU 跑小实验验证代码，再切换到 GPU 训练。
+ 
+### 3. 依赖包版本冲突
+ 
+
+DreamerV3 的依赖包括 jax、haiku、optax、mujoco 等，版本之间可能有冲突。常见问题：
+ 
+ 
+- haiku 和 jax 版本不兼容 
+- optax 的 API 变化导致代码报错 
+- gymnasium 和 gym 混用 
+ 
+
+建议：使用官方提供的 requirements.txt 或 conda 环境，不要自己随意升级包。
+ 
+## 超参数调优
+ 
+
+DreamerV3 的超参数比一般 RL 算法多，调优是个挑战。下面是一些关键参数的经验：
+ 
+### 1. 世界模型相关
+ 
+
+RSSM 的隐状态维度（deter_size, stoch_size）。常见配置是 4096 和 32。注意 DreamerV3 的 stochastic latent 是离散类别状态，不是普通连续向量。如果任务简单，可以减小到 2048 和 16，加快训练速度。如果任务复杂（如视觉输入），可能需要增大。
+ 
+
+想象训练的 batch size（imag_batch）。常见配置下在数百到上千范围。如果 GPU 内存不足，可以减小到 512 或 256，但要增加梯度累积步数。
+ 
+
+KL 约束参数（类似 free bits 的 KL free threshold）。这个参数控制世界模型的正则化强度。在部分训练不稳定的情况下，可以尝试调整该参数观察 KL 约束变化。
+ 
+### 2. Actor-Critic 相关
+ 
+
+学习率（actor_lr, critic_lr）。常见范围在 1e-4 到 3e-4。如果训练震荡，可以尝试更小的学习率；如果收敛太慢，可以适当增大。
+ 
+
+折扣因子（discount）。常见值 0.997。对于长 horizon 任务，可以增大到 0.999；对于短 horizon 任务，可以减小到 0.99。
+ 
+
+熵正则参数。鼓励探索。如果策略过早收敛到局部最优，可以增大熵正则；如果策略一直在随机探索，可以减小。
+ 
+### 3. 数据收集相关
+ 
+
+训练步数（train_steps）。默认 5e5 或 1e6。对于简单任务，5e5 可能就够了；对于复杂任务，可能需要 2e6。
+ 
+
+数据收集频率（collect_every）。默认每 16 步收集一次数据。如果环境运行很快，可以增大到 32；如果环境运行慢，可以减小到 8。
+ 
+## 训练不稳定的常见原因
+ 
+
+DreamerV3 训练不稳定是最常见的问题。下面是一些常见原因和解决方案：
+ 
+### 1. 奖励尺度问题
+ 
+
+DreamerV3 内置了 symlog 变换和 return normalization 来处理奖励尺度，但在实际训练中，如果奖励分布异常极端，仍可能影响训练稳定性。
+ 
+
+解决方案：检查奖励的数值范围。如果奖励值差异过大（如 0.001 到 1000+），可以考虑对奖励做额外的归一化或缩放。
+ 
+
+下图展示了 cartpole_balance 任务训练到约 7.3 万步时的奖励统计。Average Reward 从 0.15 稳步上升到 0.6，Advantage 和 Advantage Magnitude 都在前 1 万步内快速收敛到接近 0，说明 DreamerV3 内置的 symlog 变换和 return normalization 确实在早期就稳定了奖励信号：
+  ![DreamerV3 奖励统计曲线](/images/reward_stats.png) 图：DreamerV3 训练过程中的奖励统计（cartpole_balance 任务，约 7.3 万步）  
+### 2. 观测归一化问题
+ 
+
+如果使用自定义环境，观测值的范围可能差异很大（如某些维度是 0-1，某些是 0-1000），世界模型难以学习。
+ 
+
+解决方案：检查 observation 的数值范围，确保输入尺度合理。对于自定义环境，建议将所有观测维度归一化到相似的范围。
+ 
+### 3. 想象训练崩溃
+ 
+
+想象训练（imagined rollouts）是 DreamerV3 的核心，但也容易崩溃。常见表现：
+ 
+ 
+- 想象中的状态值爆炸（NaN 或 Inf） 
+- 想象中的动作值异常大 
+- Critic 损失突然增大 
+ 
+
+解决方案：
+ 
+ 
+- 减小想象训练的 batch size 
+- 调整 KL 约束参数 
+- 对想象状态做梯度裁剪（gradient clipping） 
+- 检查世界模型的损失是否正常 
+ 
+### 4. 数据缓冲区问题
+ 
+
+DreamerV3 使用经验回放缓冲区存储数据。如果缓冲区太小或数据质量差，训练会受影响。
+ 
+
+解决方案：
+ 
+ 
+- 增大缓冲区大小（常见配置 1e6） 
+- 保证 replay buffer 中包含足够多样化的数据 
+ 
+
+下图展示了训练过程中 replay ratio 和 training FPS 的变化。replay ratio 稳定在 260 左右，说明数据被充分复用；training FPS 稳定在 3,400-3,500 左右（中间尖谷是 checkpoint 保存时的短暂停顿）：
+  ![DreamerV3 训练过程中的 replay ratio 和 FPS](/images/training_stats.png) 图：训练过程中的 replay ratio（左）和 training FPS（右）  
+## 调试技巧
+ 
+### 1. 先用小模型快速迭代
+ 
+
+不要一开始就用默认的大模型。先用小模型（隐状态维度减半）跑 1e5 步，验证代码和流程是否正确。确认没问题后，再切换到完整模型。
+ 
+### 2. 监控关键指标
+ 
+
+训练过程中，重点关注这些指标：
+ 
+ 
+- 世界模型损失。包括重建损失、KL 散度、奖励预测损失。整体趋势改善即可，不要求单调下降。 
+- Actor 损失。用于观察训练是否异常，不作为单独收敛指标。 
+- Critic 损失。关注是否出现突然爆炸或持续异常增大。 
+- episode 奖励。应该逐渐上升。如果一直不升，说明策略没有学习。 
+ 
+
+下图是 cartpole_balance 任务训练到约 7.3 万步时的 loss 曲线。可以看到 Dynamics Loss 从 5.5 降到 1.4，Decoder Loss 从 102 降到接近 0，Value Loss 和 Reward Loss 也在稳步下降，说明世界模型和策略都在正常学习：
+  ![DreamerV3 训练 loss 曲线](/images/loss_curves.png) 图：DreamerV3 训练过程中的关键 loss 曲线（cartpole_balance 任务，约 7.3 万步）  
+### 3. 可视化想象轨迹
+ 
+
+DreamerV3 的一个优势是可以可视化想象中的轨迹。定期检查：
+ 
+ 
+- 想象中的图像是否合理 
+- 想象中的奖励是否和真实奖励一致 
+- 想象中的动作是否合理 
+ 
+
+如果想象中的内容和现实差距很大，说明世界模型没有学好。
+ 
+### 4. 对比 baseline
+ 
+
+如果可能，先跑一个 baseline（如 PPO 或 SAC）作为对比。DreamerV3 应该在样本效率上优于 baseline，但最终性能可能相近。如果 DreamerV3 明显差于 baseline，说明有问题。
+ 
+## 收敛判断
+ 
+
+如何判断 DreamerV3 是否已经收敛？
+ 
+
+episode 奖励稳定。最近 100 个 episode 的平均奖励不再明显上升。
+ 
+
+世界模型损失稳定。损失曲线趋于平稳，没有明显波动。
+ 
+
+想象轨迹合理。想象中的行为和真实行为一致。
+ 
+
+如果满足以上条件，可以认为模型已经收敛。此时可以停止训练，或继续训练看是否有进一步提升。建议在不同 seed 下重复实验，因为 RL 单次运行可能存在偶然性。
+ 
+
+下图是 cartpole_balance 任务的 episode return 变化。从约 1.5 万步到 7.3 万步，episode return 从 280 稳步上升到 970（理论满分约 1000），上升趋势清晰，说明策略在持续有效地学习：
+  ![DreamerV3 Episode Return 曲线](/images/episode_returns.png) 图：Cartpole balance 任务的 episode return 变化趋势（约 1.5 万步到 7.3 万步）  
+## 小结
+ 
+
+DreamerV3 的训练是一个工程问题，需要耐心和细心。本文总结了环境配置、超参数调优、训练不稳定、调试技巧等方面的经验，希望能帮助你从踩坑到收敛。
+ 
+
+记住，没有万能的超参数。每个任务都有自己的特点，需要根据实际情况调整。多实验、多观察、多总结，是掌握 DreamerV3 的关键。

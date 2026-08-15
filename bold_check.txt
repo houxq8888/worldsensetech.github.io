@@ -1,0 +1,273 @@
+2026-08-16-ai-physical-shell.md L129: **R1 更像一次产品形态实验，而不是一次已经结束的尝试。**它最有价值的地方，可能不是它今天到底好不好用，而是它一直在试验：一个专门的 AI Agent 入口，到底有没有必要成为一台独立设备。
+2026-08-16-ai-physical-shell.md L184: **Humane AI Pin。**2025 年 2 月，Humane 宣布停止消费者 AI Pin 服务；2 月 28 日服务正式关闭。其部分 AI 能力、人才和知识产权随后由 HP 以约 1.16
+2026-08-16-ai-physical-shell.md L187: **Limitless Pendant** 则是一个很值得研究的案例。它探索过一种非常有意思的方向：**AI 不再等你主动打开，而是持续存在于你的生活上下文中。**2025 年 12 月，Meta 收
+2026-08-16-ai-physical-shell.md L206: **所以"AI 在寻找物理外壳"真正有意思的地方，不是 AI 最终会长成什么样，而是我们正在第一次看到：一个 AI 系统到底需要怎样的身体，才能真正进入现实世界。**
+2026-08-17-dreamerv3-gpu-infrastructure.md L68: **重要说明：**不要把下面的配置理解成 DreamerV3 的"最低硬件要求"。实际资源消耗取决于任务类型、模型规模、batch size、图像输入分辨率、并行环境数量和 replay 配置。官方实
+2026-08-17-dreamerv3-gpu-infrastructure.md L89: **说明：**本文前面的显存数据（25.6GB 峰值）来自 AutoDL 上的 RTX 5090D 实例。需要特别说明，**RTX 5090D 为 32GB 显存，而最终工作站选择的 RTX 4090
+2026-08-17-dreamerv3-gpu-infrastructure.md L123: **计算公式：**简单成本平衡点 ≈ 自建初始成本 ÷（云 GPU 年成本 − 自建年运行成本）。自建年运行成本主要包括电费。
+2026-08-17-dreamerv3-gpu-infrastructure.md L152: **入门阶段（还在学 DreamerV3 原理、跑 cartpole_balance）：**用 Google Colab 或 AutoDL 的免费/低价机型。这个阶段你的训练任务轻，没必要投入硬件。
+2026-08-17-dreamerv3-gpu-infrastructure.md L155: **进阶阶段（开始跑更复杂的 DMC 视觉任务、多个 seed 或更高训练比例的实验）：**如果每周 GPU 实际运行时间已经稳定超过 20 小时（这是我的个人经验阈值，不是经济学上的统一标准），我会
+2026-08-17-dreamerv3-gpu-infrastructure.md L158: **研究阶段（需要高频迭代、写博客、做对比实验）：**如果你需要高频迭代，而且单卡资源已经能够覆盖大部分实验，本地工作站的便利性会非常明显；如果实验规模已经进入多 GPU 或大规模并行阶段，则云端或集
+abot-world-0-24h-inference.md L76: **但需要澄清：**24小时稳定推理主要证明的是**稳定运行能力**，不代表24小时物理完全一致、细节无漂移、或具备真实世界理解。长时间演化后质量仍会有衰减，这是当前所有自回归模型的共性问题。
+abot-world-0-24h-inference.md L101: **但要注意：**ABot-World-0 目前主要突破的是**视觉世界状态的长时稳定演化**，距离"机器人可以依靠它学习复杂动作"还有距离。视觉演化与控制策略之间还需要打通。
+abot-world-0-24h-inference.md L122: **ABot-World-0 的价值不在于生成了更长的视频，而在于证明交互式世界模型开始具备"持续存在"的能力。**
+domain-randomization-sim-to-real.md L24: **动力学层面：**摩擦系数、质量分布、关节阻尼、电机响应延迟。仿真中的物理参数往往是近似值，和真实机器人有偏差。
+domain-randomization-sim-to-real.md L27: **视觉层面：**光照条件、相机噪声、纹理细节、背景变化。仿真渲染和真实相机看到的图像有显著差异。
+domain-randomization-sim-to-real.md L30: **传感器层面：**IMU 漂移、力传感器噪声、编码器精度。仿真中的传感器是理想的，真实传感器有各种非理想特性。
+domain-randomization-sim-to-real.md L56: **关键洞察：**域随机化本质上是在训练数据的分布中注入多样性，让策略学到鲁棒的、不依赖于特定仿真参数的行为。
+domain-randomization-sim-to-real.md L130: **1. 从标称值出发，逐步扩大。**先用标称参数（仿真默认值）训练，确认策略在仿真中能学好。然后逐步扩大随机化范围，观察仿真性能和迁移性能的变化。
+domain-randomization-sim-to-real.md L133: **2. 优先随机化敏感参数。**不是所有参数都同样重要。对于抓取任务，摩擦系数和物体质量通常是最敏感的。可以通过敏感性分析（改变一个参数，观察性能变化）来确定优先级。
+domain-randomization-sim-to-real.md L136: **3. 使用真实数据校准范围。**如果有真实世界的数据（比如机器人实际运行时的传感器读数），可以用这些数据来估计参数的真实分布，然后据此设定随机化范围。这比拍脑袋设范围靠谱得多。
+domain-randomization-sim-to-real.md L170: **1. 无法覆盖所有差异。**有些 Sim-to-Real gap 很难用随机化来覆盖。比如仿真中的接触模型和真实世界的接触力学可能有本质差异，这不是调几个参数能解决的。
+domain-randomization-sim-to-real.md L173: **2. 可能过于保守。**为了覆盖所有可能的情况，策略可能学到过于保守的行为。比如在抓取任务中，策略可能因为随机化了很大的摩擦范围而用很大的力抓取，这在真实世界中可能损坏物体。
+domain-randomization-sim-to-real.md L176: **3. 训练成本增加。**随机化意味着每个 episode 的环境都不同，策略需要更多的训练步数才能收敛。
+dreamerv3-training-tips.md L72: **RSSM 的隐状态维度（deter_size, stoch_size）。**常见配置是 4096 和 32。注意 DreamerV3 的 stochastic latent 是离散类别状态，不是普
+dreamerv3-training-tips.md L75: **想象训练的 batch size（imag_batch）。**常见配置下在数百到上千范围。如果 GPU 内存不足，可以减小到 512 或 256，但要增加梯度累积步数。
+dreamerv3-training-tips.md L78: **KL 约束参数（类似 free bits 的 KL free threshold）。**这个参数控制世界模型的正则化强度。在部分训练不稳定的情况下，可以尝试调整该参数观察 KL 约束变化。
+dreamerv3-training-tips.md L83: **学习率（actor_lr, critic_lr）。**常见范围在 1e-4 到 3e-4。如果训练震荡，可以尝试更小的学习率；如果收敛太慢，可以适当增大。
+dreamerv3-training-tips.md L86: **折扣因子（discount）。**常见值 0.997。对于长 horizon 任务，可以增大到 0.999；对于短 horizon 任务，可以减小到 0.99。
+dreamerv3-training-tips.md L89: **熵正则参数。**鼓励探索。如果策略过早收敛到局部最优，可以增大熵正则；如果策略一直在随机探索，可以减小。
+dreamerv3-training-tips.md L94: **训练步数（train_steps）。**默认 5e5 或 1e6。对于简单任务，5e5 可能就够了；对于复杂任务，可能需要 2e6。
+dreamerv3-training-tips.md L97: **数据收集频率（collect_every）。**默认每 16 步收集一次数据。如果环境运行很快，可以增大到 32；如果环境运行慢，可以减小到 8。
+dreamerv3-training-tips.md L110: **解决方案：**检查奖励的数值范围。如果奖励值差异过大（如 0.001 到 1000+），可以考虑对奖励做额外的归一化或缩放。
+dreamerv3-training-tips.md L121: **解决方案：**检查 observation 的数值范围，确保输入尺度合理。对于自定义环境，建议将所有观测维度归一化到相似的范围。
+dreamerv3-training-tips.md L134: **解决方案：**
+dreamerv3-training-tips.md L148: **解决方案：**
+dreamerv3-training-tips.md L202: **episode 奖励稳定。**最近 100 个 episode 的平均奖励不再明显上升。
+dreamerv3-training-tips.md L205: **世界模型损失稳定。**损失曲线趋于平稳，没有明显波动。
+dreamerv3-training-tips.md L208: **想象轨迹合理。**想象中的行为和真实行为一致。
+embodied-ai-2026-breakthrough.md L35: **系统辨识自动化。**不再需要工程师手动调参来匹配仿真和真实世界的物理参数，模型可以自动从少量真实数据中学习未建模的动态。
+embodied-ai-2026-breakthrough.md L38: **渐进式信任迁移。**策略不是一次性从仿真跳到真实世界，而是通过"仿真→混合环境→真实世界"的渐进过程，每一步都有安全约束保证不会出大问题。
+embodied-ai-2026-breakthrough.md L41: **在线模型适配。**部署到真实世界后，模型能持续从真实数据中学习，不断修正自己的预测偏差。
+embodied-ai-rl-prospects.md L29: **需求端：**
+embodied-ai-rl-prospects.md L37: **薪资范围（2026年，国内，仅供参考）：**
+embodied-ai-rl-prospects.md L45: **现实问题：**算法岗的HC（headcount）在减少。2024年人形机器人热潮时大量招聘，2025-2026年很多公司发现技术落地比预期慢，开始优化团队。纯算法、没有工程能力的人风险最大。
+embodied-ai-rl-prospects.md L65: **薪资范围（仅供参考）：**
+embodied-ai-rl-prospects.md L83: **典型岗位：**
+embodied-ai-rl-prospects.md L94: **薪资范围（仅供参考）：**
+embodied-ai-rl-prospects.md L106: **1. 纯算法岗会继续卷，工程和应用岗会升值。**
+embodied-ai-rl-prospects.md L112: **2. 跨界人才最吃香。**
+embodied-ai-rl-prospects.md L118: **3. 创业机会在应用层。**
+embodied-ai-rl-prospects.md L124: **4. 地域分化明显。**
+embodied-ai-rl-prospects.md L132: **在校学生：**如果有机会读博，读博。算法岗的门槛只会越来越高。但博士期间一定要做有工程价值的工作，不要纯理论。
+embodied-ai-rl-prospects.md L135: **转行者：**不要直接冲算法岗，竞争太激烈。从工程岗或应用岗切入，积累实战经验后再往算法方向转。
+embodied-ai-rl-prospects.md L138: **传统机器人工程师：**学PyTorch、学RL基础、学仿真工具（MuJoCo、Isaac Sim）。你已有的机器人知识是优势，补上AI这块就很有竞争力。
+embodied-ai-rl-prospects.md L141: **纯软件工程师：**学机器人学基础、学控制理论、了解硬件。你的编程能力是优势，补上物理世界这块。
+isaac-lab-install-guide.md L24: **依赖链长。**Isaac Lab 依赖 Isaac Sim，Isaac Sim 依赖 NVIDIA 驱动、CUDA、特定版本的 PyTorch，而 PyTorch 又依赖特定版本的 numpy、t
+isaac-lab-install-guide.md L27: **Python 版本要求高。**Isaac Lab 要求 Python ≥ 3.12，而很多服务器和云 GPU 平台的基础镜像还在用 Python 3.10 或 3.11。版本不满足会直接安装失败。
+isaac-lab-install-guide.md L30: **包体积大。**PyTorch + CUDA 的 whl 文件超过 2GB，numpy 也有几十 MB。在国内网络环境下，从 PyPI 下载经常中断，而且 pip 的断点续传并不总是可靠。
+isaac-lab-install-guide.md L65: **解决方案：**用 conda 创建一个独立的 Python 3.12 环境。这样做的好处是不影响服务器上其他项目（比如你正在跑的 DreamerV3 训练）。
+isaac-lab-install-guide.md L102: **解决方案：**提前把 pip 的默认源换成国内镜像。清华源和阿里云源都比较稳定：
+isaac-lab-robot-rl.md L44: **Isaac Sim。**底层的物理仿真平台，利用 GPU 加速物理计算（PhysX 5）和 RTX 渲染，同时支持 CPU/GPU 混合计算。Isaac Sim 负责"模拟物理世界"。
+isaac-lab-robot-rl.md L47: **Isaac Lab。**中间的训练框架，提供向量化的环境接口、内置的 RL 算法（RSL-RL、SKRL）、任务定义工具。Isaac Lab 负责"在仿真中训练策略"。
+isaac-lab-robot-rl.md L50: **部署硬件。**训练好的策略可以部署到边缘计算平台（如 Jetson 系列设备）、工业 PC 或机器人控制器上，在真实世界中执行。
+isaac-lab-robot-rl.md L63: **MuJoCo** 是轻量级的仿真器，传统版本偏 CPU 高效仿真，物理精度好，适合快速原型开发。近年来 MJX（JAX backend）等新方向开始探索 GPU/JAX 加速。缺点是渲染质量有限，
+isaac-lab-robot-rl.md L66: **Isaac Sim** 是工业级的仿真平台，GPU 运行，支持光线追踪渲染和大规模并行。优点是视觉保真度高、可以并行数千个环境。缺点是需要 NVIDIA GPU（推荐 RTX 级别以上，具体需求取
+isaac-lab-robot-rl.md L74: **DreamerV3（model-based）。**先学习环境模型（"想象"），然后在想象训练中训练策略。优势是样本效率高——不需要数百万次真实交互，但训练过程复杂（需要同时优化世界模型、Actor
+isaac-lab-robot-rl.md L77: **Isaac Lab 中的 RL 算法（model-free）。**直接在仿真环境中用 RL 算法训练策略。Isaac Lab 常见训练方案包括 PPO（RSL-RL、RL Games）、SAC、模
+isaac-lab-robot-rl.md L85: **MuJoCo + DreamerV3。**传统 MuJoCo 环境通常基于 CPU 仿真，通过多进程实现并行，受限于 CPU 核心数，一般同时运行几个到几十个环境。但近年来 MJX 等 JAX 后
+isaac-lab-robot-rl.md L88: **Isaac Lab。**环境在 GPU 上向量化执行。简单任务（如 Cartpole）可以达到数千环境并行，但并行数量取决于机器人复杂度、观测空间大小、接触复杂度和显存。RL 算法也完全在 GPU
+isaac-lab-robot-rl.md L96: **MuJoCo + DreamerV3 适合：**
+isaac-lab-robot-rl.md L105: **Isaac Lab 适合：**
+isaac-lab-robot-rl.md L231: **思维方式的转变。**DreamerV3 是"先学模型，再学策略"的两阶段方法；Isaac Lab 是"直接学策略"的单阶段方法。你不再需要关心世界模型的训练、想象训练、KL 散度等问题。
+isaac-lab-robot-rl.md L234: **并行化的利用。**Isaac Lab 的核心优势是并行化。你需要学会调整 `num_envs`、`batch_size` 等参数，充分利用 GPU 的并行能力。
+isaac-lab-robot-rl.md L237: **奖励设计的调整。**RL 训练对奖励函数很敏感。在 DreamerV3 中，奖励尺度的问题可以通过归一化解决；在 Isaac Lab 中，奖励的设计更直接地影响策略的行为。
+isaac-lab-robot-rl.md L240: **视觉任务的处理。**如果你要做视觉输入的任务，Isaac Sim 的渲染质量和速度都优于 MuJoCo。但配置也更复杂——需要设置相机参数、域随机化等。
+isaac-lab-robot-rl.md L248: **快速原型用 MuJoCo + DreamerV3。**在研究阶段，用 MuJoCo 快速验证想法，用 DreamerV3 学习世界模型，理解任务的基本动态。
+isaac-lab-robot-rl.md L251: **规模训练用 Isaac Lab。**当方案确定后，用 Isaac Lab 做大规模训练，充分利用 GPU 并行化，快速得到高质量的策略。
+isaac-lab-robot-rl.md L254: **世界模型 + RL。**也可以利用 Isaac Lab 生成大规模交互数据，用于训练世界模型，并进一步探索 model-based control。这种结合方式正在研究探索中。
+mujoco-vs-isaac-sim.md L29: **接触动力学精度高。**MuJoCo 使用约束-based 的接触模型，能准确模拟摩擦、碰撞、关节限位等。对于机器人操作任务（抓取、推、插装），接触精度至关重要。
+mujoco-vs-isaac-sim.md L32: **计算速度快。**MuJoCo 的求解器高度优化，单线程就能跑很快。对于需要大量 rollouts 的强化学习训练，速度是硬指标。
+mujoco-vs-isaac-sim.md L35: **数值稳定性好。**MuJoCo 的积分器和约束求解器经过多年打磨，不容易出现仿真崩溃（比如物体穿模、关节爆炸）。
+mujoco-vs-isaac-sim.md L38: **渲染能力近年来有所增强，但设计重点不同。**MuJoCo 近年来增强了渲染能力，支持相机观测、深度图等视觉输入，DM Control pixels benchmark、RoboSuite 图像任务
+mujoco-vs-isaac-sim.md L46: **GPU 加速物理。**Isaac Sim 基于 NVIDIA PhysX 5，并通过 GPU 加速和 Isaac Lab 的并行环境管理支持大规模机器人学习训练。这种架构源自 Isaac Gym 
+mujoco-vs-isaac-sim.md L49: **光线追踪渲染。**基于 RTX 的光线追踪渲染，能生成照片级逼真的图像。对于需要真实感视觉输入的任务（比如基于图像的抓取），这是巨大的优势。
+mujoco-vs-isaac-sim.md L52: **传感器仿真丰富。**内置 RGB 相机、深度相机、LiDAR、IMU、力传感器等多种传感器的仿真模型，且传感器噪声模型可配置。
+mujoco-vs-isaac-sim.md L55: **但学习曲线陡。**Isaac Sim 的架构复杂，依赖 Omniverse 平台，配置和调试比 MuJoCo 麻烦得多。
+mujoco-vs-isaac-sim.md L151: **1. 你的策略输入是什么？**
+mujoco-vs-isaac-sim.md L157: **2. 你需要大规模并行训练吗？**
+mujoco-vs-isaac-sim.md L163: **3. 你的目标是什么？**
+mujoco-vs-isaac-sim.md L169: **4. 最终做 Sim-to-Real 部署？**
+mujoco-vs-isaac-sim.md L183: **算法开发阶段用 MuJoCo。**快速迭代算法，验证核心思路。MuJoCo 的轻量级特性让调试和实验更高效。
+mujoco-vs-isaac-sim.md L186: **视觉训练阶段用 Isaac Sim。**当算法需要视觉输入时，切换到 Isaac Sim 获取逼真的渲染和传感器仿真。
+mujoco-vs-isaac-sim.md L189: **Sim-to-Real 验证阶段两者结合。**用 MuJoCo 做动力学验证（接触、力控），用 Isaac Sim 做视觉验证（感知、定位）。
+mujoco-vs-isaac-sim.md L200: **MuJoCo** 负责快速算法验证和控制策略研究。**Isaac Sim** 负责视觉数据生成和传感器模拟。**真实机器人** 负责最后的数据闭环和在线适应。
+mujoco-vs-isaac-sim.md L211: **PyBullet：**开源免费，物理引擎基于 Bullet。渲染能力比 MuJoCo 好一些，但物理精度和速度不如 MuJoCo。适合预算有限的项目。
+mujoco-vs-isaac-sim.md L214: **Genesis：**近年来受到关注的 GPU 加速仿真框架，目标是提供高速、多物理场景（刚体、软体、流体等）模拟能力。目前生态成熟度仍低于 MuJoCo 和 Isaac Sim，但发展速度很快。
+mujoco-vs-isaac-sim.md L217: **Newton：**NVIDIA 参与推动的新一代机器人物理仿真项目，目标是探索更适合机器人学习和 GPU 加速的物理模拟框架。目前仍处于快速发展阶段。
+reinforcement-learning-how-to-start.md L139: **1. 不要试图读完所有论文。**RL领域论文太多，每个月都有几十篇新的。选择2-3篇经典论文精读，其他的泛读了解即可。
+reinforcement-learning-how-to-start.md L142: **2. 代码比论文重要。**读论文理解的是idea，但真正的理解来自于你亲手实现、调试、看到训练曲线时的顿悟。
+reinforcement-learning-how-to-start.md L145: **3. 善用开源框架。**Stable-Baselines3、RLlib、CleanRL这些框架封装好了主流算法。先用框架跑通，再自己实现核心模块，效率最高。
+reinforcement-learning-how-to-start.md L148: **4. 写博客记录过程。**当你试图把一个概念解释给别人时，你会发现自己理解中的漏洞。而且博客是你最好的简历。
+reinforcement-learning-how-to-start.md L151: **5. 接受"慢"。**RL训练很慢，调参很痛苦，收敛不稳定是常态。给自己至少3-6个月的时间，不要期望一个月就能成为专家。
+robot-data-challenge.md L84: **优点：**数据质量高，直接展示"好"的行为。
+robot-data-challenge.md L87: **缺点：**成本高、速度慢、难以扩展。操作者的技能水平也影响数据质量。
+robot-data-challenge.md L90: **代表工作：**Open X-Embodiment 数据集、DROID、RoboMimic。
+robot-data-challenge.md L98: **优点：**成本低、速度快、可以生成各种场景和边界情况。
+robot-data-challenge.md L101: **缺点：**存在 Sim-to-Real 鸿沟。仿真中的策略在真实环境中可能失效。
+robot-data-challenge.md L104: **代表平台：**NVIDIA Isaac Sim、MuJoCo、Habitat。
+robot-data-challenge.md L107: **常用方法：**域随机化（Domain Randomization）、系统辨识（System Identification）。
+robot-data-challenge.md L115: **优点：**数据量几乎无限，覆盖各种任务和场景。
+robot-data-challenge.md L118: **缺点：**视频知道"人做了什么"，但不知道"机器人应该如何执行"——缺少相机位姿、手-物交互、力信息、本体感知等。因此视频学习更像 world knowledge pretraining，而非直接
+robot-data-challenge.md L121: **代表工作：**Ego4D、Video Language Models。
+robot-data-challenge.md L129: **优点：**不需要真实交互，数据生成速度快。可以生成各种假设情况。
+robot-data-challenge.md L132: **缺点：**世界模型的精度限制了生成数据的质量。长程预测误差累积。
+robot-data-challenge.md L135: **代表工作：**DreamerV3 通过 latent imagination 生成训练轨迹用于策略优化；Genie 等视频世界模型尝试生成可交互环境用于探索。
+robot-data-challenge.md L146: **优点：**统一了感知、理解和行动的表示，提升了跨任务和跨场景的泛化能力。
+robot-data-challenge.md L149: **缺点：**需要大规模跨机器人、跨任务的 VLA 数据集，采集和标注成本仍然很高。在真实机器人场景中，面对长尾物体、新环境和精细操作时，泛化能力仍然有限。
+robot-data-challenge.md L152: **代表工作：**RT-1、RT-2、OpenVLA、π0、RoboCat。
+robot-data-challenge.md L258: **重视数据工程。**算法很重要，但数据更重要。有数据采集、处理、管理经验的人，会很抢手。
+robot-data-challenge.md L261: **学习仿真工具。**仿真是数据闭环的关键环节。掌握 Isaac Sim、MuJoCo 等仿真工具，是必备技能。
+robot-data-challenge.md L264: **理解 Sim-to-Real。**域随机化、系统辨识等方法，是连接仿真和真实的桥梁。
+robot-data-challenge.md L267: **关注数据闭环。**大规模具身智能系统很可能依赖数据驱动的持续学习闭环。理解数据闭环的思路和方法，是把握行业趋势的关键。
+rssm-deep-dive.md L38: **确定性状态 hₜ（Deterministic State）**
+rssm-deep-dive.md L51: **随机性状态 zₜ（Stochastic State）**
+rssm-deep-dive.md L73: **第一步：更新确定性状态**
+rssm-deep-dive.md L83: **第二步：计算随机性状态**
+rssm-deep-dive.md L108: **第三步：解码输出**
+rssm-deep-dive.md L125: **1. 重建损失（Reconstruction Loss）**
+rssm-deep-dive.md L135: **2. KL散度损失（KL Divergence Loss）**
+rssm-deep-dive.md L148: **3. 奖励/折扣损失**
+rssm-deep-dive.md L191: **1. 网络结构**
+rssm-deep-dive.md L202: **2. 数值稳定性**
+rssm-deep-dive.md L212: **3. 梯度传播**
+rssm-deep-dive.md L218: **4. 经验回放**
+rssm-deep-dive.md L229: **RSSM vs 经典Kalman Filter**
+rssm-deep-dive.md L235: **RSSM vs Transformer**
+rssm-deep-dive.md L241: **RSSM vs Mamba/S4**
+sim-to-real-transfer.md L71: **第一，随机化范围难确定。**如果范围太小，覆盖不到真实世界的参数；如果范围太大，策略会变得过于保守，什么都做不好。
+sim-to-real-transfer.md L74: **第二，只能处理已知的不确定性。**域随机化只能随机化你"知道要随机化"的参数。但未建模动态（比如柔性形变）你根本不知道该怎么随机化。
+sim-to-real-transfer.md L77: **第三，样本效率低。**为了覆盖足够大的参数空间，需要大量的训练数据。对于复杂的机器人任务，训练时间可能长达数周。
+sim-to-real-transfer.md L119: **阶段一：纯仿真训练**
+sim-to-real-transfer.md L125: **阶段二：混合环境训练**
+sim-to-real-transfer.md L134: **阶段三：真实世界部署**
+sim-to-real-transfer.md L169: **控制屏障函数（Control Barrier Functions, CBF）**是目前机器人安全控制的主流方法。它的核心思想是：定义一个"安全集"，策略的输出必须保证系统状态始终在安全集内。
+sim-to-real-transfer.md L204: **第一步：仿真训练**
+sim-to-real-transfer.md L210: **第二步：真实数据收集**
+sim-to-real-transfer.md L216: **第三步：世界模型适配**
+sim-to-real-transfer.md L222: **第四步：混合环境训练**
+sim-to-real-transfer.md L228: **第五步：部署与在线适配**
+sim-to-real-transfer.md L242: **计算成本。**世界模型本身需要训练，微调也需要数据。对于资源有限的团队，这可能是一个门槛。
+sim-to-real-transfer.md L245: **复杂场景。**对于涉及柔性物体、多物体交互、动态环境的场景，世界模型的预测精度还不够高。这些场景的Sim-to-Real迁移仍然是开放问题。
+sim-to-real-transfer.md L248: **理论保证。**目前的渐进式信任迁移和在线适配方法，缺乏严格的理论保证（比如收敛性、稳定性证明）。这是学术界正在努力的方向。
+td-mpc-world-model-control.md L27: **第一，样本效率低。**策略需要大量交互数据才能学好，而真实机器人的交互成本很高。
+td-mpc-world-model-control.md L30: **第二，缺乏"前瞻性"。**策略网络只看当前状态就决定动作，不会主动"想一想如果我这样做，接下来几步会怎样"。
+td-mpc-world-model-control.md L49: **1. 状态编码器（Encoder）**
+td-mpc-world-model-control.md L59: **2. 动力学模型（Dynamics Model）**
+td-mpc-world-model-control.md L69: **3. 奖励模型（Reward Model）**
+td-mpc-world-model-control.md L79: **4. Q 网络（Q-function）**
+td-mpc-world-model-control.md L134: **第一，训练更高效。**不需要解码器，少了一个大的神经网络组件。
+td-mpc-world-model-control.md L137: **第二，表示更紧凑。**隐状态只编码和控制相关的信息，过滤掉了无关的视觉细节。
+td-mpc-world-model-control.md L148: **1. 支持多任务。**通过条件化目标向量（goal vector），同一个模型可以处理多个不同的任务。这在机器人场景中很实用——一个模型既能抓取物体，也能推开障碍物。
+td-mpc-world-model-control.md L151: **2. 更大的模型规模。**TD-MPC2 使用了更大的动力学模型和更多的规划样本，在复杂操作任务上表现显著提升。
+td-mpc-world-model-control.md L154: **3. 改进的采样策略。**不只是随机采样动作序列，而是结合 learned prior（学习到的先验分布）来引导采样，让规划更高效。
+td-mpc-world-model-control.md L173: **1. 规划参数选择。**轨迹数量 K 和轨迹长度 H 是最关键的两个超参数。K 太小，采样不够充分；K 太大，推理太慢。H 太小，规划视野不够；H 太大，模型误差累积严重。TD-MPC 系列论文中
+td-mpc-world-model-control.md L176: **2. 动作采样策略。**纯随机采样效率很低。TD-MPC2 使用 learned prior 来引导采样——先用一个小的策略网络生成初始动作序列，然后在这个基础上加噪声采样。这比纯随机采样效率高很
+td-mpc-world-model-control.md L179: **3. 模型容量。**动力学模型不需要太大。TD-MPC 原始论文用的是 3 层 MLP，每层 512 维。太大的模型容易过拟合，尤其是在数据有限的情况下。
+td-mpc-world-model-control.md L182: **4. 目标传播。**TD 目标的传播步数（n-step）影响训练稳定性。n 太小，目标方差大；n 太大，目标偏差大。通常 n=3 到 n=5 是比较好的选择。
+td-mpc-world-model-control.md L190: **路线一：Dreamer 系列（RSSM + Actor-Critic）。**在隐空间中训练策略网络，策略在想象中学习，然后在真实世界执行。适合需要通过环境交互学习策略，并利用模型想象提升样本效率的
+td-mpc-world-model-control.md L193: **路线二：TD-MPC 系列（确定性世界模型 + MPC规划）。**在隐空间中做在线规划，每次选择最优动作。适合需要精确规划的任务。
+td-mpc-world-model-control.md L196: **路线三：VLA（视觉-语言-动作模型）。**通常不显式构建世界模型，而是通过大规模视觉语言数据学习从感知到动作的映射。适合需要语言指令理解的任务。
+vla-vs-world-model.md L45: **一句话总结区别：VLA是"看到就做"，世界模型是"想了再做"。**
+vla-vs-world-model.md L59: **π0（Physical Intelligence，2024）**：用flow matching生成连续动作序列，在折叠衣服、装洗碗机等复杂家务任务上表现出色。它证明了预训练VLA可以通过少量任务微
+vla-vs-world-model.md L62: **OpenVLA（斯坦福/UC Berkeley，2024）**：开源的VLA模型，基于Llama-2视觉语言模型微调，在Open X-Embodiment数据集上达到了不错的性能。开源让中小团队也
+vla-vs-world-model.md L65: **RT-2（Google DeepMind，2023）**：最早把机器人动作变成token的工作，证明了55B参数的VLA可以zero-shot泛化到没见过的物体和指令。
+vla-vs-world-model.md L94: **DIAMOND（2024）**：用diffusion model做世界模型，在Atari上超越了DreamerV3的表现。证明了生成模型的范式也可以用于环境建模。
+vla-vs-world-model.md L97: **Genie 2（Google DeepMind，2024）**：从视频中学习交互式3D环境，可以从单张图片生成可交互的虚拟世界。虽然还不完美，但方向很有想象力。
+vla-vs-world-model.md L137: **π0**虽然被归类为VLA，但它用了flow matching来生成动作序列——这本质上就是一种"想象"。它不是简单地输出一个动作，而是生成一整个动作序列，然后在执行过程中不断修正。这已经有了世界
+vla-vs-world-model.md L140: **Genie 2**虽然被归类为世界模型，但它从视频中学习的方式，和VLA从数据中学习感知-动作映射的方式非常相似。两者的技术边界正在模糊。
+vla-vs-world-model.md L165: **如果你偏工程**，建议从VLA入手。OpenVLA是开源的，数据集是公开的，技术栈和LLM高度重合，更容易上手。先跑通一个VLA的pipeline，再逐步加入世界模型的规划能力。
+vla-vs-world-model.md L168: **如果你偏研究**，建议从世界模型入手。这个方向的学术空间更大——怎么提高想象空间的精度、怎么做更高效的想象训练、怎么把语言接地引入世界模型——这些都是开放问题，容易出成果。
+vla-vs-world-model.md L171: **如果你想创业**，建议关注两者的交叉地带。比如：用世界模型生成合成数据来训练VLA、用VLA的感知能力来增强世界模型的环境理解。这些方向离产品化更近，而且竞争还没有那么激烈。
+world-model-2026-trend.md L27: **论文数量翻倍。**2024-2025年世界模型相关的顶会论文比前两年翻了一倍多，四大范式（观测级生成、隐空间建模、强化学习驱动、对象中心表示）已经成型。
+world-model-2026-trend.md L30: **大厂入场。**DeepMind、OpenAI、Meta都在布局。OpenAI的Sora虽然定位是视频生成，但技术路线和世界模型高度重合。Meta的V-JEPA系列在隐空间世界模型上走得很快。
+world-model-2026-trend.md L33: **应用场景拓宽。**从最早的游戏仿真，扩展到机器人操控、自动驾驶决策、科学发现模拟、GUI智能体。每个场景都在催生新的技术需求。
+world-model-2026-trend.md L44: **Sim-to-Real还没解决。**世界模型在仿真里很强，但部署到真实机器人上性能下降30-50%。这个瓶颈八年没突破，短期内也难有根本性解决方案。
+world-model-2026-trend.md L47: **计算成本太高。**训练一个像样的世界模型需要多张A100跑几周。对于创业公司或个人研究者，这个门槛不低。
+world-model-2026-trend.md L50: **杀手级应用还没出现。**大语言模型有ChatGPT，图像生成有Midjourney，世界模型的"ChatGPT时刻"还没到来。目前最接近的是机器人操控，但离消费级产品还有距离。
+world-model-2026-trend.md L61: **适合入场的：**
+world-model-2026-trend.md L69: **需要谨慎的：**
+world-model-2026-trend.md L82: **短期（1-2年）：**技术继续突破，但商业化案例有限，主要是大厂和研究机构在推进。
+world-model-2026-trend.md L85: **中期（3-5年）：**Sim-to-Real问题部分解决，工业场景（机器人装配、仓储物流）开始出现规模化应用。
+world-model-2026-trend.md L88: **长期（5-10年）：**如果"统计拟合→机理理解"这个关口能突破，世界模型可能成为通用人工智能的基石。
+world-model-intro.md L36: **世界模型，就是机器人的"想象力"。**
+world-model-intro.md L126: **工业装配**：机器人需要学会将不同形状的零件装配到产品上。传统方法需要为每种零件编写专门的程序，而世界模型方法可以通过想象训练快速适配新零件。
+world-model-intro.md L129: **灵巧操作**：比如翻转物体、拧瓶盖、系鞋带等需要精细力控的任务。这些任务在仿真中很难精确建模，世界模型可以从少量真实数据中学习到复杂的接触动态。
+world-model-intro.md L132: **导航与探索**：在未知环境中规划路径。世界模型可以预测"如果我往那边走，会看到什么"，从而做出更好的探索决策。
+world-model-intro.md L140: **长程预测误差累积**：世界模型的预测不可能完美，每一步都有小误差，多步之后误差会指数级放大。目前DreamerV3的想象步数限制在15步左右，更长的预测会变得不可靠。
+world-model-intro.md L143: **复杂物理场景**：对于涉及流体、软体、复杂接触的场景，世界模型的预测精度还不够高。比如抓取一块布料，布料的形变很难准确预测。
+world-model-intro.md L146: **计算成本**：训练一个高质量的世界模型需要大量的计算资源。虽然推理时很高效，但训练阶段并不便宜。
+world-model-lab-setup.md L24: **MuJoCo**：目前机器人仿真领域最主流的引擎之一。物理精度高、API 简洁、速度快。2021 年被 DeepMind 收购后开源免费，现在是机器人学习研究的事实标准，也是连续控制世界模型研究中
+world-model-lab-setup.md L27: **DreamerV3**：Danijar Hafner 等人开发的世界模型算法，是 Dreamer 系列的第三代。它用 RSSM（循环状态空间模型）学习环境动态，在想象空间中训练 Actor-Cri
+world-model-lab-setup.md L30: **日志格式说明**：DreamerV3（commit e3f02248）输出自己的日志格式（`metrics.jsonl` 和 `scores.jsonl`），不使用 TensorBoard 的 e
+world-model-lab-setup.md L147: **注意**：requirements.txt 中包含 `ale_py==0.9.0`（Atari 游戏环境依赖），该版本在 PyPI 上已下架。如果你只做 MuJoCo/DM Control 任务，
+world-model-lab-setup.md L158: **注意**：网上有些教程会写 `pip install dm-control-suite`，这个包不存在。正确的包名是 `dm-control`。
+world-model-lab-setup.md L219: **️ 无 GPU 用户必读：JAX 平台配置**
+world-model-lab-setup.md L251: **重要**：`--jax.platform cpu` 参数告诉 JAX 使用 CPU 后端。DreamerV3 默认配置（`configs.yaml` 第 73 行）将 JAX 平台设为 `cuda
+world-model-lab-setup.md L368: **注意**：训练初期（前 ~2000 步）replay buffer 还在填充，此时不会写入 metrics。需要足够步数完成第一个 episode 后，scores.jsonl 才会有数据。Car
+world-model-lab-setup.md L559: **问题 1：MuJoCo 渲染报错 "GLFW error"**
+world-model-lab-setup.md L571: **问题 2：DreamerV3 训练很慢**
+world-model-lab-setup.md L577: **问题 3：训练奖励不上升**
+world-model-lab-setup.md L583: **问题 4：内存溢出（OOM）**
+world-model-lab-setup.md L589: **问题 5：进程被 Killed（OOM Killer）**
+world-model-lab-setup.md L616: **问题 6：JAX 报 AssertionError（无 GPU 环境）**
+world-model-lab-setup.md L694: **内存注意**：Docker 容器默认可以使用宿主机全部内存，但如果你用 Docker Desktop（macOS/Windows），需要在设置中分配至少 32GB 内存，否则容器内训练会因 OOM
+world-model-representations.md L24: **代表：**DreamerV3、TD-MPC2
+world-model-representations.md L27: **核心思路：**把观测（图像、传感器数据）压缩成一个固定维度的向量，在这个隐空间里建模动态、训练策略。
+world-model-representations.md L33: **这个路线解决什么问题？**
+world-model-representations.md L42: **卡在哪里？**
+world-model-representations.md L56: **代表：**NVIDIA Cosmos、1X World Model
+world-model-representations.md L59: **核心思路：**直接预测未来的图像或视频帧。给世界模型一段过去的视频 + 动作序列，它生成未来的视频。
+world-model-representations.md L65: **这个路线解决什么问题？**
+world-model-representations.md L74: **卡在哪里？**
+world-model-representations.md L88: **代表：**World Labs Marble、GaussianDream、GWM
+world-model-representations.md L91: **核心思路：**用 3D 几何结构（点云、网格、3D Gaussian Splatting/3D 高斯泼溅）来表示世界。世界模型维护一个显式的 3D 场景表示，预测动作如何改变这个 3D 结构。
+world-model-representations.md L97: **这个路线解决什么问题？**
+world-model-representations.md L109: **卡在哪里？**
+world-model-representations.md L123: **代表：**FOCUS、NeurIPS 2025 多篇新工作
+world-model-representations.md L126: **核心思路：**把场景分解成独立的物体，每个物体拥有独立的状态表示，并通过共享或交互模型预测整体动态。世界模型不是预测"整个画面怎么变"，而是预测"每个物体怎么变"以及物体之间如何相互影响。
+world-model-representations.md L132: **这个路线解决什么问题？**
+world-model-representations.md L141: **卡在哪里？**
+world-model-representations.md L166: **隐状态 + 3D 结构。**GaussianDream 等工作做了初步探索：尝试在训练时引入 3D 解码作为辅助监督信号，推理时回归紧凑的隐状态。如果这条路线成熟，既可能获得 3D 结构的训练信号
+world-model-representations.md L169: **隐状态 + 物体分解。**FOCUS 等工作探索将场景分解为物体级隐状态，并结合空间表示建模对象动态。如果这条路线成熟，既保持了隐状态的高效，又可能获得组合泛化能力。
+world-model-representations.md L172: **像素预训练 + 隐状态微调。**先用大规模视频数据做像素级预训练（获得通用的物理直觉），然后在具体任务上用隐状态微调（获得高效控制能力）。这类似于 LLM 领域"预训练 + 微调"的范式。
+world-model-representations.md L207: **高层：物体与语义结构。**负责物体发现、语义理解、任务目标分解。这一层回答"场景里有什么""任务要做什么"。可以用物体级表征或符号化的场景图来实现。
+world-model-representations.md L210: **中层：3D 空间关系。**维护显式的三维几何——物体在哪、有多大、朝向如何、会不会碰撞。这一层为空间推理和轨迹规划提供基础。3D 高斯泼溅、神经辐射场等技术可能在这一层发挥作用。
+world-model-representations.md L213: **低层：隐状态动态。**在压缩空间里建模状态转移和策略。这一层负责高效的想象训练和实时控制。DreamerV3 的 RSSM、TD-MPC2 的隐空间模型，适合放在这一层。
+world-model-representations.md L216: **感知与生成接口层：像素与视频。**负责将传感器输入编码为内部表示，以及将内部表征渲染成可视图像，用于视觉监督、人机交互、或者对接现有的视觉语言模型。
+world-model-synthetic-data-for-vla.md L55: **需要注意**：DreamerV3 的 latent imagination 与近年来基于 diffusion/transformer 的大规模视频生成模型不同。DreamerV3 的核心优势在于策
+world-model-synthetic-data-for-vla.md L129: **定位说明**：DreamerV3 更适合作为理解 world model imagination 的实验平台，而不是当前机器人 VLA 数据生产的主流方案。实际 VLA 训练数据更多来自物理仿真器
+world-model-synthetic-data-for-vla.md L161: **现实挑战**：在线规划需要解决推理速度和长时预测稳定性问题。一个 manipulation task 可能需要 rollout 上百条候选轨迹、每条几十步，计算开销很大。因此目前更多是 offli
+world-model-synthetic-data-for-vla.md L182: **以下代码为概念伪代码**，展示核心思路。DreamerV3 的实际 API 使用 RSSM 的 `observe()` 和 `imagine()` 流程，与下面的简化写法不同。
+world-model-synthetic-data-for-vla.md L217: **工程提示**：上面的 `np.save` 仅用于演示。实际机器人数据通常包含变长轨迹、多模态观测和语言标注，会保存为结构化 trajectory dataset（如 RLDS、LeRobot、Op
+world-model-synthetic-data-for-vla.md L257: **解决思路**：用真实数据验证合成数据质量，过滤掉低质量样本。
+world-model-synthetic-data-for-vla.md L265: **解决思路**：结合域随机化（Domain Randomization）和真实数据微调。
+world-model-synthetic-data-for-vla.md L298: **当前主流思路**有两条路线：
+world-model-synthetic-data-for-vla.md L336: **说明**：这是一个概念性架构。实际系统中，世界模型和 VLA 的耦合方式仍未统一——可能是条件生成、规划辅助，也可能是联合训练。不同研究组的具体实现差异很大。
+world-model-transformer.md L39: **计算效率高。**GRU 是循环网络，每一步只需要上一步的隐状态，不需要处理整个序列。训练和推理的内存开销较小。
+world-model-transformer.md L42: **隐空间结构清晰。**确定性 + 随机性的双轨道设计，让模型同时学到"规律"和"不确定性"。这对物理世界的建模很重要——宏观物理规律通常具有较强确定性，而观测和环境扰动具有随机性。
+world-model-transformer.md L45: **想象训练方便。**在隐空间中可以方便地"想象"未来轨迹：从当前状态出发，用 GRU 逐步推进，每一步采样随机状态，得到一系列隐状态，再解码成观测。
+world-model-transformer.md L51: **长程依赖问题。**RSSM 通过 deterministic hidden state 维护历史信息，但由于状态更新仍是递归形式，超长时间跨度的信息需要压缩到固定维度的隐状态中，可能造成信息瓶颈。
+world-model-transformer.md L54: **并行化受限。**循环网络在时间维度上是序列化的——每一步依赖上一步的输出。不过 RSSM 训练并非完全串行：observation encoder 可以并行处理，rollout imaginati
+world-model-transformer.md L57: **Scaling 体系差距。**Transformer 更容易继承语言模型时代的大规模训练范式——大规模预训练经验、数据规模优势、工业基础设施成熟。而 RSSM 虽然也能扩大（如 DreamerV3
+world-model-transformer.md L71: **长程依赖。**Self-attention 可以直接建立任意时间位置之间的连接，因此缓解了循环结构中的长程信息传递瓶颈。对于需要长程记忆的任务，Transformer 理论上更强——当然，实际中仍
+world-model-transformer.md L74: **并行训练。**Transformer 在训练阶段可以沿序列维度高度并行计算，相比循环网络减少了时间依赖带来的串行瓶颈。这意味着在 GPU 上训练更快，更容易利用大规模算力。
+world-model-transformer.md L77: **Scaling law。**Transformer 在 LLM 中展示了良好的 scaling law。如果世界模型也用 Transformer，那么理论上可以借鉴 LLM 的 scaling 经
+world-model-transformer.md L80: **和 LLM 的统一。**如果世界模型也用 Transformer，那么它和 LLM 的架构是统一的。这意味着可以复用 LLM 的基础设施（训练框架、推理优化），甚至可以将语言理解和物理预测统一在一
+world-model-transformer.md L86: **空间维度。**世界模型的输入通常是视频（time × height × width），Transformer 天然适合将图像切分为 patch token 进行建模。相比循环网络逐帧处理，Tran
+world-model-transformer.md L89: **多模态统一。**世界模型的输入包括图像、语言指令、动作、本体感觉等多种模态。Transformer 的 token 化框架天然适合统一处理这些异构输入——每种模态编码为 token 序列后，用同一
+world-model-transformer.md L92: **长期规划。**机器人任务往往需要跨时间的长期规划——当前动作可能影响几分钟后的目标达成。Transformer 的跨时间 attention 机制可以直接建立"现在动作"和"未来目标"之间的关联，
+world-model-transformer.md L98: **按预测空间：**pixel space（直接在视觉空间生成，如早期视频预测模型）、latent space（在压缩表示空间中预测，Dreamer 系列属于这一类 latent dynamics m
+world-model-transformer.md L101: **按生成方式：**autoregressive（自回归逐步生成，如 Genie、VideoPoet）、diffusion（条件扩散生成，如 DIAMOND、Cosmos）、masked predic
+world-model-transformer.md L149: **数据量。**Transformer 通常需要大量数据才能发挥优势。如果数据有限（如只有几千条机器人操作数据），RSSM 的归纳偏置（循环 + 隐状态）可能更有效——它用更少的参数就能学到合理的动态
+world-model-transformer.md L152: **实时性。**RSSM 的循环结构在推理时是逐步推进的，每一步只需要上一步的隐状态。而 Transformer 推理通常需要维护历史 context，实际系统会通过 KV cache、窗口 atte
+world-model-transformer.md L155: **任务类型。**如果任务需要长程记忆或全局推理（如导航、策略规划），Transformer 的 self-attention 更有优势。如果任务是短期的、局部的（如快速的操作反应），RSSM 可能就
+world-model-transformer.md L158: **计算资源。**Transformer 的训练需要大量 GPU 资源。在相同计算预算下，RSSM 通常更容易部署到资源受限设备——这也是为什么 DreamerV3 在单张 GPU 上就能训练。
+world-model-transformer.md L172: **Transformer + RSSM。**用 Transformer 替代 RSSM 中的 GRU（确定性状态更新），保留随机性状态的离散分类分布设计。Dreamer 系列的核心一直是 CNN/M
+world-model-transformer.md L175: **分层架构。**底层用 RSSM 做短期的动态预测，高层用 Transformer 做长程的规划和推理。这种分层设计在 LLM 中也有类似的思路（如局部 attention + 全局 attenti
+world-model-transformer.md L178: **Token 化 + Transformer。**将观测（如视频帧）离散化为 token，然后用 Transformer 在 token 序列上做预测。DeepMind 的 Genie（2024）就
+world-model-transformer.md L181: **VLM + World Model。**未来世界模型可能不会独立存在，而是作为视觉语言行动模型（VLA）的内部预测模块。模型同时具备语言理解、场景理解、动态预测和动作规划能力——输入图像、语言指令
+world-model-transformer.md L192: **学习 Transformer。**如果你之前只了解 RSSM，现在是时候深入学习 Transformer 了。Self-attention、位置编码、KV cache 等概念，在世界模型中越来越重
+world-model-transformer.md L195: **关注 scaling。**Transformer 世界模型的性能很大程度上取决于模型规模和数据量。关注 scaling law 在世界模型中的表现，理解"多大模型 + 多少数据 = 什么性能"。
+world-model-transformer.md L198: **不要放弃 RSSM。**RSSM 在资源受限、数据有限的场景中仍有优势。DreamerV3 的训练技巧和经验，在 Transformer 世界模型中也有参考价值（如想象训练、KL 正则化等）。
+world-model-transformer.md L201: **关注统一架构。**世界模型和 LLM 的边界正在模糊。未来可能出现"统一的 Physical AI 模型"——同时理解语言、视觉、动作。理解这个趋势，有助于把握长期的技术方向。

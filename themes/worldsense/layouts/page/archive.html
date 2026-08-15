@@ -1,0 +1,31 @@
+{{ define "main" }}
+    <div class="archive-page">
+        <h1>{{ if eq .Site.Language.Lang "zh" }}文章归档{{ else }}Article Archive{{ end }}</h1>
+        <p style="color:var(--text-light); margin-bottom:2rem;">
+            {{ $articles := where .Site.RegularPages "Section" "articles" }}
+            {{ if eq .Site.Language.Lang "zh" }}
+            共 {{ len $articles }} 篇文章
+            {{ else }}
+            {{ len $articles }} articles in total
+            {{ end }}
+        </p>
+
+        {{ $articles := where .Site.RegularPages "Section" "articles" }}
+        {{ $byYear := $articles.ByDate.Reverse.GroupByDate "2006" }}
+        {{ range $byYear }}
+        <h2 class="archive-year">{{ .Key }}</h2>
+        {{ $byMonth := .Pages.GroupByDate "January" }}
+        {{ range $byMonth }}
+        <h3 class="archive-month">{{ .Key }}</h3>
+        <ul class="archive-list">
+            {{ range .Pages }}
+            <li class="archive-item">
+                <span class="archive-date">{{ .Date.Format "01-02" }}</span>
+                <a href="{{ .RelPermalink }}">{{ .Title }}</a>
+            </li>
+            {{ end }}
+        </ul>
+        {{ end }}
+        {{ end }}
+    </div>
+{{ end }}

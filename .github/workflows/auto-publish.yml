@@ -1,0 +1,85 @@
+name: Auto Publish and Deploy
+
+on:
+  # 每天北京时间 08:00 自动检查并发布到期的草稿
+  schedule:
+    - cron: '0 0 * * *'  # UTC 00:00 = 北京时间 08:00
+  
+  # 手动推送代码时也触发部署
+  push:
+    branches: [main]
+  
+  # 允许手动触发
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 获取完整历史用于 git diff
+      
+      - name: Setup Hugo
+        uses: peaceiris/actions-hugo@v3
+        with:
+          hugo-version: '0.164.0'
+          extended: true
+      
+      - name: Build Hugo site
+        run: |
+          # 不加 --buildFuture，只发布 publishDate 已到的文章
+          hugo --minify --gc
+      
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public
+          publish_branch: gh-pages
+          cname: worldsensetech.com
+          commit_message: "Deploy: ${{ github.sha }}"
+      
+      - name: Sync to Aliyun Server
+        if: github.ref == 'refs/heads/main'
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.ALIYUN_SERVER_IP }}
+          username: ${{ secrets.ALIYUN_SERVER_USER }}
+          key: ${{ secrets.ALIYUN_SSH_KEY }}
+          port: 22
+          source: "./public/*"
+          target: "/var/www/worldsense"
+          strip_components: 1
+          overwrite: true
+      
+      - name: Fix server permissions
+        if: github.ref == 'refs/heads/main'
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.ALIYUN_SERVER_IP }}
+          username: ${{ secrets.ALIYUN_SERVER_USER }}
+          key: ${{ secrets.ALIYUN_SSH_KEY }}
+          port: 22
+          script: |
+            sudo chown -R www-data:www-data /var/www/worldsense
+            sudo chmod -R 755 /var/www/worldsense
+      
+      - name: Submit to Baidu
+        if: github.ref == 'refs/heads/main'
+        run: |
+          # 生成 sitemap 并提交到百度
+          SITEMAP_URL="https://worldsensetech.com/sitemap.xml"
+          BAIDU_TOKEN="${{ secrets.BAIDU_PUSH_TOKEN }}"
+          
+          if [ -n "$BAIDU_TOKEN" ]; then
+            # 提取最新 URL 并提交
+            curl -s "$SITEMAP_URL" | grep -oP '(?<=<loc>)[^<]+' | head -10 > urls.txt
+            if [ -s urls.txt ]; then
+              curl -H "Content-Type: text/plain" \
+                   --data-binary @urls.txt \
+                   "http://data.zz.baidu.com/urls?site=https://worldsensetech.com&token=$BAIDU_TOKEN"
+            fi
+          fi

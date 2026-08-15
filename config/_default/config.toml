@@ -1,0 +1,81 @@
+baseURL = "https://worldsensetech.com/"
+title = "WorldSense 技术笔记"
+theme = "worldsense"
+enableRobotsTXT = true
+enableEmoji = true
+paginate = 10
+summaryLength = 70
+
+# 多语言配置
+defaultContentLanguage = "zh"
+defaultContentLanguageInSubdir = true
+
+[languages]
+  [languages.zh]
+    locale = "zh-CN"
+    label = "中文"
+    weight = 1
+    title = "WorldSense 技术笔记"
+    contentDir = "content/zh"
+    [[languages.zh.menu.main]]
+      name = "首页"
+      url = "/"
+      weight = 1
+    [[languages.zh.menu.main]]
+      name = "文章"
+      url = "/articles/"
+      weight = 2
+    [[languages.zh.menu.main]]
+      name = "分类"
+      url = "/categories/"
+      weight = 3
+    [[languages.zh.menu.main]]
+      name = "关于"
+      url = "/about/"
+      weight = 4
+  
+  [languages.en]
+    locale = "en-US"
+    label = "English"
+    weight = 2
+    title = "WorldSense Tech Blog"
+    contentDir = "content/en"
+    [[languages.en.menu.main]]
+      name = "Home"
+      url = "/"
+      weight = 1
+    [[languages.en.menu.main]]
+      name = "Articles"
+      url = "/articles/"
+      weight = 2
+    [[languages.en.menu.main]]
+      name = "Categories"
+      url = "/categories/"
+      weight = 3
+    [[languages.en.menu.main]]
+      name = "About"
+      url = "/about/"
+      weight = 4
+
+# 永久链接
+[permalinks]
+  articles = "/articles/:slug/"
+
+# 输出格式
+[outputs]
+  home = ["HTML", "RSS"]
+  page = ["HTML"]
+  section = ["HTML", "RSS"]
+
+# 代码高亮
+[markup]
+  [markup.highlight]
+    style = "dracula"
+    lineNos = false
+    guessSyntax = true
+
+# 相关设置
+[related]
+  threshold = 80
+  includeNewer = true
+  toLower = false

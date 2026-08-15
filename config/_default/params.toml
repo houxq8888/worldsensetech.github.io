@@ -1,0 +1,16 @@
+description = "专注具身智能、世界模型与 Sim-to-Real 的技术博客。从算法研究到工程实践，记录机器人 AI 的探索之路。"
+author = "侯晓琴"
+
+# 社交链接
+[social]
+  github = "houxq8888"
+
+# 评论
+[comments]
+  enable = true
+  provider = "giscus"
+  [comments.giscus]
+    repo = ""
+    repoId = ""
+    category = ""
+    categoryId = ""

@@ -1,0 +1,135 @@
+{{ define "main" }}
+    <section class="hero">
+        {{ if eq .Site.Language.Lang "zh" }}
+        <h1>用世界模型让机器人理解世界</h1>
+        <p>专注具身智能、世界模型与 Sim-to-Real 的技术博客。从算法研究到工程实践，记录机器人 AI 的探索之路。</p>
+        <p style="font-size:0.9rem; color:#64748b; margin-top:0.5rem;">作者：西北工业大学硕士 · 机器人 AI 工程师 · 著有《Visual C++入门很容易》</p>
+        {{ else }}
+        <h1>World Models for Robot Intelligence</h1>
+        <p>A tech blog focused on Embodied AI, World Models, and Sim-to-Real transfer. From algorithm research to engineering practice.</p>
+        <p style="font-size:0.9rem; color:#64748b; margin-top:0.5rem;">Author: MSc at Northwestern Polytechnical University · Robot AI Engineer</p>
+        {{ end }}
+    </section>
+
+    {{ if eq .Site.Language.Lang "zh" }}
+    <!-- 热门阅读 -->
+    <section style="max-width:800px; margin:2rem auto; padding:0 1.5rem;">
+        <h2 style="font-size:1.3rem; color:#1e293b; margin-bottom:1rem; border-bottom:2px solid #2563eb; padding-bottom:0.5rem;">🔥 热门阅读</h2>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:1rem;">
+            <a href="{{ "/articles/vla-vs-world-model/" | relLangURL }}" style="text-decoration:none; padding:1rem; background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0; transition:all 0.2s;">
+                <div style="font-size:0.8rem; color:#64748b;">技术路线对比</div>
+                <div style="font-size:1rem; color:#1e293b; font-weight:600; margin:0.5rem 0;">VLA vs 世界模型，谁主沉浮？</div>
+                <div style="font-size:0.85rem; color:#475569;">两大技术路线的全面对比，从核心逻辑到未来融合趋势</div>
+            </a>
+            <a href="{{ "/articles/rssm-deep-dive/" | relLangURL }}" style="text-decoration:none; padding:1rem; background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0; transition:all 0.2s;">
+                <div style="font-size:0.8rem; color:#64748b;">核心技术详解</div>
+                <div style="font-size:1rem; color:#1e293b; font-weight:600; margin:0.5rem 0;">RSSM 状态空间模型详解</div>
+                <div style="font-size:0.85rem; color:#475569;">Dreamer 系列世界模型的核心引擎，从数学原理到工程实现</div>
+            </a>
+            <a href="{{ "/articles/world-model-lab-setup/" | relLangURL }}" style="text-decoration:none; padding:1rem; background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0; transition:all 0.2s;">
+                <div style="font-size:0.8rem; color:#64748b;">实战教程</div>
+                <div style="font-size:1rem; color:#1e293b; font-weight:600; margin:0.5rem 0;">从零搭建世界模型实验环境</div>
+                <div style="font-size:0.85rem; color:#475569;">MuJoCo + DreamerV3 手把手教程，从安装到训练到可视化</div>
+            </a>
+        </div>
+    </section>
+
+    <!-- 学习路径 -->
+    <section style="max-width:800px; margin:2.5rem auto; padding:1.5rem; background:linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border-radius:12px; border:1px solid #bae6fd;">
+        <h2 style="font-size:1.2rem; color:#0c4a6e; margin-bottom:1rem;">📚 学习路径</h2>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:1.5rem;">
+            <div>
+                <div style="font-size:0.9rem; font-weight:600; color:#0369a1; margin-bottom:0.5rem;">世界模型入门</div>
+                <ol style="margin:0; padding-left:1.2rem; font-size:0.9rem; color:#334155; line-height:1.8;">
+                    <li><a href="{{ "/articles/world-model-intro/" | relLangURL }}" style="color:#2563eb; text-decoration:none;">什么是世界模型？</a></li>
+                    <li><a href="{{ "/articles/rssm-deep-dive/" | relLangURL }}" style="color:#2563eb; text-decoration:none;">RSSM 核心引擎</a></li>
+                    <li><a href="{{ "/articles/vla-vs-world-model/" | relLangURL }}" style="color:#2563eb; text-decoration:none;">VLA vs 世界模型</a></li>
+                </ol>
+            </div>
+            <div>
+                <div style="font-size:0.9rem; font-weight:600; color:#0369a1; margin-bottom:0.5rem;">Sim-to-Real 迁移</div>
+                <ol style="margin:0; padding-left:1.2rem; font-size:0.9rem; color:#334155; line-height:1.8;">
+                    <li><a href="{{ "/articles/sim-to-real-transfer/" | relLangURL }}" style="color:#2563eb; text-decoration:none;">自适应迁移方法</a></li>
+                    <li><a href="{{ "/articles/domain-randomization-sim-to-real/" | relLangURL }}" style="color:#2563eb; text-decoration:none;">域随机化详解</a></li>
+                    <li><a href="{{ "/articles/world-model-8year-bottleneck/" | relLangURL }}" style="color:#2563eb; text-decoration:none;">8年技术瓶颈</a></li>
+                </ol>
+            </div>
+            <div>
+                <div style="font-size:0.9rem; font-weight:600; color:#0369a1; margin-bottom:0.5rem;">实践与工具</div>
+                <ol style="margin:0; padding-left:1.2rem; font-size:0.9rem; color:#334155; line-height:1.8;">
+                    <li><a href="{{ "/articles/world-model-lab-setup/" | relLangURL }}" style="color:#2563eb; text-decoration:none;">MuJoCo+DreamerV3</a></li>
+                    <li><a href="{{ "/articles/td-mpc-world-model-control/" | relLangURL }}" style="color:#2563eb; text-decoration:none;">TD-MPC 控制</a></li>
+                    <li><a href="{{ "/articles/reinforcement-learning-how-to-start/" | relLangURL }}" style="color:#2563eb; text-decoration:none;">强化学习入门</a></li>
+                </ol>
+            </div>
+        </div>
+        <p style="margin:1rem 0 0; font-size:0.9rem; color:#64748b;"><a href="{{ "/categories/" | relLangURL }}" style="color:#2563eb; text-decoration:none;">查看全部文章 →</a></p>
+    </section>
+    {{ end }}
+
+    <!-- 最新文章 -->
+    <section style="max-width:800px; margin:2rem auto; padding:0 1.5rem;">
+        <h2 style="font-size:1.2rem; color:#1e293b; margin-bottom:1rem; border-bottom:1px solid #e2e8f0; padding-bottom:0.5rem;">{{ if eq .Site.Language.Lang "zh" }}最新文章{{ else }}Latest Articles{{ end }}</h2>
+    </section>
+
+    <main class="article-list">
+        {{ $articles := where .Site.RegularPages "Section" "articles" }}
+        {{ range $articles.ByDate.Reverse }}
+        <article class="article-item">
+            <div class="article-meta">
+                {{ if eq .Site.Language.Lang "zh" }}
+                {{ $charCount := len .Plain }}
+                {{ $readTime := div (add $charCount 799) 800 }}
+                {{ .Date.Format "2006年1月2日" }} · 阅读约{{ if lt $readTime 1 }}1{{ else }}{{ $readTime }}{{ end }}分钟
+                {{ else }}
+                {{ .Date.Format "Jan 2, 2006" }} · ~{{ div (add .WordCount 199) 200 }} min read
+                {{ end }}
+            </div>
+            <h2><a href="{{ .RelPermalink }}">{{ .Title }}</a></h2>
+            <div>
+                {{ with .Params.tags }}
+                {{ range . }}
+                <span class="tag">{{ . }}</span>
+                {{ end }}
+                {{ end }}
+            </div>
+            <p class="article-excerpt">{{ with .Params.description }}{{ . | plainify | truncate 150 }}{{ else }}{{ .Summary | plainify | truncate 150 }}{{ end }}</p>
+        </article>
+        {{ end }}
+    </main>
+
+    <!-- Admin Stats Panel (only visible with ?stats=1) -->
+    <div id="admin-stats" style="display:none; max-width:800px; margin:2rem auto; padding:1.5rem; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px;">
+        <h3 style="margin:0 0 1rem; font-size:1.1rem; color:#1a1a2e;">{{ if eq .Site.Language.Lang "zh" }}全站统计{{ else }}Site Statistics{{ end }}</h3>
+        <div id="stats-content" style="font-size:0.9rem; color:#64748b;">{{ if eq .Site.Language.Lang "zh" }}加载中...{{ else }}Loading...{{ end }}</div>
+    </div>
+
+    <script>
+    (function() {
+        var params = new URLSearchParams(window.location.search);
+        if (params.get('stats') !== '1') return;
+        var panel = document.getElementById('admin-stats');
+        var content = document.getElementById('stats-content');
+        if (!panel || !content) return;
+        panel.style.display = 'block';
+        var SUPABASE_URL = 'https://vkbbaulinnpgywowgztp.supabase.co/rest/v1/blog_stats?select=*';
+        var API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZrYmJhdWxpbm5wZ3l3b3dnenRwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU3OTM3MDMsImV4cCI6MjEwMTM2OTcwM30.oB4arqje9FP2x5Ws1yvCkGCTUPzmtY7XH5wes41egwc';
+        fetch(SUPABASE_URL, { headers: { 'apikey': API_KEY, 'Authorization': 'Bearer ' + API_KEY } })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (!data || data.length === 0) { content.innerHTML = '<p>暂无数据</p>'; return; }
+            var totalLikes = 0, totalBookmarks = 0;
+            var rows = data.map(function(row) {
+                totalLikes += row.likes || 0; totalBookmarks += row.bookmarks || 0;
+                return '<tr><td style="padding:0.5rem; border-bottom:1px solid #e2e8f0;">' + row.path +
+                       '</td><td style="padding:0.5rem; border-bottom:1px solid #e2e8f0; text-align:center;">' + (row.likes || 0) +
+                       '</td><td style="padding:0.5rem; border-bottom:1px solid #e2e8f0; text-align:center;">' + (row.bookmarks || 0) + '</td></tr>';
+            }).join('');
+            content.innerHTML = '<table style="width:100%; border-collapse:collapse; margin-bottom:1rem;">' +
+                '<thead><tr style="background:#e2e8f0;"><th style="padding:0.5rem; text-align:left;">文章路径</th><th style="padding:0.5rem; text-align:center;">点赞</th><th style="padding:0.5rem; text-align:center;">收藏</th></tr></thead><tbody>' + rows + '</tbody>' +
+                '<tfoot><tr style="background:#f1f5f9; font-weight:600;"><td style="padding:0.5rem;">总计</td><td style="padding:0.5rem; text-align:center;">' + totalLikes + '</td><td style="padding:0.5rem; text-align:center;">' + totalBookmarks + '</td></tr></tfoot></table>';
+        })
+        .catch(function(err) { content.innerHTML = '<p style="color:#ef4444;">加载失败: ' + err.message + '</p>'; });
+    })();
+    </script>
+{{ end }}
