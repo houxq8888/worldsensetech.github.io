@@ -7,296 +7,1610 @@ date: 2026-08-19
 draft: false
 categories: ["World Models"]
 tags: ["RSSM", "DreamerV3", "World Model", "State Space Model", "Code Walkthrough"]
-description: "A code-level breakdown of RSSM in DreamerV3: deterministic path, stochastic path, prior/posterior networks, reparameterization trick, and KL balancing."
+description: "A code-level walkthrough of DreamerV3's official RSSM implementation: categorical latent, Block GRU, dual KL balancing, observe vs. imagine."
 toc: true
 ---
 
-The previous two RSSM articles ([RSSM Deep Dive](/en/articles/rssm-deep-dive/) and [Architecture Evolution](/en/articles/world-model-transformer/)) covered the theoretical framework. But reading a paper and reading code are two different things — many design details only become clear when you look at the implementation. This article dissects the RSSM implementation in DreamerV3 directly at the code level, helping you build a mapping from "math formulas" to "runnable code."
+The previous two articles covered RSSM's basic principles and the evolution of world models. Theory answers "why RSSM is designed this way," but when you actually read the DreamerV3 source code, you'll find many remaining questions:
 
-## Where RSSM Sits in DreamerV3
+* Why isn't the stochastic state a plain Gaussian vector?
+* Does the GRU consume the observation, or the previous timestep's latent state?
+* What do prior and posterior correspond to in the code?
+* Why does DreamerV3 compute KL twice?
+* What role does `stop_gradient` play in KL balancing?
+* How does RSSM run during imagination when there's no observation?
+* What does `stoch=32, classes=64` actually mean?
 
-DreamerV3's overall architecture can be divided into three blocks:
+Instead of starting from a generic Gaussian RSSM pseudocode, this article **starts directly from DreamerV3's official implementation**, mapping the computation paths in the source code to RSSM's mathematical formulas one by one.
 
-1. **Encoder**: compresses observations (images/states) into feature vectors
-2. **RSSM**: performs temporal modeling in latent space — given historical observations and actions, predicts future states
-3. **Decoder / Heads**: decodes hidden states into predicted observations, rewards, values, etc.
+> This article references `dreamerv3/rssm.py` and the default configuration from the official DreamerV3 repository. For readability, JAX, Ninjax, scan, dtype, and other engineering code is appropriately simplified below, but the core computation logic is preserved.
 
-RSSM is the middle block, and the most critical one. Its inputs are the encoder-output features and the agent's actions; its output is a latent state sequence — all subsequent predictions (reconstructed observations, reward predictions, value computation) are based on this latent state.
+---
 
-To summarize RSSM's operation in one sentence: **it maintains a deterministic hidden state (GRU), and at each time step outputs a Gaussian distribution parameterized by that deterministic state, then samples a stochastic hidden state from that distribution. The deterministic state + stochastic state together form the complete latent representation.**
+## 1. Where RSSM Sits in DreamerV3
 
-## RSSM Class Structure Overview
+DreamerV3 can be roughly understood as:
 
-Let's start with the overall skeleton of the RSSM class (PyTorch-style pseudocode, as close to DreamerV3's actual implementation as possible):
-
-```python
-class RSSM(nn.Module):
-    def __init__(self, obs_dim, act_dim, deter_dim, stoch_dim, hidden_dim):
-        super().__init__()
-        self.deter_dim = deter_dim  # deterministic hidden state dim, typically 1024
-        self.stoch_dim = stoch_dim  # stochastic hidden state dim, typically 32
-
-        # Deterministic path: GRU
-        self.gru = nn.GRUCell(act_dim + obs_feat_dim, deter_dim)
-
-        # Prior network: predicts (mean, std) from (deter)
-        self.prior_net = nn.Sequential(
-            nn.Linear(deter_dim, hidden_dim),
-            nn.LayerNorm(hidden_dim),
-            nn.GELU(),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.LayerNorm(hidden_dim),
-            nn.GELU(),
-            nn.Linear(hidden_dim, 2 * stoch_dim)  # outputs mean and log_std
-        )
-
-        # Posterior network: predicts (mean, std) from (deter + obs_feat)
-        self.post_net = nn.Sequential(
-            nn.Linear(deter_dim + obs_feat_dim, hidden_dim),
-            nn.LayerNorm(hidden_dim),
-            nn.GELU(),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.LayerNorm(hidden_dim),
-            nn.GELU(),
-            nn.Linear(hidden_dim, 2 * stoch_dim)
-        )
-
-    def forward(self, obs_feat, action, prev_state):
-        # obs_feat: encoder output features [B, obs_feat_dim]
-        # action: actions [B, act_dim]
-        # prev_state: (prev_deter, prev_stoch) previous hidden state
-
-        prev_deter, prev_stoch = prev_state
-
-        # Step 1: Update deterministic state
-        gru_input = torch.cat([obs_feat, action], dim=-1)
-        deter = self.gru(gru_input, prev_deter)
-
-        # Step 2: Prior network prediction (without current observation)
-        prior_mean, prior_log_std = self._split_dist(self.prior_net(deter))
-
-        # Step 3: Posterior network prediction (depends on current observation features)
-        post_input = torch.cat([deter, obs_feat], dim=-1)
-        post_mean, post_log_std = self._split_dist(self.post_net(post_input))
-
-        # Step 4: Sample from posterior distribution (during training)
-        stoch = self._sample(post_mean, post_log_std)
-
-        # Return current state and distribution info (for KL computation)
-        state = (deter, stoch)
-        dist = {
-            'prior': (prior_mean, prior_log_std),
-            'post': (post_mean, post_log_std)
-        }
-        return state, dist
-
-    def _split_dist(self, params):
-        mean, log_std = params.chunk(2, dim=-1)
-        log_std = torch.clamp(log_std, min=-20, max=2)  # numerical stability
-        return mean, log_std.exp()
-
-    def _sample(self, mean, std):
-        # Reparameterization trick
-        eps = torch.randn_like(std)
-        return mean + std * eps
+```text
+Observation
+    │
+    ▼
+ Encoder
+    │
+    ▼
+ observation embedding
+    │
+    ▼
+ ┌──────────────────────────────┐
+ │             RSSM             │
+ │                              │
+ │  deterministic state h_t     │
+ │          +                   │
+ │  stochastic state z_t        │
+ └──────────────────────────────┘
+    │
+    ▼
+ latent feature
+    │
+    ├──► Decoder: reconstruct observation
+    ├──► Reward Head: predict reward
+    ├──► Continue Head: predict episode continuation
+    └──► Actor / Critic: policy and value on imagined trajectories
 ```
 
-This skeleton covers RSSM's core logic. Let's break down each key design below.
+RSSM is the core of the entire world model.
 
-## The Deterministic Path: What the GRU Actually Does
+The problem it solves can be summarized in one sentence:
 
-```python
-gru_input = torch.cat([obs_feat, action], dim=-1)
-deter = self.gru(gru_input, prev_deter)
+> **Maintain a hidden state that can continuously roll into the future, based on historical latent states and actions.**
+
+This hidden state consists of two parts:
+
+```text
+s_t = (h_t, z_t)
+
+h_t: deterministic state
+z_t: stochastic state
 ```
 
-This line is straightforward: concatenate the encoder's observation features with the current action, feed them as GRU input, and update the deterministic hidden state.
+Where:
 
-**Why GRU instead of LSTM?** Both DreamerV3's paper and code chose GRU. It's not that LSTM wouldn't work — GRU has fewer parameters (one fewer gate), which means lower overfitting risk in latent space models. The deterministic path of RSSM is essentially performing "temporal integration in latent space" — given compressed information from all past observations and actions, it maintains a continuously updating context vector. GRU is sufficient for this task.
+* `h_t` is responsible for maintaining long-term temporal context;
+* `z_t` is responsible for representing the stochastic part of the current state.
 
-**Why is `deter_dim` 1024?** This dimension needs to encode two things simultaneously: (1) the temporal context of historical observations, and (2) sufficient information capacity for the downstream prior/posterior networks. DreamerV3's ablation shows that increasing deter_dim from 512 to 1024 gives a clear improvement, while going further to 2048 yields diminishing returns. 1024 is the sweet spot.
-
-**An easily overlooked detail:** The GRU's input is `obs_feat` (encoder output), not the raw observation. This means the encoder's quality directly determines how much information the GRU can access. If the encoder loses critical information, no amount of GRU capacity can recover it.
-
-## The Stochastic Path: Why Two Types of States
+In DreamerV3's official code, RSSM's state space is:
 
 ```python
-# Prior: only looks at deterministic state
-prior_mean, prior_std = self._split_dist(self.prior_net(deter))
-
-# Posterior: looks at deterministic state + observation features
-post_input = torch.cat([deter, obs_feat], dim=-1)
-post_mean, post_std = self._split_dist(self.post_net(post_input))
-
-# Sample from posterior during training
-stoch = self._sample(post_mean, post_std)
+deter = [B, deter]
+stoch = [B, stoch, classes]
 ```
 
-This is RSSM's most critical design, and also the most counterintuitive part: **why two networks, two distributions?**
+In other words, `stoch` **is not a plain 1D Gaussian vector**, but multiple categorical random variables.
 
-Let's understand the role of each network:
+---
 
-**Prior network**: predicts the next stochastic state based only on the deterministic state `deter`. It represents "the model's prediction of the future without seeing new observations." This network is used during training to compute KL divergence, and during inference/imagination to generate imagined trajectories (since no real observations are available).
+## 2. What Exactly Is DreamerV3's Stochastic State?
 
-**Posterior network**: predicts the next stochastic state based on the deterministic state `deter` and the current observation features `obs_feat`. It represents "the model's estimate of the current state after seeing the current observation." The posterior is used for sampling during training because it has observation information, making its estimates more accurate.
+This is the most important step in understanding DreamerV3's RSSM.
 
-**Why can't we use just one?** If we only had the posterior network, inference would be impossible — during inference there are no real observations, so you can't compute the posterior. If we only had the prior network, during training the model would have to learn solely from its own predictions without any observation signal to correct it, which would lead to drift.
+Many RSSM tutorials write:
 
-**The relationship between prior and posterior:** The training objective is to make the prior network gradually approach the posterior network. Ideally, if the model has learned a good enough world dynamics, the prior network's predictions should be close to the posterior network's — meaning the model can accurately predict future states using only historical information and actions, without needing observation corrections at every step. KL divergence measures this gap.
-
-## The Reparameterization Trick: How Gradients Flow Through Sampling
-
-```python
-def _sample(self, mean, std):
-    eps = torch.randn_like(std)
-    return mean + std * eps
+```text
+z_t ~ Normal(μ_t, σ_t)
 ```
 
-This code looks simple, but it solves a critical problem: **how to let gradients flow through a random sampling operation?**
-
-If you wrote `stoch = torch.normal(mean, std)` directly, the sampling operation would be non-differentiable — gradients couldn't flow back from the loss to the computation of mean and std. The reparameterization trick rewrites the sampling as `mean + std * eps`, where `eps` is fixed noise sampled from a standard normal distribution. Now, the gradient of `stoch` with respect to `mean` is 1, and with respect to `std` is `eps`, so gradients can flow normally.
-
-**Numerical pitfalls in implementation:**
+And then:
 
 ```python
-log_std = torch.clamp(log_std, min=-20, max=2)
-return mean, log_std.exp()
+z = mean + std * eps
 ```
 
-The network outputs `log_std` rather than `std`, for two reasons: (1) `log_std` has a range over the entire real line, making it easier to output from a linear layer; (2) after taking `exp`, `std` is guaranteed to be positive without additional constraints. But `exp` can overflow when `log_std` is large, so clamping is essential. In DreamerV3, the clamp range is `[-20, 2]`, corresponding to a `std` range of approximately `[2e-9, 7.4]`.
+This notation works for explaining some classical continuous RSSMs, but **cannot be directly used as DreamerV3's implementation**.
 
-## KL Divergence and Free Bits
+DreamerV3 uses a categorical latent.
 
-```python
-def kl_divergence(prior_mean, prior_std, post_mean, post_std):
-    # Analytical KL divergence between two Gaussians
-    var_ratio = (prior_std / post_std).pow(2)
-    mean_diff = (post_mean - prior_mean).pow(2) / post_std.pow(2)
-    kl = 0.5 * (var_ratio + mean_diff - 1.0 + torch.log(post_std.pow(2) / prior_std.pow(2)))
-    return kl.sum(dim=-1)  # sum over stochastic dimensions
+In the default configuration:
+
+```yaml
+rssm:
+  deter: 8192
+  hidden: 1024
+  stoch: 32
+  classes: 64
 ```
 
-KL divergence measures the gap between the posterior and prior distributions. During training, we want this gap to be as small as possible — the closer the prior is to the posterior, the better the model can predict the future using only historical information.
+Therefore:
 
-**But KL can't simply be added to the loss.** If the KL weight is too large, the model will tend to make the prior and posterior identical, meaning the posterior no longer uses observation information — it degenerates into using only the prior. This causes reconstruction quality to drop.
-
-DreamerV3 uses a technique called **KL balancing + free bits**:
-
-```python
-# KL balancing: not simple weighting, but dynamic adjustment
-kl_loss = kl_divergence(prior, posterior)
-
-# Free bits: each stochastic dimension retains at least `info` amount of information
-# Prevents KL from being too small, which would cause the posterior to degenerate
-# into deterministic encoding
-kl_loss = torch.clamp(kl_loss, min=free_bits)  # free_bits typically around 1.0
-
-# Final KL term in the loss
-total_loss = recon_loss + kl_loss * kl_scale - reward_loss - value_loss
+```text
+stoch = 32
+classes = 64
 ```
 
-**The role of free bits:** If KL is too small (prior and posterior are too close), it means the model isn't fully utilizing observation information. Free bits set a lower bound, forcing each stochastic dimension to retain at least a certain amount of information. This is equivalent to telling the model: "You can make the prior close to the posterior, but not too close — the posterior must know at least `free_bits` more than the prior."
+Means:
 
-**KL scale scheduling:** DreamerV3 doesn't use a fixed KL weight. Instead, it uses progressive scheduling — early in training the KL weight is small (letting the model first learn good reconstructions), then gradually increases (making the prior progressively approach the posterior). This avoids the KL constraint being too strong early in training, which would prevent the model from learning anything.
+> At each timestep, there are 32 categorical random variables, each with 64 classes.
 
-## Unrolling RSSM Over Sequences
+So the stochastic state's shape is:
 
-The code above is for a single time step. In practice, RSSM needs to be unrolled over a complete episode sequence during training:
+```text
+[B, 32, 64]
+```
+
+Not:
+
+```text
+[B, 32]
+```
+
+If flattened:
+
+```text
+32 × 64 = 2048
+```
+
+So the stochastic state, before entering the decoder and other modules, can be understood as a 2048-dimensional one-hot / straight-through representation.
+
+The official source code definition is also straightforward:
 
 ```python
-def forward_sequence(self, obs_feats, actions):
-    # obs_feats: [T, B, obs_feat_dim]
-    # actions: [T, B, act_dim]
-    T, B = obs_feats.shape[:2]
+@property
+def entry_space(self):
+    return dict(
+        deter=elements.Space(np.float32, self.deter),
+        stoch=elements.Space(np.float32, (self.stoch, self.classes)))
+```
 
-    # Initialize state
-    deter = torch.zeros(B, self.deter_dim, device=obs_feats.device)
-    stoch = torch.zeros(B, self.stoch_dim, device=obs_feats.device)
+In other words, RSSM's complete latent state is:
 
-    prior_means, prior_stds = [], []
-    post_means, post_stds = [], []
-    stochs = []
+```text
+deter:  [B, 8192]
+stoch:  [B, 32, 64]
+```
 
-    for t in range(T):
-        state, dist = self.forward(obs_feats[t], actions[t], (deter, stoch))
-        deter, stoch = state
+The 8192 here is the default large model configuration, not a fixed value for RSSM.
 
-        prior_means.append(dist['prior'][0])
-        prior_stds.append(dist['prior'][1])
-        post_means.append(dist['post'][0])
-        post_stds.append(dist['post'][1])
-        stochs.append(stoch)
+DreamerV3 provides multiple model scales, for example:
 
-    # Stack into sequences
+```text
+1M   → deter 512
+12M  → deter 2048
+25M  → deter 3072
+50M  → deter 4096
+100M → deter 6144
+200M → deter 8192
+400M → deter 12288
+```
+
+Therefore, when discussing DreamerV3, a more accurate statement would be:
+
+> `deter` and `classes` vary with model scale, while `stoch=32` remains constant in the default configuration.
+
+---
+
+## 3. Observe: What Happens When Real Observations Enter RSSM?
+
+The best way to understand DreamerV3's RSSM is to directly trace `observe()`.
+
+Simplified, its core flow can be written as:
+
+```python
+def observe(carry, token, action, reset):
+
+    deter = core(
+        carry["deter"],
+        carry["stoch"],
+        action
+    )
+
+    logit = posterior(
+        deter,
+        token
+    )
+
+    stoch = sample(logit)
+
     return {
-        'deter': deter,  # last step's deterministic state
-        'stoch': torch.stack(stochs, dim=0),  # [T, B, stoch_dim]
-        'prior': (torch.stack(prior_means), torch.stack(prior_stds)),
-        'post': (torch.stack(post_means), torch.stack(post_stds))
+        "deter": deter,
+        "stoch": stoch,
     }
 ```
 
-**Several engineering details:**
+There's a very important point here:
 
-1. **Zero initial state.** The first time step has no prev_state, so `deter` and `stoch` are initialized to zero vectors. This means the first few predictions will be poor — the model has no historical information to work with. In practice, the loss for the first few steps is often discarded, or longer sequences are used to dilute the effect of the initial state.
+**The GRU does not directly read the current observation embedding.**
 
-2. **Step-by-step unrolling vs. parallelization.** The code above uses a for loop to unroll step by step, because each time step depends on the previous step's state. This means the sequence dimension of RSSM cannot be parallelized like a Transformer. This is an inherent limitation of RSSM — the recurrent nature of the GRU requires sequential processing. For long sequences (T > 200), this becomes a training bottleneck.
+What it reads is:
 
-3. **How stoch is combined.** The final latent representation is the concatenation of `deter` and `stoch` (`[deter; stoch]`), which is fed to the decoder and various heads (reward head, value head, etc.). So the decoder's input dimension is `deter_dim + stoch_dim`, typically 1024 + 32 = 1056.
-
-## Inference / Imagination Mode: What to Do Without Observations
-
-During training, RSSM samples from the posterior. But during inference (or DreamerV3's "imagination" phase), there are no real observations — only the prior can be used:
-
-```python
-def imagine(self, prev_state, actions):
-    # actions: [T, B, act_dim]
-    T, B = actions.shape[:2]
-    deter, stoch = prev_state
-
-    imagined = []
-    for t in range(T):
-        # No observations, use prior only
-        deter = self.gru(
-            torch.cat([torch.zeros(B, obs_feat_dim), actions[t]], dim=-1),
-            deter
-        )
-        prior_mean, prior_std = self._split_dist(self.prior_net(deter))
-        stoch = self._sample(prior_mean, prior_std)
-        imagined.append(torch.cat([deter, stoch], dim=-1))
-
-    return torch.stack(imagined, dim=0)  # [T, B, deter_dim + stoch_dim]
+```text
+Previous timestep deter
+Previous timestep stoch
+Current action
 ```
 
-**Note two changes:**
+Then produces:
 
-1. **obs_feat is replaced with zeros.** The GRU's input is normally `[obs_feat; action]`, but during imagination there are no observations, so zero vectors are used as placeholders. This means in imagination mode, the GRU receives information only from actions. This is a somewhat controversial design — some implementations directly modify the GRU's input structure so it only receives actions in imagination mode.
+```text
+Current deter
+```
 
-2. **Sampling from the prior.** The posterior network is not involved at all; the model relies entirely on the prior network's predictions. This means the quality of imagined trajectories depends entirely on how well the prior network has learned the world dynamics. If the prior network's predictions have errors, those errors accumulate during imagination — the longer the imagination, the larger the deviation.
+That is:
 
-## Engineering Details in the Actual Code
+```text
+(h_{t-1}, z_{t-1}, a_{t-1})
+            │
+            ▼
+          GRU
+            │
+            ▼
+           h_t
+```
 
-**LayerNorm placement:** DreamerV3 uses LayerNorm extensively in the prior/posterior networks. This isn't decorative — the training stability of latent space models depends heavily on normalization. Without LayerNorm, RSSM's KL divergence tends to explode early in training, causing the entire training to collapse.
+Only then is the current observation embedding used for inference:
 
-**GELU vs ReLU:** DreamerV3 consistently uses GELU activation. Compared to ReLU, GELU has non-zero gradients in the negative region, which helps avoid the "dead neuron" problem. In latent space models, this is especially sensitive — because RSSM's outputs are used repeatedly (sequence unrolling), the impact of a single dead neuron gets amplified.
+```text
+q(z_t | h_t, o_t)
+```
 
-**Gradient clipping:** DreamerV3 applies global gradient clipping to RSSM (max norm = 1000). This value looks large, but RSSM's gradients can indeed be large — BPTT (Backpropagation Through Time) across the sequence unrolling causes gradient accumulation. Without clipping, occasional gradient spikes would directly cause training to collapse.
+This is precisely the division of labor between deterministic transition and stochastic inference in RSSM.
 
-**Symmetric weight initialization:** DreamerV3 uses symmetric weight initialization, where the eigenvalues of the weight matrix are distributed uniformly on the unit circle. This helps with learning long-term dependencies in the GRU — avoiding gradient vanishing or explosion in the initial state.
+---
 
-## Summary
+## 4. RSSM's True Recurrence Relation
 
-From a code perspective, RSSM's core design can be summarized as:
+Translating the code into mathematical formulas:
 
-| Component | Role | Key Design |
+### 1. Deterministic transition
+
+```text
+h_t = f(h_{t-1}, z_{t-1}, a_{t-1})
+```
+
+In DreamerV3, `f` is a GRU-like transition.
+
+Note:
+
+```text
+Not:
+
+h_t = GRU(h_{t-1}, observation_t, action_t)
+
+But:
+
+h_t = GRU(h_{t-1}, z_{t-1}, action_{t-1})
+```
+
+This is a critical point for understanding RSSM.
+
+### 2. Posterior
+
+After obtaining the current observation encoder output `o_t`:
+
+```text
+q(z_t | h_t, o_t)
+```
+
+In DreamerV3's code, the concatenation of:
+
+```text
+h_t + observation embedding
+```
+
+is fed into the observation model, which produces:
+
+```text
+logits
+```
+
+The logits are then converted into a categorical distribution.
+
+### 3. Prior
+
+On the other hand, using only the deterministic state:
+
+```text
+p(z_t | h_t)
+```
+
+That is:
+
+```python
+prior_logit = prior(deter)
+```
+
+So the same `h_t` corresponds to two distributions:
+
+```text
+                 ┌──► posterior q(z_t | h_t, o_t)
+h_t ─────────────┤
+                 └──► prior     p(z_t | h_t)
+```
+
+This is the core of RSSM.
+
+---
+
+## 5. Why Two Distributions — Prior and Posterior?
+
+We can understand this from the "training" and "imagination" phases.
+
+### Training Phase
+
+During training, we have real observations:
+
+```text
+o_1, o_2, o_3, ...
+```
+
+So we can use:
+
+```text
+q(z_t | h_t, o_t)
+```
+
+That is, the posterior.
+
+It has seen the real observation, so it can obtain a more accurate latent state.
+
+### Imagination Phase
+
+During Dreamer's imagination:
+
+```text
+No more observations
+```
+
+We only have:
+
+```text
+Current latent state
++
+action
+```
+
+So we can no longer compute:
+
+```text
+q(z_t | h_t, o_t)
+```
+
+We can only use:
+
+```text
+p(z_t | h_t)
+```
+
+That is, the prior.
+
+Therefore:
+
+```text
+Training:
+
+observation
+    ↓
+posterior
+    ↓
+z_t
+
+
+Imagination:
+
+h_t
+ ↓
+prior
+ ↓
+z_t
+```
+
+One of the training objectives is to make the prior gradually learn to approximate the posterior.
+
+This enables the model to:
+
+> Learn world states using real observations during training, and still predict the future without observations during imagination.
+
+This is the foundation that allows world models to perform imagination.
+
+---
+
+## 6. Why Does DreamerV3 Use a Categorical Latent?
+
+Now let's look at `_logit()`:
+
+```python
+def _logit(self, name, x):
+    x = Linear(
+        self.stoch * self.classes
+    )(x)
+
+    return x.reshape(
+        x.shape[:-1],
+        self.stoch,
+        self.classes
+    )
+```
+
+Assuming:
+
+```text
+stoch = 32
+classes = 64
+```
+
+The Linear layer ultimately outputs:
+
+```text
+32 × 64 = 2048
+```
+
+Then reshapes to:
+
+```text
+[32, 64]
+```
+
+So each stochastic variable has a 64-class categorical distribution.
+
+You can think of it as:
+
+```text
+z_1 → 64 classes
+z_2 → 64 classes
+z_3 → 64 classes
+...
+z_32 → 64 classes
+```
+
+Ultimately:
+
+```text
+z = [z_1, z_2, ..., z_32]
+```
+
+---
+
+## 7. How Is Categorical Sampling Done?
+
+In the source code:
+
+```python
+def _dist(self, logits):
+    out = embodied.jax.outs.OneHot(
+        logits,
+        self.unimix
+    )
+    out = embodied.jax.outs.Agg(
+        out,
+        1,
+        jnp.sum
+    )
+    return out
+```
+
+The `OneHot` here is crucial.
+
+It is not:
+
+```text
+Gaussian sampling
+```
+
+But rather:
+
+```text
+Categorical distribution
+→ sample one category
+→ represent it as one-hot
+```
+
+For example, a categorical variable:
+
+```text
+[0.05, 0.10, 0.70, 0.15]
+```
+
+After sampling might become:
+
+```text
+[0, 0, 1, 0]
+```
+
+After independently sampling 32 variables:
+
+```text
+[32, 64]
+```
+
+That's the current stochastic state.
+
+---
+
+## 8. Why Is There a `unimix` in the Code?
+
+DreamerV3 defaults to:
+
+```yaml
+unimix: 0.01
+```
+
+Its effect can be simply understood as:
+
+> Preventing the categorical distribution from becoming too sharp too early.
+
+Suppose the model predicts:
+
+```text
+[0.999, 0.001, 0, 0, ...]
+```
+
+This kind of distribution could cause some class probabilities to rapidly approach 0.
+
+unimix mixes the distribution with a uniform distribution, ensuring every class retains a minimum probability.
+
+Intuitively:
+
+```text
+Original distribution
+       │
+       ▼
+  + small amount of uniform
+       │
+       ▼
+Smoother categorical distribution
+```
+
+The `0.01` here is the default mixing ratio.
+
+---
+
+## 9. DreamerV3's GRU Is Not a Standard GRUCell
+
+If you're used to PyTorch:
+
+```python
+nn.GRUCell(...)
+```
+
+Then looking at DreamerV3's source code, you'll find:
+
+**It doesn't directly call a standard GRUCell.**
+
+Instead, it constructs the GRU itself in `_core()`.
+
+The core logic is similar to:
+
+```python
+reset, cand, update = split(x)
+
+reset = sigmoid(reset)
+cand = tanh(reset * cand)
+
+update = sigmoid(update - 1)
+
+deter = update * cand + (1 - update) * deter
+```
+
+In other words, it computes the GRU gates itself.
+
+This is also why you can't simply understand DreamerV3's RSSM as:
+
+```python
+self.gru = nn.GRUCell(...)
+```
+
+The source code also includes another very important design:
+
+```text
+Block GRU
+```
+
+---
+
+## 10. Why Block GRU?
+
+DreamerV3 defaults to:
+
+```yaml
+blocks: 8
+```
+
+And:
+
+```text
+deter = 8192
+```
+
+So the deterministic state is split into multiple blocks.
+
+You can roughly think of it as:
+
+```text
+8192
+ ↓
+8 blocks
+ ↓
+1024 per block
+```
+
+In the source code:
+
+```python
+flat2group = lambda x: einops.rearrange(
+    x,
+    '... (g h) -> ... g h',
+    g=g
+)
+```
+
+This is doing exactly this kind of grouping.
+
+Then through:
+
+```python
+nn.BlockLinear
+```
+
+A block-wise transformation is performed.
+
+The purpose of this design is to control computation and parameter scale while maintaining the expressive power of a large deterministic state.
+
+Therefore, DreamerV3's deterministic path is not simply:
+
+```text
+8192-dimensional GRU
+```
+
+But rather a GRU-like transition with block structure.
+
+This is also a very noteworthy engineering design at the source code level.
+
+---
+
+## 11. What Is `_core()` Actually Computing?
+
+Stripping away the extensive network details from the source code, `_core()` can be simplified to:
+
+```python
+def core(deter, stoch, action):
+
+    stoch = flatten(stoch)
+
+    x_deter = linear(deter)
+    x_stoch = linear(stoch)
+    x_action = linear(action)
+
+    x = concat(
+        x_deter,
+        x_stoch,
+        x_action
+    )
+
+    x = block_gru(x, deter)
+
+    return deter
+```
+
+So what it really expresses is:
+
+```text
+Previous timestep:
+
+deter_{t-1}
+stoch_{t-1}
+action_{t-1}
+
+        │
+        ▼
+
+      RSSM Core
+
+        │
+        ▼
+
+deter_t
+```
+
+This step **does not require the current observation at all**.
+
+The current observation is an input to the posterior, not a direct input to the deterministic transition.
+
+---
+
+## 12. Complete Data Flow of the Observe Phase
+
+Now let's put everything together:
+
+```text
+                  observation_t
+                       │
+                       ▼
+                    Encoder
+                       │
+                       ▼
+                    token_t
+                       │
+                       │
+                       ▼
+z_{t-1} ───────┐
+               │
+h_{t-1} ───────┼──► RSSM Core ◄── action_{t-1}
+               │
+               ▼
+              h_t
+               │
+        ┌──────┴──────┐
+        │             │
+        ▼             ▼
+      Prior        Posterior
+    p(z_t|h_t)   q(z_t|h_t,o_t)
+        │             │
+        │             ▼
+        │          sample
+        │             │
+        │             ▼
+        │            z_t
+        │
+        └──────► KL ◄──────┘
+```
+
+Here we can see:
+
+**RSSM actually has two stochastic paths:**
+
+```text
+Prior path
+h_t → p(z_t | h_t)
+
+Posterior path
+h_t + observation → q(z_t | h_t, observation)
+```
+
+During training, the posterior is used to obtain latent states on real trajectories, while KL is used to constrain the prior.
+
+---
+
+## 13. KL Balancing: The Most Commonly Misunderstood Part of DreamerV3
+
+Now let's look at the official loss:
+
+```python
+prior = self._prior(feat['deter'])
+post = feat['logit']
+
+dyn = self._dist(sg(post)).kl(
+    self._dist(prior)
+)
+
+rep = self._dist(post).kl(
+    self._dist(sg(prior))
+)
+```
+
+The most important thing here is:
+
+```python
+sg(...)
+```
+
+That is:
+
+```text
+stop_gradient
+```
+
+### 1. Dynamics loss
+
+The first term:
+
+```python
+dyn = KL(
+    sg(posterior)
+    || prior
+)
+```
+
+The posterior is stop-gradiented.
+
+So when optimizing this term:
+
+```text
+posterior: serves as target
+prior: is trained
+```
+
+In other words:
+
+> **Make the prior chase the posterior.**
+
+### 2. Representation loss
+
+The second term:
+
+```python
+rep = KL(
+    posterior
+    || sg(prior)
+)
+```
+
+This time the prior is stop-gradiented.
+
+So:
+
+```text
+prior: serves as target
+posterior: is trained
+```
+
+In other words:
+
+> **Keep the posterior's representation from drifting too far from the prior.**
+
+### 3. Why both terms?
+
+If we simply had:
+
+```text
+KL(posterior || prior)
+```
+
+Both networks would receive gradients.
+
+This makes it hard to control:
+
+> Who should move toward whom?
+
+KL balancing explicitly specifies through stop-gradient:
+
+```text
+dyn:
+prior → posterior
+
+rep:
+posterior → prior
+```
+
+So it's not simply:
+
+```text
+KL × a coefficient
+```
+
+But rather two KL losses in different directions, separately constraining the dynamics model and the representation.
+
+---
+
+## 14. What Are Free Nats?
+
+Official configuration:
+
+```yaml
+free_nats: 1.0
+```
+
+Code:
+
+```python
+if self.free_nats:
+    dyn = jnp.maximum(dyn, self.free_nats)
+    rep = jnp.maximum(rep, self.free_nats)
+```
+
+That is:
+
+```text
+dyn = max(dyn, 1.0)
+rep = max(rep, 1.0)
+```
+
+The idea here is not:
+
+> "Each stochastic dimension must retain at least 1 bit of information."
+
+More accurately:
+
+> Provide a free zone for KL. When KL is small enough, stop applying strong constraints through the KL term.
+
+This prevents the model from excessively pursuing:
+
+```text
+posterior ≈ prior
+```
+
+too early in training, which would cause the posterior to lose its ability to utilize observations.
+
+---
+
+## 15. Final Weights of KL Balancing
+
+In the default configuration:
+
+```yaml
+loss_scales:
+  dyn: 1.0
+  rep: 0.1
+```
+
+So RSSM's KL-related loss can be understood as:
+
+```text
+L_RSSM
+=
+1.0 × dyn
++
+0.1 × rep
+```
+
+Combined with:
+
+```text
+dyn = max(
+    KL(stopgrad(post) || prior),
+    free_nats
+)
+
+rep = max(
+    KL(post || stopgrad(prior)),
+    free_nats
+)
+```
+
+This is much more accurate than simply saying:
+
+> "DreamerV3 uses a single KL loss to make the prior approximate the posterior."
+
+---
+
+## 16. Imagine: What to Do Without Observations?
+
+This is the most elegant part of Dreamer.
+
+Training phase:
+
+```text
+observation → posterior → z
+```
+
+But during imagination:
+
+```text
+No observations
+```
+
+So we can only use:
+
+```text
+prior
+```
+
+The core logic in the source code can be simplified to:
+
+```python
+def imagine(carry, action):
+
+    deter = core(
+        carry["deter"],
+        carry["stoch"],
+        action
+    )
+
+    logit = prior(deter)
+
+    stoch = sample(logit)
+
+    return {
+        "deter": deter,
+        "stoch": stoch,
+    }
+```
+
+Note:
+
+**There is no zero-filling of observation embeddings here.**
+
+This is a very important correction to the earlier draft.
+
+Because DreamerV3's `_core()` does not depend on the current observation in the first place.
+
+So the computation path for imagination is naturally:
+
+```text
+(h_t, z_t)
+      │
+      + action_t
+      │
+      ▼
+    RSSM Core
+      │
+      ▼
+    h_{t+1}
+      │
+      ▼
+    Prior
+      │
+      ▼
+    z_{t+1}
+```
+
+Then continues:
+
+```text
+(h_{t+1}, z_{t+1})
+      +
+    action_{t+1}
+      ↓
+...
+```
+
+This allows generating a latent trajectory without any real observations.
+
+---
+
+## 17. Why Can Imagination Be Used for Planning?
+
+Suppose the real environment has given us:
+
+```text
+(h_t, z_t)
+```
+
+Next, the Actor produces:
+
+```text
+a_t
+```
+
+RSSM can then predict:
+
+```text
+(h_{t+1}, z_{t+1})
+```
+
+Then the reward head predicts:
+
+```text
+r_{t+1}
+```
+
+The value head predicts:
+
+```text
+V_{t+1}
+```
+
+So the entire process becomes:
+
+```text
+Current real state
+     │
+     ▼
+   RSSM
+     │
+     ▼
+  latent state
+     │
+     ├──► Actor → action
+     │
+     ├──► Reward Head → reward
+     │
+     └──► Value Head → value
+              │
+              ▼
+          next latent
+              │
+              ▼
+             ...
+```
+
+This is Dreamer's imagination.
+
+It doesn't need to actually interact with the environment to "imagine" the future within a learned world model.
+
+---
+
+## 18. Why Does RSSM's Imagination Error Accumulate?
+
+Because imagination is recursive.
+
+Suppose:
+
+```text
+z_1 = real state
+```
+
+Then:
+
+```text
+z_2 = model(z_1, a_1)
+
+z_3 = model(z_2, a_2)
+
+z_4 = model(z_3, a_3)
+```
+
+If:
+
+```text
+z_2
+```
+
+already has error, then:
+
+```text
+z_3
+```
+
+is making predictions based on a state with error.
+
+So:
+
+```text
+One-step prediction error
+      ↓
+Enters next step
+      ↓
+Continues accumulating
+      ↓
+Long rollouts gradually deviate from the real environment
+```
+
+This is also why DreamerV3 doesn't simply rely on infinitely long imagination, but uses a finite imagination horizon.
+
+In the default configuration:
+
+```yaml
+imag_length: 15
+```
+
+So one imagination rollout typically only unfolds a limited number of steps forward.
+
+---
+
+## 19. RSSM's Sequence Training
+
+In practice, training doesn't process just one timestep at a time.
+
+Suppose:
+
+```text
+batch_size = B
+sequence_length = T
+```
+
+Then the inputs are roughly:
+
+```text
+tokens: [B, T, embed_dim]
+actions: [B, T, action_dim]
+```
+
+RSSM recurs along the time dimension:
+
+```text
+t=1:
+(h_0, z_0, a_0)
+       ↓
+      h_1
+       ↓
+      z_1
+
+t=2:
+(h_1, z_1, a_1)
+       ↓
+      h_2
+       ↓
+      z_2
+
+...
+
+t=T:
+(h_{T-1}, z_{T-1}, a_{T-1})
+       ↓
+      h_T
+       ↓
+      z_T
+```
+
+DreamerV3 uses JAX/Ninjax's `scan` to complete this recursion over the time dimension.
+
+The code structure can be simplified to:
+
+```python
+carry, entries = scan(
+    rssm_step,
+    carry,
+    (tokens, actions, resets)
+)
+```
+
+Here `carry` is:
+
+```text
+{
+    deter,
+    stoch
+}
+```
+
+So RSSM's state is not reinitialized at every timestep, but continuously passed through the entire sequence.
+
+---
+
+## 20. Why Does Reset Also Enter RSSM?
+
+At the beginning of `_observe()` in the source code:
+
+```python
+deter, stoch, action = nn.mask(
+    (carry['deter'], carry['stoch'], action),
+    ~reset
+)
+```
+
+This indicates that after an episode ends, you can't carry the previous episode's latent state into the next episode.
+
+Otherwise:
+
+```text
+Episode A latent
+       ↓
+Episode B
+```
+
+Two completely different episodes would have state contamination.
+
+So during reset:
+
+```text
+deter → reset
+stoch → reset
+action → reset
+```
+
+Then restart from the new episode's state.
+
+This is also an engineering detail that is often overlooked between theoretical formulas and actual implementation.
+
+---
+
+## 21. DreamerV3's Default RSSM Configuration
+
+According to the official configuration, the default large model RSSM parameters are:
+
+```yaml
+rssm:
+  deter: 8192
+  hidden: 1024
+  stoch: 32
+  classes: 64
+  act: silu
+  norm: rms
+  unimix: 0.01
+  outscale: 1.0
+  imglayers: 2
+  obslayers: 1
+  dynlayers: 1
+  absolute: False
+  blocks: 8
+  free_nats: 1.0
+```
+
+The key parameters can be understood as:
+
+| Parameter | Meaning |
+|:---|:---|
+| `deter` | Dimension of the deterministic state |
+| `hidden` | RSSM internal MLP hidden dimension |
+| `stoch` | Number of categorical variables |
+| `classes` | Number of classes per categorical variable |
+| `unimix` | Uniform mixing ratio for categorical distributions |
+| `blocks` | Number of groups in Block GRU |
+| `free_nats` | KL free-nats threshold |
+| `imglayers` | Number of prior network layers |
+| `obslayers` | Number of posterior network layers |
+| `dynlayers` | Number of dynamics network layers |
+
+A particularly confusing point:
+
+```text
+stoch = 32
+```
+
+Does not mean the stochastic state is 32-dimensional.
+
+It's actually:
+
+```text
+32 × 64 = 2048
+```
+
+Dimensions of categorical representation.
+
+---
+
+## 22. Compressing the Entire RSSM Into One Diagram
+
+At this point, DreamerV3's RSSM can be summarized as:
+
+```text
+                  Observation o_t
+                        │
+                        ▼
+                     Encoder
+                        │
+                        ▼
+                    embedding
+                        │
+                        │
+                        ▼
+z_{t-1} ───────┐    ┌─────────┐
+               ├───►│  Core   │◄──── action_{t-1}
+h_{t-1} ───────┘    └────┬────┘
+                          │
+                          ▼
+                         h_t
+                          │
+                 ┌────────┴────────┐
+                 │                 │
+                 ▼                 ▼
+              Prior           Posterior
+           p(z_t | h_t)    q(z_t | h_t,o_t)
+                 │                 │
+                 │                 ▼
+                 │               sample
+                 │                 │
+                 │                 ▼
+                 │                z_t
+                 │                 │
+                 └─────── KL ──────┘
+```
+
+Training phase:
+
+```text
+Real observation
+      ↓
+posterior
+      ↓
+z_t
+```
+
+Imagination phase:
+
+```text
+No observation
+      ↓
+prior
+      ↓
+z_t
+```
+
+And the two are connected through KL balancing.
+
+---
+
+## 23. Re-Understanding "World Model" From a Code Perspective
+
+Looking back at DreamerV3's world model now, you'll find RSSM actually does three things.
+
+### First: Memory
+
+```text
+(h_{t-1}, z_{t-1}, a_{t-1})
+                ↓
+               h_t
+```
+
+The deterministic state is responsible for maintaining historical context.
+
+### Second: Inference
+
+```text
+(h_t, observation_t)
+          ↓
+        posterior
+          ↓
+         z_t
+```
+
+When there are real observations, the model can correct its state estimates.
+
+### Third: Prediction
+
+```text
+(h_t, z_t, action_t)
+          ↓
+        prior
+          ↓
+     (h_{t+1}, z_{t+1})
+```
+
+When there are no observations, the model can rely on its learned dynamics to roll into the future.
+
+So RSSM essentially unifies:
+
+```text
+State Estimation
+        +
+World Dynamics
+```
+
+And Dreamer's imagination further connects:
+
+```text
+World Dynamics
+        ↓
+Future Prediction
+        ↓
+Planning / Policy Learning
+```
+
+---
+
+## 24. Revisiting RSSM's Core Formulas
+
+If we compress DreamerV3's implementation into its most core mathematical form, it can be written as:
+
+### Deterministic transition
+
+```text
+h_t = f(h_{t-1}, z_{t-1}, a_{t-1})
+```
+
+### Prior
+
+```text
+p(z_t | h_t)
+```
+
+### Posterior
+
+```text
+q(z_t | h_t, o_t)
+```
+
+### Dynamics KL
+
+```text
+L_dyn =
+KL[
+    sg(q(z_t | h_t, o_t))
+    ||
+    p(z_t | h_t)
+]
+```
+
+### Representation KL
+
+```text
+L_rep =
+KL[
+    q(z_t | h_t, o_t)
+    ||
+    sg(p(z_t | h_t))
+]
+```
+
+### Free Nats
+
+```text
+L_dyn = max(L_dyn, free_nats)
+
+L_rep = max(L_rep, free_nats)
+```
+
+Then:
+
+```text
+L_KL =
+λ_dyn L_dyn
++
+λ_rep L_rep
+```
+
+Defaults:
+
+```text
+λ_dyn = 1.0
+λ_rep = 0.1
+```
+
+After RSSM is fully trained:
+
+```text
+posterior
+    ↓
+Latent on real trajectories
+
+prior
+    ↓
+Latent prediction without observations
+```
+
+This is the key to enabling DreamerV3's world model to perform imagination.
+
+---
+
+## 25. Summary
+
+If you only remember a few key points about DreamerV3's RSSM, here's a summary table:
+
+| Component | Role | DreamerV3 Implementation |
 |:---|:---|:---|
-| GRU | Maintains deterministic temporal context | Input = encoder features + actions |
-| Prior network | State prediction without observations | Input = deter, outputs Gaussian |
-| Posterior network | State estimation with observations | Input = deter + obs_feat |
-| Reparameterization | Lets gradients flow through sampling | mean + std * eps |
-| KL balancing | Constrains prior to approximate posterior | Free bits prevent degeneration |
-| Imagination mode | Observation-free rollout | Prior only, obs zero-filled |
+| `deter` | Maintains temporal context | Block GRU |
+| `stoch` | Represents stochastic latent | categorical |
+| `classes` | Classes per categorical | Default 64 |
+| Prior | Predicts latent without observation | `p(z_t \| h_t)` |
+| Posterior | Infers latent with observation | `q(z_t \| h_t, o_t)` |
+| `unimix` | Prevents categorical from becoming too sharp | Default 0.01 |
+| `dyn KL` | Trains prior | posterior stop-gradient |
+| `rep KL` | Constrains posterior | prior stop-gradient |
+| Free Nats | Prevents KL constraints from being too strong too early | Default 1.0 |
+| Observe | Updates state using real observations | posterior |
+| Imagine | Observation-free rollout | prior |
 
-RSSM's elegance lies in how it unifies two seemingly different tasks — "filtering with sequential observations" and "prediction without observations" — in a concise way. The prior and posterior share the same deterministic state (GRU), align their distributions through KL divergence, and ultimately enable the prior network to achieve prediction accuracy close to the posterior — this is the foundation that allows the "world model" to plan future actions in imagination.
+From a code perspective, DreamerV3's RSSM is not simply:
 
-Once you understand these code details, many formulas in the DreamerV3 paper stop being abstract symbols and start having concrete implementations.
+```text
+GRU + Gaussian
+```
+
+But rather:
+
+```text
+                 ┌──────────────┐
+                 │  Block GRU   │
+                 └──────┬───────┘
+                        │
+                      h_t
+                    ┌───┴───┐
+                    │       │
+                  prior  posterior
+                    │       │
+                    │       │
+                    ▼       ▼
+               categorical latent
+                    │
+                    ▼
+                   z_t
+```
+
+Where the deterministic state is responsible for "remembering history," the categorical stochastic state is responsible for "expressing state uncertainty," the posterior is responsible for using real observations for state inference, and the prior is responsible for predicting the future when there are no observations.
+
+And KL balancing connects these two paths:
+
+```text
+Real world
+   │
+   ▼
+posterior ───────► latent
+   │                 ▲
+   │                 │
+   └────── KL ───── prior
+                     ▲
+                     │
+                  dynamics
+```
+
+Ultimately, what's learned during training:
+
+> **How to infer world states from observations.**
+
+And what's used during imagination:
+
+> **How to predict the world's future using only latent states and actions.**
+
+This is also one of DreamerV3's most core ideas:
+
+**The model doesn't imagine the future directly in observation space, but runs its world model within a learned latent space.**
+
+---
+
+## Source Code References
+
+The code analysis in this article primarily corresponds to `dreamerv3/rssm.py` and `dreamerv3/configs.yaml` from the official DreamerV3 repository. The source code functions `RSSM._core()`, `_prior()`, `_dist()`, `observe()`, `imagine()`, and `loss()` correspond to the deterministic transition, prior/posterior, categorical sampling, observe/imagine rollout, and KL balancing discussed in this article, respectively.
+
+* [DreamerV3 Official GitHub Repository](https://github.com/danijar/dreamerv3)
+* [DreamerV3 RSSM Source Code rssm.py](https://github.com/danijar/dreamerv3/blob/main/dreamerv3/rssm.py)
+* [DreamerV3 Default Configuration configs.yaml](https://github.com/danijar/dreamerv3/blob/main/dreamerv3/configs.yaml)
+
+> **Source code version note:** The DreamerV3 repository's configuration evolves with versions. If you need "code reproducibility" in your articles, it's recommended to also record the corresponding commit hash, rather than just referencing the `main` branch.
