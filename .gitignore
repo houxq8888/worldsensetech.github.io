@@ -16,3 +16,7 @@ Desktop.ini
 
 # Logs
 *.log
+
+# 本地临时目录与工具数据（不入库）
+.tmp/
+.workbuddy/
