@@ -5,109 +5,118 @@ date: 2026-08-19
 draft: false
 categories: ["世界模型"]
 tags: ["RSSM", "DreamerV3", "世界模型", "状态空间模型", "代码解析"]
-description: "从 DreamerV3 官方源码出发，把 RSSM 的计算路径和数学公式一一对应：categorical latent、Block GRU、双 KL balancing、observe 与 imagine。"
+description: "从 DreamerV3 开源实现出发，沿着 rssm.py 追踪数据流：categorical latent、Block GRU、双 KL balancing（dyn + rep）、observe 与 imagine。"
 toc: true
 ---
 
-前面两篇文章分别介绍了 RSSM 的基本原理和世界模型的发展路线。理论解决的是"RSSM 为什么这样设计"，但真正读 DreamerV3 源码时，会发现还有很多问题：
+> **源码阅读提示**
+>
+> 本文有意不从"标准 RSSM 伪代码"开始，而是按照 `rssm.py` 的实际执行路径展开。阅读时可以重点关注三个函数：
+>
+> ```text
+> observe()  → 真实轨迹上的状态推断
+> _core()    → deterministic dynamics
+> imagine()  → 无 observation 的 latent rollout
+> ```
+>
+> 把这三个函数串起来，基本就能理解 DreamerV3 RSSM 的主体。
 
-* 为什么 stochastic state 不是一个普通的 Gaussian 向量？
-* GRU 到底吃的是 observation，还是上一时刻的 latent state？
+前面两篇文章分别介绍了 RSSM 的基本原理和世界模型的发展路线。
+
+理论解决的是"RSSM 为什么这样设计"，但真正打开 DreamerV3 的源码后，会发现还有很多细节是论文公式没有直接告诉你的：
+
+* 为什么 stochastic state 不是普通的 Gaussian 向量？
+* `GRU` 到底接收什么输入？
 * prior 和 posterior 在代码里分别对应什么？
-* DreamerV3 为什么要做两次 KL？
-* `stop_gradient` 到底在 KL balancing 里起什么作用？
-* imagination 阶段没有 observation，RSSM 又是怎么跑起来的？
+* 为什么 DreamerV3 要计算两个 KL？
+* `stop_gradient` 在 KL balancing 中到底起什么作用？
+* imagination 阶段没有 observation，RSSM 是怎么继续运行的？
 * `stoch=32, classes=64` 到底意味着什么？
+* `deter=8192` 为什么这么大，还能训练得动？
 
-这篇文章不再从一个通用的 Gaussian RSSM 伪代码开始，而是**直接从 DreamerV3 官方实现出发**，把源码中的计算路径和 RSSM 的数学公式一一对应起来。
+这篇文章不再从一个通用的 Gaussian RSSM 伪代码出发，而是**直接沿着 DreamerV3 仓库中的 `dreamerv3/rssm.py` 追踪数据流**，把源码中的计算路径和 RSSM 数学公式对应起来。
 
-> 本文以 DreamerV3 官方仓库中的 `dreamerv3/rssm.py` 和默认配置为参考。为了方便阅读，下面会对 JAX、Ninjax、scan、dtype 等工程代码做适当简化，但不会改变核心计算逻辑。
+> **源码说明**
+>
+> 本文参考的是 DreamerV3 开源仓库当前 `main` 分支中的 `dreamerv3/rssm.py` 与 `configs.yaml`。该仓库 README 将自身描述为 DreamerV3 的 reimplementation，因此本文统一称其为"DreamerV3 开源实现"，而不是 Google/DeepMind 官方代码。
+>
+> 为了方便阅读，文中会对 JAX、Ninjax、dtype 和 `scan` 等工程代码进行适当简化，但核心计算逻辑以源码为准。
 
 ---
 
 ## 一、先看 RSSM 在 DreamerV3 中的位置
 
-DreamerV3 可以粗略理解成：
+DreamerV3 的世界模型可以粗略理解为：
 
 ```text
 Observation
-    │
-    ▼
- Encoder
-    │
-    ▼
- observation embedding
-    │
-    ▼
- ┌──────────────────────────────┐
- │             RSSM             │
- │                              │
- │  deterministic state h_t     │
- │          +                   │
- │  stochastic state z_t        │
- └──────────────────────────────┘
-    │
-    ▼
+     │
+     ▼
+  Encoder
+     │
+     ▼
+ observation token
+     │
+     ▼
+ ┌─────────────────────────────┐
+ │            RSSM             │
+ │                             │
+ │  deterministic state h_t    │
+ │            +                │
+ │  stochastic state z_t       │
+ └─────────────────────────────┘
+     │
+     ▼
  latent feature
-    │
-    ├──► Decoder：重建 observation
-    ├──► Reward Head：预测 reward
-    ├──► Continue Head：预测 episode 是否继续
-    └──► Actor / Critic：想象轨迹上的策略与价值
+     │
+     ├──► Decoder       重建 observation
+     ├──► Reward Head   预测 reward
+     ├──► Continue Head
+     └──► Actor/Critic  想象轨迹上的策略与价值
 ```
 
-RSSM 是整个世界模型的核心。
+RSSM 要解决的问题可以概括成一句话：
 
-它要解决的问题其实可以概括成一句话：
+> **根据过去的 latent state 和 action，维护一个可以不断向未来滚动的隐状态。**
 
-> **根据历史 latent state 和 action，维护一个可以不断向未来滚动的隐状态。**
-
-这个隐状态由两部分组成：
+这个状态由两部分组成：
 
 ```text
 s_t = (h_t, z_t)
-
-h_t：deterministic state
-z_t：stochastic state
 ```
 
 其中：
 
-* `h_t` 负责保存长期的时序上下文；
-* `z_t` 负责表示当前状态中具有随机性的部分。
+* `h_t`：deterministic state，负责保存时序上下文；
+* `z_t`：stochastic state，表示当前状态中的随机 latent。
 
-DreamerV3 官方代码中，RSSM 的状态空间就是：
+DreamerV3 的一个关键变化就在这里：
 
-```python
-deter = [B, deter]
-stoch = [B, stoch, classes]
-```
-
-也就是说，`stoch` **不是一个普通的一维 Gaussian 向量**，而是多个 categorical 随机变量。
+> **`z_t` 不是传统连续 Gaussian RSSM 中的一个普通向量，而是多个 categorical latent variable。**
 
 ---
 
-## 二、DreamerV3 的 stochastic state 到底是什么？
+## 二、先解决一个最容易误解的问题：`stoch` 到底是什么？
 
-这是理解 DreamerV3 RSSM 最重要的一步。
-
-很多 RSSM 教程会写成：
+很多 RSSM 教程会直接写：
 
 ```text
 z_t ~ Normal(μ_t, σ_t)
 ```
 
-然后：
+然后通过：
 
-```python
-z = mean + std * eps
+```text
+z = μ + σ × ε
 ```
 
-这种写法适合解释一些经典的连续 RSSM，但**不能直接当成 DreamerV3 的实现**。
+完成采样。
+
+这种写法可以帮助理解经典连续 RSSM，但**不能直接套到 DreamerV3 的实现上**。
 
 DreamerV3 使用的是 categorical latent。
 
-官方默认配置中：
+默认配置：
 
 ```yaml
 rssm:
@@ -115,30 +124,21 @@ rssm:
   hidden: 1024
   stoch: 32
   classes: 64
+  unimix: 0.01
+  blocks: 8
 ```
 
-因此：
-
-```text
-stoch = 32
-classes = 64
-```
-
-意味着：
-
-> 每一个时间步有 32 个 categorical 随机变量，每个变量有 64 个类别。
-
-所以 stochastic state 的形状是：
+因此 stochastic state 的形状是：
 
 ```text
 [B, 32, 64]
 ```
 
-而不是：
+也就是说：
 
-```text
-[B, 32]
-```
+* 一共有 `32` 个 categorical variable；
+* 每个 variable 有 `64` 个类别；
+* 每个 variable 最终对应一个 64 维 one-hot 向量。
 
 如果把它展平：
 
@@ -146,64 +146,78 @@ classes = 64
 32 × 64 = 2048
 ```
 
-因此 stochastic state 在进入 decoder 等模块之前，可以理解成一个 2048 维的 one-hot / straight-through 表示。
+所以可以把整个 stochastic state 看成一个 2048 维向量，但**语义上不能简单把它理解成一个 2048 维普通 categorical variable**。
 
-官方源码中的定义也非常直接：
+更准确地说：
+
+```text
+z_t = [z_t^1, z_t^2, ..., z_t^32]
+```
+
+其中：
+
+```text
+z_t^i ∈ {1, ..., 64}
+```
+
+每个 `z_t^i` 都是一个 64 类 categorical variable。
+
+源码中的 `_logit()` 正是在做这件事：
 
 ```python
-@property
-def entry_space(self):
-    return dict(
-        deter=elements.Space(np.float32, self.deter),
-        stoch=elements.Space(np.float32, (self.stoch, self.classes)))
+x = Linear(..., self.stoch * self.classes)(x)
+return x.reshape(
+    x.shape[:-1] + (self.stoch, self.classes)
+)
 ```
 
-也就是说，RSSM 的完整 latent state 是：
+也就是：
 
 ```text
-deter:  [B, 8192]
-stoch:  [B, 32, 64]
+Linear
+  │
+  ▼
+32 × 64 logits
+  │
+  ▼
+[B, 32, 64]
 ```
-
-这里的 8192 是默认大模型配置，并不是 RSSM 固定使用 8192。
-
-DreamerV3 提供了多个模型规模，例如：
-
-```text
-1M   → deter 512
-12M  → deter 2048
-25M  → deter 3072
-50M  → deter 4096
-100M → deter 6144
-200M → deter 8192
-400M → deter 12288
-```
-
-因此，在讲 DreamerV3 时，更准确的说法应该是：
-
-> `deter` 和 `classes` 会随着模型规模变化，`stoch=32` 在默认配置中保持不变。
 
 ---
 
-## 三、Observe：真实观测进入 RSSM 后发生了什么？
+## 三、Observe：真实 observation 是怎么进入 RSSM 的？
 
-理解 DreamerV3 RSSM 最好的方法，是直接追踪 `observe()`。
-
-简化之后，它的核心流程可以写成：
+理解 DreamerV3 RSSM，最重要的入口就是：
 
 ```python
-def observe(carry, token, action, reset):
+observe(...)
+```
 
-    deter = core(
+源码的核心逻辑可以简化成：
+
+```python
+def _observe(carry, tokens, action, reset, training):
+
+    deter, stoch, action = mask(
         carry["deter"],
         carry["stoch"],
+        action,
+        ~reset
+    )
+
+    action = preprocess_action(action)
+
+    # 关键：这里没有 observation
+    deter = self._core(
+        deter,
+        stoch,
         action
     )
 
-    logit = posterior(
-        deter,
-        token
-    )
+    # observation token 在这里才进入
+    x = concat([deter, tokens])
+
+    logit = posterior_network(x)
 
     stoch = sample(logit)
 
@@ -213,262 +227,142 @@ def observe(carry, token, action, reset):
     }
 ```
 
-这里有一个非常重要的地方：
+这里有一个非常关键的细节：
 
-**GRU 并不是直接读取当前 observation embedding。**
+> **`_core()` 不读取当前 observation。**
 
-它读取的是：
+当前 observation embedding，也就是 `tokens`，是在 deterministic transition 完成以后，才进入 posterior 网络。
 
-```text
-上一时刻 deter
-上一时刻 stoch
-当前 action
-```
-
-然后得到：
+所以整个过程实际上是：
 
 ```text
-当前 deter
+z_{t-1} ─────┐
+             │
+h_{t-1} ─────┼──► RSSM Core ──► h_t
+             │
+a_{t-1} ─────┘
+
+                         │
+                         ▼
+                  posterior network
+                         ▲
+                         │
+                      token_t
+                         │
+                         ▼
+                       z_t
 ```
 
-也就是：
-
-```text
-(h_{t-1}, z_{t-1}, a_{t-1})
-            │
-            ▼
-          GRU
-            │
-            ▼
-           h_t
-```
-
-之后才使用当前 observation embedding 来推断：
-
-```text
-q(z_t | h_t, o_t)
-```
-
-这正是 RSSM 中 deterministic transition 和 stochastic inference 的分工。
+这和很多"GRU 输入 observation + action"的简化 RSSM 写法是不一样的。
 
 ---
 
-## 四、RSSM 的真正递推关系
+## 四、把源码翻译成数学公式
 
-把代码翻译成数学公式，大致就是：
-
-### 1. Deterministic transition
+DreamerV3 的递推关系可以写成：
 
 ```text
 h_t = f(h_{t-1}, z_{t-1}, a_{t-1})
 ```
 
-DreamerV3 中 `f` 是一个 GRU-like transition。
-
-注意：
+然后分别计算：
 
 ```text
-不是：
-
-h_t = GRU(h_{t-1}, observation_t, action_t)
-
-而是：
-
-h_t = GRU(h_{t-1}, z_{t-1}, action_{t-1})
+p(z_t | h_t)
 ```
 
-这是理解 RSSM 非常关键的一点。
-
-### 2. Posterior
-
-拿到当前 observation encoder 的输出 `o_t` 后：
+以及：
 
 ```text
 q(z_t | h_t, o_t)
 ```
 
-DreamerV3 代码中会把：
+其中：
+
+* `p`：prior；
+* `q`：posterior；
+* `o_t`：当前 observation；
+* `h_t`：deterministic state。
+
+因此整个 RSSM 可以理解成：
 
 ```text
-h_t + observation embedding
+┌─────────────────────────────────────────────────┐
+│  (h_{t-1}, z_{t-1}, a_{t-1}) → h_t →           │
+│                                    ┌──────────┐  │
+│                                    │ p(z_t|h_t)│  │
+│                                    │ q(z_t|h_t,│  │
+│                                    │   o_t)    │  │
+│                                    └──────────┘  │
+└─────────────────────────────────────────────────┘
 ```
 
-送入 observation model，最后产生：
+这也是后面理解 imagination 和 KL loss 的关键。
+
+---
+
+## 五、为什么要有 prior 和 posterior 两套分布？
+
+这两个分布实际上解决的是两个不同的问题。
+
+### 1. Posterior：看到 observation 后，我认为现在是什么状态？
+
+Posterior：
+
+```text
+q(z_t | h_t, o_t)
+```
+
+它可以同时看到：
+
+* 历史信息 `h_t`
+* 当前 observation `o_t`
+
+所以它拥有更多信息。
+
+训练真实轨迹时，我们利用 posterior 得到 stochastic state：
+
+```python
+logit = posterior(deter, token)
+stoch = sample(logit)
+```
+
+因此可以把 posterior 理解成：
+
+> **"看到了真实世界以后，对当前 latent state 的估计。"**
+
+### 2. Prior：如果没有 observation，我预测会是什么状态？
+
+Prior：
+
+```text
+p(z_t | h_t)
+```
+
+它只看 `h_t`，因此它不知道当前真实 observation。
+
+它表达的是：
+
+> **"只根据历史状态和动作，我预测接下来会进入什么 latent state。"**
+
+这正是 imagination 阶段需要的能力。
+
+---
+
+## 六、Categorical latent 是怎么采样的？
+
+Posterior 和 prior 最终都会输出 logits。
+
+例如：
 
 ```text
 logits
+[B, 32, 64]
 ```
 
-然后把 logits 转换成 categorical distribution。
+每一个 `[64]` 都对应一个 categorical distribution。
 
-### 3. Prior
-
-另一方面，只使用 deterministic state：
-
-```text
-p(z_t | h_t)
-```
-
-也就是：
-
-```python
-prior_logit = prior(deter)
-```
-
-于是同一个 `h_t` 同时对应两个分布：
-
-```text
-                 ┌──► posterior q(z_t | h_t, o_t)
-h_t ─────────────┤
-                 └──► prior     p(z_t | h_t)
-```
-
-这就是 RSSM 的核心。
-
----
-
-## 五、为什么需要 prior 和 posterior 两套分布？
-
-可以从"训练"和"想象"两个阶段理解。
-
-### 训练阶段
-
-训练时我们有真实 observation：
-
-```text
-o_1, o_2, o_3, ...
-```
-
-所以可以使用：
-
-```text
-q(z_t | h_t, o_t)
-```
-
-也就是 posterior。
-
-它看到了真实 observation，因此可以得到更准确的 latent state。
-
-### 想象阶段
-
-到了 Dreamer 的 imagination：
-
-```text
-observation 没了
-```
-
-我们只有：
-
-```text
-当前 latent state
-+
-action
-```
-
-所以不能再计算：
-
-```text
-q(z_t | h_t, o_t)
-```
-
-只能使用：
-
-```text
-p(z_t | h_t)
-```
-
-也就是 prior。
-
-因此：
-
-```text
-训练：
-
-observation
-    ↓
-posterior
-    ↓
-z_t
-
-
-想象：
-
-h_t
- ↓
-prior
- ↓
-z_t
-```
-
-训练的目标之一，就是让 prior 逐渐学会逼近 posterior。
-
-这样模型才能做到：
-
-> 训练时借助真实 observation 学习世界状态，想象时脱离 observation 仍然能够预测未来。
-
-这正是世界模型能够进行 imagination 的基础。
-
----
-
-## 六、DreamerV3 为什么使用 categorical latent？
-
-现在来看 `_logit()`：
-
-```python
-def _logit(self, name, x):
-    x = Linear(
-        self.stoch * self.classes
-    )(x)
-
-    return x.reshape(
-        x.shape[:-1],
-        self.stoch,
-        self.classes
-    )
-```
-
-假设：
-
-```text
-stoch = 32
-classes = 64
-```
-
-那么 Linear 最终输出：
-
-```text
-32 × 64 = 2048
-```
-
-然后 reshape 成：
-
-```text
-[32, 64]
-```
-
-于是每个 stochastic variable 都拥有一个 64 类 categorical distribution。
-
-可以理解成：
-
-```text
-z_1 → 64 classes
-z_2 → 64 classes
-z_3 → 64 classes
-...
-z_32 → 64 classes
-```
-
-最终：
-
-```text
-z = [z_1, z_2, ..., z_32]
-```
-
----
-
-## 七、Categorical sampling 是怎么做的？
-
-源码里：
+源码中的：
 
 ```python
 def _dist(self, logits):
@@ -477,298 +371,404 @@ def _dist(self, logits):
         self.unimix
     )
     out = embodied.jax.outs.Agg(
-        out,
-        1,
-        jnp.sum
+        out, 1, jnp.sum
     )
     return out
 ```
 
-这里的 `OneHot` 非常关键。
+这里不是 Gaussian distribution，而是 one-hot categorical distribution。
 
-它并不是：
-
-```text
-Gaussian sampling
-```
-
-而是：
+因此 sampling 过程可以理解成：
 
 ```text
-Categorical distribution
-→ sample one category
-→ represent it as one-hot
+logits
+  │
+  ▼
+categorical distribution
+  │
+  ▼
+sample
+  │
+  ▼
+one-hot vector
 ```
 
-例如某个 categorical variable：
+最终：
 
 ```text
-[0.05, 0.10, 0.70, 0.15]
+stoch.shape = [B, 32, 64]
 ```
-
-采样之后可能得到：
-
-```text
-[0, 0, 1, 0]
-```
-
-32 个变量分别采样后：
-
-```text
-[32, 64]
-```
-
-就是当前 stochastic state。
 
 ---
 
-## 八、为什么代码里还有 unimix？
+## 七、`unimix=0.01` 是干什么的？
 
-DreamerV3 默认：
+DreamerV3 的 categorical distribution 还有一个容易忽略的参数：
 
 ```yaml
 unimix: 0.01
 ```
 
-它的作用可以简单理解成：
+它的目的，是让 categorical distribution 保留一小部分均匀分布。
 
-> 不让 categorical distribution 过早变得过于尖锐。
+直观理解：
 
-假设模型预测：
-
-```text
-[0.999, 0.001, 0, 0, ...]
-```
-
-这种分布可能导致某些类别概率迅速接近 0。
-
-unimix 会把分布和均匀分布做一点混合，让每个类别保留最小概率。
-
-直观上：
+如果网络已经非常确定：
 
 ```text
-原始 distribution
-       │
-       ▼
-  + 少量 uniform
-       │
-       ▼
-更平滑的 categorical distribution
+class 7: 0.9999
+other:   0.0001
 ```
 
-这里的 `0.01` 就是默认混合比例。
+那么分布会非常尖锐。
+
+`unimix` 会把它和 uniform distribution 做少量混合，让每个类别始终保留一点概率。
+
+可以粗略理解成：
+
+```text
+p' = (1 - ε) × p + ε × U
+```
+
+其中 `ε = 0.01`。
+
+它的作用主要是改善 categorical latent 的训练稳定性，避免分布过早变得过于尖锐。
 
 ---
 
-## 九、DreamerV3 的 GRU 其实不是普通的 GRUCell
+## 八、DreamerV3 为什么把 stochastic state 做成这么多 categorical variable？
 
-如果你原来习惯 PyTorch：
+这是 DreamerV3 latent representation 的重要设计。
+
+默认：
+
+```text
+stoch = 32
+classes = 64
+```
+
+不是：
+
+```text
+z ∈ R^32
+```
+
+而是：
+
+```text
+z = [
+    categorical(64),
+    categorical(64),
+    ...
+    categorical(64)
+]
+        × 32
+```
+
+这样做的一个重要好处，是可以形成非常丰富的离散组合空间。
+
+理论上 32 个变量、每个 64 个类别，可以形成：
+
+```text
+64^32
+```
+
+种组合。
+
+当然，实际模型并不会把这些组合全部利用起来，但这个结构提供了很大的表示能力。
+
+这也是为什么 DreamerV3 可以在 relatively compact 的 latent space 中表达复杂环境状态。
+
+---
+
+## 九、真正的 deterministic transition：`_core()`
+
+这是整个 `rssm.py` 中最值得读的部分。
+
+源码并不是简单调用：
 
 ```python
 nn.GRUCell(...)
 ```
 
-那么看 DreamerV3 源码会发现：
+而是自己构造了一个 block-wise GRU。
 
-**它没有直接调用一个标准 GRUCell。**
-
-而是在 `_core()` 中自己构造了 GRU。
-
-核心逻辑类似：
+核心输入包括：
 
 ```python
-reset, cand, update = split(x)
-
-reset = sigmoid(reset)
-cand = tanh(reset * cand)
-
-update = sigmoid(update - 1)
-
-deter = update * cand + (1 - update) * deter
+deter
+stoch
+action
 ```
 
-也就是说，它自己计算 GRU 的 gates。
-
-这也是为什么不能简单地把 DreamerV3 的 RSSM 理解成：
+首先：
 
 ```python
-self.gru = nn.GRUCell(...)
+stoch = stoch.reshape((stoch.shape[0], -1))
 ```
 
-源码中还加入了一个非常重要的设计：
+也就是：
 
 ```text
-Block GRU
+[B, 32, 64]
+       │
+       ▼
+[B, 2048]
+```
+
+然后分别经过三个输入映射：
+
+```python
+x0 = Linear(hidden)(deter)
+x1 = Linear(hidden)(stoch)
+x2 = Linear(hidden)(action)
+```
+
+所以可以理解为：
+
+```text
+deter ──► Linear ──┐
+                   │
+stoch ──► Linear ──┼──► concat ──► Block GRU
+                   │
+action ─► Linear ──┘
+```
+
+注意：
+
+> **这里没有 observation。**
+
+这再次说明 deterministic transition 的核心是：
+
+```text
+h_t = f(h_{t-1}, z_{t-1}, a_{t-1})
 ```
 
 ---
 
-## 十、为什么要 Block GRU？
+## 十、为什么 `deter=8192`？
 
-DreamerV3 默认：
+默认配置中的：
+
+```yaml
+deter: 8192
+```
+
+乍看非常大。
+
+但 DreamerV3 并不是直接使用一个普通的 8192 维 dense GRU。
+
+它还有：
 
 ```yaml
 blocks: 8
 ```
 
-而：
+因此 deterministic state 会被拆成 8 个 block。
 
 ```text
-deter = 8192
+8192 / 8 = 1024
 ```
 
-因此 deterministic state 会被拆成多个 block。
-
-可以粗略理解为：
+也就是说：
 
 ```text
 8192
- ↓
-8 个 block
- ↓
-每个 block 1024
+ │
+ ├── block 1: 1024
+ ├── block 2: 1024
+ ├── ...
+ └── block 8: 1024
 ```
 
-源码中：
+然后使用 `nn.BlockLinear` 对这些 block 做变换。
 
-```python
-flat2group = lambda x: einops.rearrange(
-    x,
-    '... (g h) -> ... g h',
-    g=g
-)
-```
+这就是所谓的 **Block GRU**。
 
-就是在做这种分组。
+它的核心目标是：
 
-之后通过：
-
-```python
-nn.BlockLinear
-```
-
-进行 block-wise transformation。
-
-这样设计的目的，是在保持大 deterministic state 表达能力的同时，控制计算和参数规模。
-
-因此，DreamerV3 的 deterministic path 并不是简单的：
-
-```text
-8192-dimensional GRU
-```
-
-而是一个带 block structure 的 GRU-like transition。
-
-这也是源码层面非常值得关注的工程设计。
+> **保留大 deterministic state 的表示能力，同时避免一个完整 dense GRU 带来的巨大计算量和参数量。**
 
 ---
 
-## 十一、`_core()` 到底在计算什么？
+## 十一、Block GRU 到底在计算什么？
 
-把源码大量的网络细节去掉，可以把 `_core()` 简化成：
+源码最终得到：
 
 ```python
-def core(deter, stoch, action):
+x = BlockLinear(...)(x)
 
-    stoch = flatten(stoch)
+gates = split(x, 3)
 
-    x_deter = linear(deter)
-    x_stoch = linear(stoch)
-    x_action = linear(action)
-
-    x = concat(
-        x_deter,
-        x_stoch,
-        x_action
-    )
-
-    x = block_gru(x, deter)
-
-    return deter
+reset, cand, update = gates
 ```
 
-所以它真正表达的是：
+然后：
+
+```python
+reset = sigmoid(reset)
+cand = tanh(reset * cand)
+update = sigmoid(update - 1)
+
+deter = update * cand + (1 - update) * deter
+```
+
+如果写成数学形式：
 
 ```text
-上一时刻：
-
-deter_{t-1}
-stoch_{t-1}
-action_{t-1}
-
-        │
-        ▼
-
-      RSSM Core
-
-        │
-        ▼
-
-deter_t
+r_t = σ(W_r × x_t + b_r)
+h̃_t = tanh(r_t ⊙ W_h × x_t)
+u_t = σ(W_u × x_t - 1)
+h_t = u_t ⊙ h̃_t + (1 - u_t) ⊙ h_{t-1}
 ```
 
-这一步**完全不需要当前 observation**。
+所以它本质上仍然是 GRU，只是：
 
-当前 observation 是 posterior 的输入，而不是 deterministic transition 的直接输入。
+* 输入经过独立映射；
+* hidden transformation 使用 block structure；
+* gate 计算也采用 block-wise transformation。
 
 ---
 
-## 十二、Observe 阶段的完整数据流
+## 十二、Posterior 网络具体做了什么？
 
-现在把前面的东西串起来：
+回到 `_observe()`。
+
+确定性状态得到以后：
+
+```python
+x = tokens if self.absolute else concat([deter, tokens])
+```
+
+默认：
+
+```yaml
+absolute: False
+```
+
+因此默认情况下：
 
 ```text
-                  observation_t
+x_t = [h_t, o_t^emb]
+```
+
+然后经过 `obslayers` 层 MLP。
+
+默认配置：
+
+```yaml
+obslayers: 1
+hidden: 1024
+```
+
+最后：
+
+```python
+logit = self._logit('obslogit', x)
+```
+
+得到 `[B, 32, 64]`。
+
+所以 posterior 的计算可以写成：
+
+```text
+deter_t + observation_token_t
+              │
+              ▼
+         obs network
+              │
+              ▼
+           logits
+              │
+              ▼
+       categorical q(z_t)
+```
+
+---
+
+## 十三、Prior 网络又是什么？
+
+Prior 的代码反而非常简单：
+
+```python
+def _prior(self, feat):
+    x = feat
+
+    for i in range(self.imglayers):
+        x = Linear(hidden)(x)
+        x = activation(norm(x))
+
+    return self._logit('priorlogit', x)
+```
+
+输入只有 `deter_t`。
+
+默认 `imglayers: 2`。
+
+因此可以简单理解成：
+
+```text
+h_t
+ │
+ ▼
+MLP (2 layers)
+ │
+ ▼
+32 × 64 logits
+ │
+ ▼
+p(z_t | h_t)
+```
+
+---
+
+## 十四、Observe 阶段完整数据流
+
+到这里，可以把整个 observe 过程串起来：
+
+```text
+                 observation_t
                        │
                        ▼
                     Encoder
                        │
                        ▼
-                    token_t
+                     token_t
                        │
+                       │
+z_{t-1} ───────┐       │
+               │       │
+h_{t-1} ───────┼───────┼──► RSSM Core
+               │       │        ▲
+a_{t-1} ───────┘       │        │
                        │
                        ▼
-z_{t-1} ───────┐
-               │
-h_{t-1} ───────┼──► RSSM Core ◄── action_{t-1}
-               │
-               ▼
-              h_t
-               │
-        ┌──────┴──────┐
-        │             │
-        ▼             ▼
-      Prior        Posterior
-    p(z_t|h_t)   q(z_t|h_t,o_t)
-        │             │
-        │             ▼
-        │          sample
-        │             │
-        │             ▼
-        │            z_t
-        │
-        └──────► KL ◄──────┘
+                      h_t
+                       │
+                ┌──────┴──────┐
+                │             │
+                ▼             ▼
+             Prior        Posterior
+          p(z_t|h_t)   q(z_t|h_t,o_t)
+                │             │
+                │             ▼
+                │          sample
+                │             │
+                │             ▼
+                │            z_t
+                │
+                └────── KL ───┘
 ```
 
-这里可以看到：
-
-**RSSM 实际上存在两条 stochastic path：**
-
-```text
-Prior path
-h_t → p(z_t | h_t)
-
-Posterior path
-h_t + observation → q(z_t | h_t, observation)
-```
-
-训练时利用 posterior 得到真实轨迹上的 latent state，同时用 KL 约束 prior。
+这张图基本就是 DreamerV3 RSSM 的核心。
 
 ---
 
-## 十三、KL balancing：DreamerV3 最容易被讲错的地方
+## 十五、KL balancing：源码为什么计算两个 KL？
 
-现在来看官方 loss：
+这是 DreamerV3 RSSM 最容易被简单带过、但实际上非常关键的一部分。
+
+源码：
 
 ```python
 prior = self._prior(feat['deter'])
@@ -783,109 +783,102 @@ rep = self._dist(post).kl(
 )
 ```
 
-这里最重要的是：
+注意这里有两个 KL。
+
+### 1. Dynamics KL
 
 ```python
-sg(...)
+dyn = KL(sg(post) || prior)
 ```
 
 也就是：
 
 ```text
-stop_gradient
+L_dyn = KL[sg(q(z_t|h_t,o_t)) || p(z_t|h_t)]
 ```
 
-### 1. Dynamics loss
+这里 `sg(post)` 意味着 posterior 被 stop-gradient。
 
-第一项：
+所以这个 loss 的梯度主要用于：
 
-```python
-dyn = KL(
-    sg(posterior)
-    || prior
-)
-```
+> **训练 prior / dynamics model 去逼近 posterior。**
 
-posterior 被 stop-gradient。
-
-因此优化这项时：
+可以把它理解成：
 
 ```text
-posterior：作为目标
-prior：被训练
+posterior = 老师
+     │
+     ▼
+   target
+     │
+     ▼
+  prior 学习
 ```
 
-也就是说：
+---
 
-> **让 prior 去追 posterior。**
-
-### 2. Representation loss
+## 十六、Representation KL
 
 第二项：
 
 ```python
-rep = KL(
-    posterior
-    || sg(prior)
-)
+rep = KL(post || sg(prior))
 ```
 
-这一次 prior 被 stop-gradient。
+数学上：
+
+```text
+L_rep = KL[q(z_t|h_t,o_t) || sg(p(z_t|h_t))]
+```
+
+这里反过来了：`sg(prior)` 因此 prior 被当成固定 target。
+
+这个 loss 主要用于：
+
+> **约束 posterior 的 representation 不要无限偏离 prior。**
+
+所以两个 KL 的方向不是为了数学上"重复计算一次"，而是通过 `stop_gradient` **明确指定了优化方向**。
+
+---
+
+## 十七、为什么不能直接写一个 KL？
+
+如果简单写：
+
+```python
+kl = KL(post || prior)
+```
+
+然后一起优化，会让 prior 和 posterior 同时受到梯度影响。
+
+但 DreamerV3 希望把两个角色分开：
+
+```text
+Dynamics KL
+posterior ──► prior
+       训练 dynamics
+
+Representation KL
+prior ──► posterior
+       约束 representation
+```
 
 因此：
 
 ```text
-prior：作为目标
-posterior：被训练
+dyn = KL(sg(post) || prior)
+rep = KL(post || sg(prior))
 ```
 
-也就是说：
+这就是 KL balancing 的核心。
 
-> **让 posterior 的表示不要偏离 prior 太远。**
-
-### 3. 为什么需要两项？
-
-如果直接：
-
-```text
-KL(posterior || prior)
-```
-
-两个网络都会收到梯度。
-
-这样很难控制：
-
-> 到底是谁应该向谁靠近？
-
-KL balancing 就通过 stop-gradient 明确指定：
-
-```text
-dyn：
-prior → posterior
-
-rep：
-posterior → prior
-```
-
-因此它并不是简单的：
-
-```text
-KL × 一个系数
-```
-
-而是通过两个方向不同的 KL loss，分别约束 dynamics model 和 representation。
+**真正值得注意的不是"有两个 KL"，而是 `stop_gradient` 把优化目标拆成了两个方向。**
 
 ---
 
-## 十四、Free Nats 又是什么？
+## 十八、Free Nats 到底做了什么？
 
-官方配置：
-
-```yaml
-free_nats: 1.0
-```
-
-代码：
+源码：
 
 ```python
 if self.free_nats:
@@ -893,34 +886,28 @@ if self.free_nats:
     rep = jnp.maximum(rep, self.free_nats)
 ```
 
-也就是：
+默认 `free_nats: 1.0`，所以：
 
 ```text
-dyn = max(dyn, 1.0)
-rep = max(rep, 1.0)
+L_dyn = max(L_dyn, 1.0)
+L_rep = max(L_rep, 1.0)
 ```
 
-这里的思想不是：
+这里有一个需要特别纠正的常见说法：
 
-> "每个 stochastic dimension 必须保存至少 1 bit 信息。"
+> **不要把 DreamerV3 的 `free_nats` 解释成"每个 stochastic dimension 至少保留 1 nat 信息"。**
 
-更准确地说：
+源码并不是对每个 categorical variable 单独设置一个 information floor。
 
-> 给 KL 提供一个免费区间。当 KL 足够小时，不继续通过 KL 项施加强约束。
+它是在 `_dist(...).kl(...)` 得到的 KL 张量上直接做 `maximum(kl, free_nats)`。
 
-这样可以避免模型在训练早期就过度追求：
-
-```text
-posterior ≈ prior
-```
-
-从而让 posterior 失去利用 observation 的能力。
+因此文章里最好直接按照源码描述。
 
 ---
 
-## 十五、KL balancing 的最终权重
+## 十九、最终 KL loss 是怎么组合的？
 
-默认配置里：
+默认配置：
 
 ```yaml
 loss_scales:
@@ -928,691 +915,451 @@ loss_scales:
   rep: 0.1
 ```
 
-因此 RSSM 的 KL 相关损失可以理解成：
+所以 RSSM 的 KL 部分可以写成：
 
 ```text
-L_RSSM
-=
-1.0 × dyn
-+
-0.1 × rep
-```
-
-再结合：
-
-```text
-dyn = max(
-    KL(stopgrad(post) || prior),
-    free_nats
-)
-
-rep = max(
-    KL(post || stopgrad(prior)),
-    free_nats
-)
-```
-
-这比简单说：
-
-> "DreamerV3 用一个 KL loss 让先验逼近后验"
-
-要准确得多。
-
----
-
-## 十六、Imagine：没有 observation 时怎么办？
-
-这是 Dreamer 最漂亮的地方。
-
-训练阶段：
-
-```text
-observation → posterior → z
-```
-
-但 imagination 阶段：
-
-```text
-没有 observation
-```
-
-所以只能使用：
-
-```text
-prior
-```
-
-源码中的核心逻辑可以简化为：
-
-```python
-def imagine(carry, action):
-
-    deter = core(
-        carry["deter"],
-        carry["stoch"],
-        action
-    )
-
-    logit = prior(deter)
-
-    stoch = sample(logit)
-
-    return {
-        "deter": deter,
-        "stoch": stoch,
-    }
+L_KL = 1.0 × L_dyn + 0.1 × L_rep
 ```
 
 注意：
 
-**这里没有把 observation embedding 填零。**
+> `1.0` 和 `0.1` 并不是 RSSM 类内部写死的，而是 agent 的 loss scale 配置。
 
-这是对原稿非常重要的一处修正。
-
-因为 DreamerV3 的 `_core()` 本来就不依赖当前 observation。
-
-所以 imagination 的计算路径天然就是：
+因此如果强调"源码级解析"，最好区分：
 
 ```text
-(h_t, z_t)
-      │
-      + action_t
-      │
-      ▼
-    RSSM Core
-      │
-      ▼
-    h_{t+1}
-      │
-      ▼
-    Prior
-      │
-      ▼
-    z_{t+1}
+rssm.py
+    ├── 计算 dyn KL
+    ├── 计算 rep KL
+    └── free_nats
+
+configs.yaml / agent loss scale
+    ├── dyn = 1.0
+    └── rep = 0.1
 ```
 
-然后继续：
-
-```text
-(h_{t+1}, z_{t+1})
-      +
-    action_{t+1}
-      ↓
-...
-```
-
-这样就可以在完全没有真实 observation 的情况下生成一条 latent trajectory。
+这样读者就不会误以为 `0.1` 是 RSSM 本身的固定公式。
 
 ---
 
-## 十七、Imagine 为什么可以用于规划？
+## 二十、Imagine 阶段：没有 observation，RSSM 怎么跑？
 
-假设当前真实环境已经给了我们：
+这是 RSSM 最漂亮的地方。
 
-```text
-(h_t, z_t)
-```
+训练真实轨迹时需要 observation 来计算 `q(z_t|h_t,o_t)`。但 imagination 阶段没有真实 observation。
 
-接下来 Actor 产生：
+直接使用 `p(z_t|h_t)`，也就是 prior。
 
-```text
-a_t
-```
-
-RSSM 就可以预测：
-
-```text
-(h_{t+1}, z_{t+1})
-```
-
-然后 reward head 预测：
-
-```text
-r_{t+1}
-```
-
-value head 预测：
-
-```text
-V_{t+1}
-```
-
-于是整个过程变成：
-
-```text
-当前真实状态
-     │
-     ▼
-   RSSM
-     │
-     ▼
-  latent state
-     │
-     ├──► Actor → action
-     │
-     ├──► Reward Head → reward
-     │
-     └──► Value Head → value
-              │
-              ▼
-          下一 latent
-              │
-              ▼
-             ...
-```
-
-这就是 Dreamer 的 imagination。
-
-它不需要真的与环境交互，就可以在 learned world model 中"想象"未来。
-
----
-
-## 十八、为什么 RSSM 的 imagination 误差会累积？
-
-因为 imagination 是递归的。
-
-假设：
-
-```text
-z_1 = 真实状态
-```
-
-那么：
-
-```text
-z_2 = model(z_1, a_1)
-
-z_3 = model(z_2, a_2)
-
-z_4 = model(z_3, a_3)
-```
-
-如果：
-
-```text
-z_2
-```
-
-已经存在误差，那么：
-
-```text
-z_3
-```
-
-是在一个有误差的状态上继续预测。
-
-所以：
-
-```text
-一步预测误差
-      ↓
-进入下一步
-      ↓
-继续累积
-      ↓
-长 rollout 逐渐偏离真实环境
-```
-
-这也是为什么 DreamerV3 不会简单地依赖无限长 imagination，而是使用有限的 imagination horizon。
-
-默认配置中：
-
-```yaml
-imag_length: 15
-```
-
-也就是一次 imagination rollout 通常只向前展开有限步数。
-
----
-
-## 十九、RSSM 的 sequence training
-
-实际训练不会一次只处理一个时间步。
-
-假设：
-
-```text
-batch_size = B
-sequence_length = T
-```
-
-那么输入大致是：
-
-```text
-tokens: [B, T, embed_dim]
-actions: [B, T, action_dim]
-```
-
-RSSM 沿时间维递推：
-
-```text
-t=1:
-(h_0, z_0, a_0)
-       ↓
-      h_1
-       ↓
-      z_1
-
-t=2:
-(h_1, z_1, a_1)
-       ↓
-      h_2
-       ↓
-      z_2
-
-...
-
-t=T:
-(h_{T-1}, z_{T-1}, a_{T-1})
-       ↓
-      h_T
-       ↓
-      z_T
-```
-
-DreamerV3 使用 JAX/Ninjax 的 `scan` 来完成这个时间维度上的递推。
-
-代码结构可以简化成：
+源码中的 `imagine()`：
 
 ```python
-carry, entries = scan(
-    rssm_step,
-    carry,
-    (tokens, actions, resets)
+deter = self._core(
+    carry['deter'],
+    carry['stoch'],
+    actemb
 )
+
+logit = self._prior(deter)
+
+stoch = self._dist(logit).sample(...)
 ```
 
-这里的 `carry` 就是：
+注意：
+
+> **这里完全没有 observation，也没有用零向量填 observation。**
+
+这是因为 `_core()` 本来就不需要 observation。
+
+因此 imagination：
 
 ```text
-{
-    deter,
-    stoch
-}
+h_{t-1}, z_{t-1}, a_{t-1}
+              │
+              ▼
+          RSSM Core
+              │
+              ▼
+             h_t
+              │
+              ▼
+           Prior
+              │
+              ▼
+             z_t
+              │
+              └──────────────┐
+                             │
+                             ▼
+                    下一时间步继续 rollout
 ```
 
-因此 RSSM 的状态不会在每一个时间步重新初始化，而是在整个 sequence 中不断传递。
+这就是世界模型真正开始"做梦"的地方。
 
 ---
 
-## 二十、Reset 为什么也进入 RSSM？
+## 二十一、Observe 和 Imagine 的区别
 
-源码中的 `_observe()` 开头有：
+把两条路径放在一起就非常清楚了。
 
-```python
-deter, stoch, action = nn.mask(
-    (carry['deter'], carry['stoch'], action),
-    ~reset
-)
-```
-
-这说明 episode 结束之后，不能继续把上一 episode 的 latent state 带到下一 episode。
-
-否则：
+### Observe
 
 ```text
-Episode A latent
-       ↓
-Episode B
-```
-
-两个完全不同的 episode 就会发生状态污染。
-
-所以 reset 时：
-
-```text
-deter → reset
-stoch → reset
-action → reset
-```
-
-然后从新的 episode 状态重新开始。
-
-这也是实际实现和理论公式之间经常被忽略的工程细节。
-
----
-
-## 二十一、DreamerV3 默认 RSSM 配置
-
-根据官方配置，默认的大模型 RSSM 参数是：
-
-```yaml
-rssm:
-  deter: 8192
-  hidden: 1024
-  stoch: 32
-  classes: 64
-  act: silu
-  norm: rms
-  unimix: 0.01
-  outscale: 1.0
-  imglayers: 2
-  obslayers: 1
-  dynlayers: 1
-  absolute: False
-  blocks: 8
-  free_nats: 1.0
-```
-
-因此可以把几个关键参数理解成：
-
-| 参数 | 含义 |
-|:---|:---|
-| `deter` | deterministic state 的维度 |
-| `hidden` | RSSM 内部 MLP hidden dimension |
-| `stoch` | categorical variable 数量 |
-| `classes` | 每个 categorical variable 的类别数 |
-| `unimix` | categorical distribution 的均匀混合比例 |
-| `blocks` | Block GRU 的分组数量 |
-| `free_nats` | KL 的 free-nats 阈值 |
-| `imglayers` | prior 网络层数 |
-| `obslayers` | posterior 网络层数 |
-| `dynlayers` | dynamics 网络层数 |
-
-这里尤其容易搞混：
-
-```text
-stoch = 32
-```
-
-并不意味着 stochastic state 是 32 维。
-
-实际是：
-
-```text
-32 × 64 = 2048
-```
-
-维 categorical representation。
-
----
-
-## 二十二、把整个 RSSM 压缩成一张图
-
-到这里，可以把 DreamerV3 RSSM 总结成：
-
-```text
-                  Observation o_t
-                        │
-                        ▼
-                     Encoder
-                        │
-                        ▼
-                    embedding
-                        │
-                        │
-                        ▼
-z_{t-1} ───────┐    ┌─────────┐
-               ├───►│  Core   │◄──── action_{t-1}
-h_{t-1} ───────┘    └────┬────┘
-                          │
-                          ▼
-                         h_t
-                          │
-                 ┌────────┴────────┐
-                 │                 │
-                 ▼                 ▼
-              Prior           Posterior
-           p(z_t | h_t)    q(z_t | h_t,o_t)
-                 │                 │
-                 │                 ▼
-                 │               sample
-                 │                 │
-                 │                 ▼
-                 │                z_t
-                 │                 │
-                 └─────── KL ──────┘
-```
-
-训练阶段：
-
-```text
-真实 observation
-      ↓
-posterior
-      ↓
-z_t
-```
-
-想象阶段：
-
-```text
-没有 observation
-      ↓
-prior
-      ↓
-z_t
-```
-
-而两者通过 KL balancing 联系起来。
-
----
-
-## 二十三、从代码角度重新理解"世界模型"
-
-现在再回头看 DreamerV3 的世界模型，会发现 RSSM 实际上做了三件事情。
-
-### 第一件事：记忆
-
-```text
-(h_{t-1}, z_{t-1}, a_{t-1})
-                ↓
-               h_t
-```
-
-deterministic state 负责维护历史上下文。
-
-### 第二件事：推断
-
-```text
-(h_t, observation_t)
-          ↓
-        posterior
-          ↓
+previous state + action
+          │
+          ▼
+        _core
+          │
+          ▼
+         h_t
+          │
+          ├─────────────► prior
+          │
+          ▼
+ observation token
+          │
+          ▼
+      posterior
+          │
+          ▼
          z_t
 ```
 
-有真实 observation 时，模型可以修正自己的状态估计。
-
-### 第三件事：预测
+### Imagine
 
 ```text
-(h_t, z_t, action_t)
-          ↓
+previous state + action
+          │
+          ▼
+        _core
+          │
+          ▼
+         h_t
+          │
+          ▼
         prior
-          ↓
-     (h_{t+1}, z_{t+1})
+          │
+          ▼
+         z_t
 ```
 
-没有 observation 时，模型可以依靠自己学习到的 dynamics 向未来滚动。
+所以可以把两者理解成：
 
-所以 RSSM 本质上统一了：
-
-```text
-State Estimation
-        +
-World Dynamics
-```
-
-而 Dreamer 的 imagination 又进一步把：
-
-```text
-World Dynamics
-        ↓
-Future Prediction
-        ↓
-Planning / Policy Learning
-```
-
-连接起来。
+> **Observe 是"看着现实更新状态"，Imagine 是"闭着眼睛根据模型预测状态"。**
 
 ---
 
-## 二十四、最后重新看 RSSM 的核心公式
+## 二十二、为什么 imagination 不能无限长？
 
-如果把 DreamerV3 的实现压缩成最核心的数学形式，可以写成：
+因为 imagination 使用的是 `p(z_t|h_t)` 而不是 `q(z_t|h_t,o_t)`，因此每一步预测都会受到模型误差影响。
 
-### Deterministic transition
+```text
+预测误差
+   │
+   ▼
+下一步输入
+   │
+   ▼
+新的预测误差
+   │
+   ▼
+继续累积
+```
+
+这就是典型的 rollout error accumulation。
+
+DreamerV3 默认 `imag_length: 15`，也就是 imagination horizon 为 15。
+
+这并不是说 15 步之后世界模型突然失效，而是一个工程上的 trade-off：
+
+* 想象太短：规划能力不足；
+* 想象太长：模型误差累积严重。
+
+---
+
+## 二十三、Sequence training：RSSM 为什么可以处理整段序列？
+
+`observe()` 并不是只处理单个 timestep。
+
+源码使用 Ninjax 的 `nj.scan(...)` 沿着时间维度展开 RSSM。
+
+可以理解成：
+
+```text
+t=0
+  │
+  ▼
+(h0, z0)
+  │
+  ▼
+t=1
+  │
+  ▼
+(h1, z1)
+  │
+  ▼
+t=2
+  │
+  ▼
+(h2, z2)
+  │
+  ▼
+...
+```
+
+状态会沿着 sequence 不断传递。
+
+所以 RSSM 的时间递推依然存在：
 
 ```text
 h_t = f(h_{t-1}, z_{t-1}, a_{t-1})
 ```
 
-### Prior
-
-```text
-p(z_t | h_t)
-```
-
-### Posterior
-
-```text
-q(z_t | h_t, o_t)
-```
-
-### Dynamics KL
-
-```text
-L_dyn =
-KL[
-    sg(q(z_t | h_t, o_t))
-    ||
-    p(z_t | h_t)
-]
-```
-
-### Representation KL
-
-```text
-L_rep =
-KL[
-    q(z_t | h_t, o_t)
-    ||
-    sg(p(z_t | h_t))
-]
-```
-
-### Free Nats
-
-```text
-L_dyn = max(L_dyn, free_nats)
-
-L_rep = max(L_rep, free_nats)
-```
-
-然后：
-
-```text
-L_KL =
-λ_dyn L_dyn
-+
-λ_rep L_rep
-```
-
-默认：
-
-```text
-λ_dyn = 1.0
-λ_rep = 0.1
-```
-
-最终 RSSM 训练出来以后：
-
-```text
-posterior
-    ↓
-真实轨迹上的 latent
-
-prior
-    ↓
-没有 observation 时的 latent prediction
-```
-
-这就是 DreamerV3 世界模型可以进行 imagination 的关键。
+`scan` 只是 JAX/Ninjax 层面的工程实现，用来更高效地表达这个递推过程。
 
 ---
 
-## 二十五、小结
+## 二十四、Reset 为什么很重要？
 
-如果只记住 DreamerV3 RSSM 的几个关键点，可以记成下面这张表：
+RSSM 是有记忆的。
 
-| 组件 | 作用 | DreamerV3 实现 |
-|:---|:---|:---|
-| `deter` | 保存时序上下文 | Block GRU |
-| `stoch` | 表示随机 latent | categorical |
-| `classes` | 每个 categorical 的类别数 | 默认 64 |
-| Prior | 没有 observation 时预测 latent | `p(z_t \| h_t)` |
-| Posterior | 有 observation 时推断 latent | `q(z_t \| h_t, o_t)` |
-| `unimix` | 防止 categorical 过早尖锐 | 默认 0.01 |
-| `dyn KL` | 训练 prior | posterior stop-gradient |
-| `rep KL` | 约束 posterior | prior stop-gradient |
-| Free Nats | 避免 KL 约束过早过强 | 默认 1.0 |
-| Observe | 使用真实 observation 更新状态 | posterior |
-| Imagine | 无 observation rollout | prior |
-
-从代码角度看，DreamerV3 的 RSSM 并不是一个简单的：
+如果一个 episode 结束：
 
 ```text
-GRU + Gaussian
+Episode A
+    │
+    ▼
+RSSM state
+    │
+    X reset
+    │
+    ▼
+Episode B
 ```
+
+如果不 reset，那么 Episode B 的初始状态会携带 Episode A 的历史。
+
+源码在 `_observe()` 开头会根据 `reset` 对 `deter`、`stoch`、`action` 进行 mask。
+
+因此 episode 边界会切断之前的 latent state。
+
+这不是一个小细节。
+
+对于 recurrent world model 来说：
+
+> **reset 本质上就是告诉模型："新的世界开始了，不要把上一个 episode 的记忆带过来。"**
+
+---
+
+## 二十五、默认 RSSM 配置
+
+当前 `configs.yaml` 中默认 RSSM 配置为：
+
+| 参数 | 默认值 | 含义 |
+|:---|---:|:---|
+| `deter` | 8192 | deterministic state 维度 |
+| `hidden` | 1024 | RSSM MLP hidden dimension |
+| `stoch` | 32 | categorical variable 数量 |
+| `classes` | 64 | 每个 categorical variable 的类别数 |
+| `unimix` | 0.01 | categorical distribution 的均匀混合比例 |
+| `blocks` | 8 | Block GRU 分组数量 |
+| `free_nats` | 1.0 | KL free-nats 阈值 |
+| `imglayers` | 2 | prior 网络层数 |
+| `obslayers` | 1 | posterior 网络层数 |
+| `dynlayers` | 1 | dynamics 网络层数 |
+
+这些是**默认配置**，不是所有 DreamerV3 模型规模都固定使用的参数。
+
+例如配置文件中的不同模型规模会改变 `deter`、`hidden` 和 `classes`。从 1M 到 400M，`deter` 从 512 增加到 12288，`classes` 从 4 增加到 96。
+
+所以：
+
+> `8192 × 32 × 64` 应该理解成 DreamerV3 默认配置下的具体实例，而不是 RSSM 的固定结构。
+
+---
+
+## 二十六、把整个 RSSM 压缩成四条公式
+
+读完代码以后，其实整个 RSSM 可以浓缩成四步。
+
+### ① Deterministic transition
+
+```text
+┌─────────────────────────────────────────┐
+│  h_t = f(h_{t-1}, z_{t-1}, a_{t-1})    │
+└─────────────────────────────────────────┘
+```
+
+历史状态和动作决定 deterministic state。
+
+### ② Prior
+
+```text
+┌─────────────────────────┐
+│  p(z_t | h_t)           │
+└─────────────────────────┘
+```
+
+只依赖 deterministic state。它负责 imagination。
+
+### ③ Posterior
+
+```text
+┌─────────────────────────────┐
+│  q(z_t | h_t, o_t)          │
+└─────────────────────────────┘
+```
+
+利用 observation 对 latent state 进行修正。它负责真实轨迹上的状态推断。
+
+### ④ KL balancing
+
+```text
+┌─────────────────────────────────────────────────────┐
+│  L_dyn = KL[sg(q(z_t|h_t,o_t)) || p(z_t|h_t)]      │
+│  L_rep = KL[q(z_t|h_t,o_t) || sg(p(z_t|h_t))]      │
+│                                                      │
+│  L_KL = 1.0 × L_dyn + 0.1 × L_rep                  │
+└─────────────────────────────────────────────────────┘
+```
+
+其中 KL 在进入最终 loss 前还会应用 `free_nats`。
+
+---
+
+## 二十七、从代码角度重新理解 RSSM
+
+如果不看代码，RSSM 很容易被理解成：
+
+> "一个 GRU + 一个 Gaussian。"
+
+但 DreamerV3 的实际实现要丰富得多：
+
+```text
+                 ┌──────────────────────┐
+                 │      RSSM            │
+                 │                      │
+ action ────────►│                      │
+                 │    Block GRU         │
+ z_{t-1} ───────►│        │             │
+                 │        ▼             │
+ h_{t-1} ───────►│       h_t            │
+                 │      /   \            │
+                 │     /     \           │
+                 │  Prior   Posterior    │
+                 │    │        ▲         │
+                 │    │        │         │
+                 │    │      token_t     │
+                 │    │        │         │
+                 │    ▼        ▼         │
+                 │   p(z)     q(z)       │
+                 │     │        │        │
+                 │     └── KL ──┘        │
+                 └──────────────────────┘
+```
+
+所以 RSSM 实际上统一完成了三件事情：
+
+### 1. Memory
+
+`deter` 通过 recurrent dynamics 保存历史。
+
+### 2. State estimation
+
+posterior 根据 observation 修正当前 latent state。
+
+### 3. Prediction
+
+prior 在没有 observation 的情况下预测未来 latent state。
+
+最终：
+
+> **训练阶段，RSSM 可以借助真实 observation 学习 latent dynamics；想象阶段，则丢掉 observation，仅依赖 prior 在 latent space 中向未来 rollout。**
+
+这就是 DreamerV3 世界模型能够进行 latent imagination 的基础。
+
+---
+
+## 二十八、最后回到源码：为什么这些细节值得关注？
+
+如果只看论文，我们可能会把 RSSM 理解成 `RNN + latent distribution`。
+
+但真正看代码以后，会发现 DreamerV3 在这上面做了大量工程设计：
+
+```text
+Categorical latent
+       +
+OneHot distribution
+       +
+Unimix
+       +
+Block GRU
+       +
+RMSNorm
+       +
+Prior / Posterior
+       +
+KL balancing
+       +
+Stop Gradient
+       +
+Free Nats
+       +
+Scan
+```
+
+这些东西单独看都不复杂。
+
+真正重要的是它们组合起来之后形成了一条完整的链：
+
+```text
+真实 observation
+       │
+       ▼
+   Encoder
+       │
+       ▼
+ observation token
+       │
+       ▼
+┌────────────────┐
+│     RSSM       │
+│                │
+│ history ──► h  │
+│          │     │
+│          ├──► prior
+│          │
+│ obs ─────┴──► posterior
+│                │
+│        KL align│
+└────────────────┘
+       │
+       ▼
+ latent state
+       │
+       ▼
+ imagination
+       │
+       ▼
+ future latent states
+       │
+       ▼
+ reward / value / policy
+```
+
+所以，从代码层面看，RSSM 真正解决的问题并不是"如何预测下一个 observation"。
 
 而是：
 
-```text
-                 ┌──────────────┐
-                 │  Block GRU   │
-                 └──────┬───────┘
-                        │
-                      h_t
-                    ┌───┴───┐
-                    │       │
-                  prior  posterior
-                    │       │
-                    │       │
-                    ▼       ▼
-               categorical latent
-                    │
-                    ▼
-                   z_t
-```
+> **如何学习一个 latent state，使它既能够解释真实 observation，又能够在没有 observation 的情况下，仅凭历史状态和 action 自己向未来滚动。**
 
-其中 deterministic state 负责"记住历史"，categorical stochastic state 负责"表达状态不确定性"，posterior 负责利用真实观测进行状态推断，prior 则负责在没有观测的时候预测未来。
-
-而 KL balancing 把这两条路径连接起来：
-
-```text
-真实世界
-   │
-   ▼
-posterior ───────► latent
-   │                 ▲
-   │                 │
-   └────── KL ───── prior
-                     ▲
-                     │
-                  dynamics
-```
-
-最终，训练阶段学习的是：
-
-> **如何根据 observation 推断世界状态。**
-
-而 imagination 阶段使用的是：
-
-> **如何仅根据 latent state 和 action 预测世界未来。**
-
-这也是 DreamerV3 最核心的思想之一：
-
-**模型不是直接在 observation space 里想象未来，而是在一个学出来的 latent space 里运行自己的世界模型。**
+这才是 DreamerV3 RSSM 的核心。
 
 ---
 
 ## 参考源码
 
-本文代码分析主要对应 DreamerV3 官方仓库中的 `dreamerv3/rssm.py` 和 `dreamerv3/configs.yaml`。源码中的 `RSSM._core()`、`_prior()`、`_dist()`、`observe()`、`imagine()` 和 `loss()` 分别对应本文介绍的 deterministic transition、prior/posterior、categorical sampling、observe/imagine rollout 以及 KL balancing。
+* [DreamerV3 GitHub 仓库](https://github.com/danijar/dreamerv3)
+* [dreamerv3/rssm.py](https://github.com/danijar/dreamerv3/blob/main/dreamerv3/rssm.py)
+* [dreamerv3/configs.yaml](https://github.com/danijar/dreamerv3/blob/main/dreamerv3/configs.yaml)
 
-* [DreamerV3 官方 GitHub 仓库](https://github.com/danijar/dreamerv3)
-* [DreamerV3 RSSM 源码 rssm.py](https://github.com/danijar/dreamerv3/blob/main/dreamerv3/rssm.py)
-* [DreamerV3 默认配置 configs.yaml](https://github.com/danijar/dreamerv3/blob/main/dreamerv3/configs.yaml)
-
-> **源码版本说明：** DreamerV3 仓库的配置会随版本演进。如果你要在文章中做到"代码可复现"，建议同时记录本文对应的 commit hash，而不要只写 `main` 分支。
+> **版本建议：** 如果这篇文章作为长期技术博客保存，建议发布时记录具体 commit hash，而不是只写 `main`。因为源码和默认配置可能继续演进。当前仓库的默认分支是 `main`。
