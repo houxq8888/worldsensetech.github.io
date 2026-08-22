@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Cosmos on WorldSense 技术笔记</title><link>https://worldsensetech.com/zh/tags/cosmos/</link><description>Recent content in Cosmos on WorldSense 技术笔记</description><generator>Hugo</generator><language>zh-CN</language><lastBuildDate>Mon, 10 Aug 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://worldsensetech.com/zh/tags/cosmos/index.xml" rel="self" type="application/rss+xml"/><item><title>世界模型如何表示世界：四条表征路线与机器人适应能力</title><link>https://worldsensetech.com/zh/articles/world-model-representations/</link><pubDate>Mon, 10 Aug 2026 00:00:00 +0000</pubDate><guid>https://worldsensetech.com/zh/articles/world-model-representations/</guid><description>&lt;p&gt;前面我们用 MuJoCo 和 Isaac Sim 的对比，理清了仿真器的选择。但不管用哪个仿真器，世界模型都面临一个更根本的问题：到底用什么来表示&amp;quot;世界&amp;quot;？&lt;/p&gt;
+&lt;p&gt;这个问题听起来抽象，但它直接决定了世界模型能做什么、不能做什么。就像你选错了数据结构，后面的算法再精妙也救不回来。&lt;/p&gt;
+&lt;p&gt;我把当前世界模型的表征方式归纳为四条主要路线。需要说明的是，这四条路线并不是严格互斥的——它们分别对应表征的不同维度：隐空间压缩是表征空间的选择，视觉生成是输出空间的选择，显式几何建模是世界几何的表示方式，对象级结构化是信息的组织方式。更准确地说，这四条路线不是互相替代的模型类别，而是世界模型设计中的四种归纳偏置（inductive bias）——不同表征给模型加入了不同的先验假设。实际系统中，它们经常交叉组合。但理解每条路线的核心逻辑和局限，是做出正确设计选择的前提。&lt;/p&gt;
+&lt;h2 id="路线一隐状态latent-state"&gt;路线一：隐状态（Latent State）&lt;/h2&gt;
+&lt;p&gt;代表：DreamerV3、TD-MPC2&lt;/p&gt;
+&lt;p&gt;核心思路：把观测（图像、传感器数据）压缩成一个固定维度的向量，在这个隐空间里建模动态、训练策略。&lt;/p&gt;
+&lt;p&gt;DreamerV3 的 RSSM 使用循环神经网络维护确定性状态（4096 维），并结合离散随机变量（32 个类别变量，每个 64 类）来表示不确定性，两者共同用于预测未来。TD-MPC2 更激进——512 维隐状态，不要求世界模型重建原始观测，而是在任务相关的隐空间中直接做模型预测控制。&lt;/p&gt;
+&lt;p&gt;这个路线解决什么问题？&lt;/p&gt;
+&lt;p&gt;样本效率和计算速度。隐状态是高度压缩的表征，一个 64×64×3 的图像被压缩成几千维的向量。在这个压缩空间里做想象训练，比直接在像素空间里预测快几个数量级。DreamerV3 相比像素级世界模型具有更低的计算需求，可以在有限算力下完成高效训练。TD-MPC2 在多个连续控制任务上也展示了较高的训练效率。&lt;/p&gt;
+&lt;p&gt;而且隐状态天然适合做控制。策略网络可以直接从隐状态输出动作，世界模型可以在隐空间里做 rollout，不需要生成完整的图像。对于实时控制场景（如机械臂操作），这种效率是必须的。&lt;/p&gt;
+&lt;p&gt;卡在哪里？&lt;/p&gt;
+&lt;p&gt;隐空间是个黑箱。它通常不提供显式可访问的 3D 结构——模型内部可能编码了深度、位置等空间线索，但这些信息难以被直接用于几何推理。它学到的是&amp;quot;做了这个动作后，隐向量会从 A 变成 B&amp;quot;，但 A 和 B 里面到底包含了什么空间信息，完全不透明。&lt;/p&gt;
+&lt;p&gt;这带来一个直接后果：长时间预测容易漂移。由于隐状态通常不显式约束几何一致性，每预测一步就可能引入微小误差，误差累积后，想象轨迹逐渐偏离真实动态。DreamerV3 通常采用较短的 imagination horizon（例如 15 步），这是在模型误差累积、价值估计偏差和计算成本之间的工程折中。&lt;/p&gt;
+&lt;p&gt;另一个问题是迁移。如果隐空间主要由单一任务数据学习得到，其状态语义往往缺少显式结构约束，跨场景迁移时可能需要重新适配。&lt;/p&gt;
+&lt;h2 id="路线二像素视频pixelvideo"&gt;路线二：像素/视频（Pixel/Video）&lt;/h2&gt;
+&lt;p&gt;代表：NVIDIA Cosmos、1X World Model&lt;/p&gt;
+&lt;p&gt;核心思路：直接预测未来的图像或视频帧。给世界模型一段过去的视频 + 动作序列，它生成未来的视频。&lt;/p&gt;
+&lt;p&gt;Cosmos 定位为 Physical AI 的基础模型，用两条路线处理视觉信息：一条是自回归的离散视觉 token（类似 GPT 预测下一个 token），一条是扩散模型生成连续帧。它的目标不仅是预测视频，更是通过大规模视觉生成获得通用的物理先验。1X World Model 也采用类似思路，用视频生成模型预测未来画面，同时预测离散隐状态码。&lt;/p&gt;
+&lt;p&gt;这个路线解决什么问题？&lt;/p&gt;</description></item></channel></rss>

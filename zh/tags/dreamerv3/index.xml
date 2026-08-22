@@ -1,0 +1,269 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>DreamerV3 on WorldSense 技术笔记</title><link>https://worldsensetech.com/zh/tags/dreamerv3/</link><description>Recent content in DreamerV3 on WorldSense 技术笔记</description><generator>Hugo</generator><language>zh-CN</language><lastBuildDate>Sat, 22 Aug 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://worldsensetech.com/zh/tags/dreamerv3/index.xml" rel="self" type="application/rss+xml"/><item><title>从代码理解 RSSM（四）：KL balancing、Free Nats 与最终 KL 组合</title><link>https://worldsensetech.com/zh/articles/2026-08-22-rssm-kl-balancing/</link><pubDate>Sat, 22 Aug 2026 00:00:00 +0000</pubDate><guid>https://worldsensetech.com/zh/articles/2026-08-22-rssm-kl-balancing/</guid><description>&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;《从代码理解 RSSM》系列 · 第 4 篇 / 共 6 篇&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;系列目录（当前在第 4 篇，已加粗；上/下一篇见文末导航）：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;a href="https://worldsensetech.com/zh/articles/2026-08-19-rssm-code-walkthrough/"&gt;（一）RSSM 的位置与 stochastic 状态&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://worldsensetech.com/zh/articles/2026-08-20-rssm-stochastic-state/"&gt;（二）先验/后验、straight-through 与 unimix&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://worldsensetech.com/zh/articles/2026-08-21-rssm-deterministic-core/"&gt;（三）_core()、deter=8192 与 Block GRU&lt;/a&gt;
+&lt;strong&gt;4. &lt;a href="https://worldsensetech.com/zh/articles/2026-08-22-rssm-kl-balancing/"&gt;（四）KL balancing、Free Nats 与最终 KL&lt;/a&gt;&lt;/strong&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://worldsensetech.com/zh/articles/2026-08-23-rssm-imagine-reset/"&gt;（五）Imagine、Observe/Imagine 区别与 Reset&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://worldsensetech.com/zh/articles/2026-08-24-rssm-recap/"&gt;（六）默认配置、四条公式与对照表&lt;/a&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/blockquote&gt;
+&lt;h2 id="十四observe-阶段完整数据流observe--imagine-同一框架"&gt;十四、Observe 阶段完整数据流（Observe / Imagine 同一框架）&lt;/h2&gt;
+&lt;p&gt;到这里，可以把整个 RSSM 的状态转移框架画出来，并且把 &lt;strong&gt;Observe 与 Imagine 放在同一个 &lt;code&gt;_core()&lt;/code&gt; 转移框架里&lt;/strong&gt;：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-text" data-lang="text"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; ┌──────────────────────────┐
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; │ RSSM transition │
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; │ │
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;(h_{t-1},z_{t-1}) + a_{t-1}
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; │
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; ▼
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; _core()
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; │
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; ▼
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; h_t
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; │
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; ┌──────┴──────┐
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; │ │
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; ▼ ▼
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; Prior Observation
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; p(z_t | h_t) │
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; │ ▼
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; │ Posterior
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; │ q(z_t|h_t,o_t)
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; │ │
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; │ ▼
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; │ z_t
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; └───────┬─────┘
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; │
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; ▼
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; latent state
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; │
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; ▼
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; next step
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;在旁边注明两种用法，其实这就是全文最重要的两句话：&lt;/p&gt;</description></item><item><title>从代码理解 RSSM（三）：确定性转移 _core()、deter=8192 与 Block GRU</title><link>https://worldsensetech.com/zh/articles/2026-08-21-rssm-deterministic-core/</link><pubDate>Fri, 21 Aug 2026 00:00:00 +0000</pubDate><guid>https://worldsensetech.com/zh/articles/2026-08-21-rssm-deterministic-core/</guid><description>&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;《从代码理解 RSSM》系列 · 第 3 篇 / 共 6 篇&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;系列目录（当前在第 3 篇，已加粗；上/下一篇见文末导航）：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;a href="https://worldsensetech.com/zh/articles/2026-08-19-rssm-code-walkthrough/"&gt;（一）RSSM 的位置与 stochastic 状态&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://worldsensetech.com/zh/articles/2026-08-20-rssm-stochastic-state/"&gt;（二）先验/后验、straight-through 与 unimix&lt;/a&gt;
+&lt;strong&gt;3. &lt;a href="https://worldsensetech.com/zh/articles/2026-08-21-rssm-deterministic-core/"&gt;（三）_core()、deter=8192 与 Block GRU&lt;/a&gt;&lt;/strong&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://worldsensetech.com/zh/articles/2026-08-22-rssm-kl-balancing/"&gt;（四）KL balancing、Free Nats 与最终 KL&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://worldsensetech.com/zh/articles/2026-08-23-rssm-imagine-reset/"&gt;（五）Imagine、Observe/Imagine 区别与 Reset&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://worldsensetech.com/zh/articles/2026-08-24-rssm-recap/"&gt;（六）默认配置、四条公式与对照表&lt;/a&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/blockquote&gt;
+&lt;h2 id="九真正的-deterministic-transition_core"&gt;九、真正的 deterministic transition：&lt;code&gt;_core()&lt;/code&gt;&lt;/h2&gt;
+&lt;p&gt;这是整个 &lt;code&gt;rssm.py&lt;/code&gt; 中最值得读的部分。&lt;/p&gt;
+&lt;p&gt;源码并不是简单调用：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-python" data-lang="python"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;nn&lt;span style="color:#ff79c6"&gt;.&lt;/span&gt;GRUCell(&lt;span style="color:#ff79c6"&gt;...&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;而是自己构造了一个 block-wise GRU。&lt;/p&gt;
+&lt;p&gt;核心输入包括：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-python" data-lang="python"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;deter
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;stoch
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;action
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;首先：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-python" data-lang="python"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;stoch &lt;span style="color:#ff79c6"&gt;=&lt;/span&gt; stoch&lt;span style="color:#ff79c6"&gt;.&lt;/span&gt;reshape((stoch&lt;span style="color:#ff79c6"&gt;.&lt;/span&gt;shape[&lt;span style="color:#bd93f9"&gt;0&lt;/span&gt;], &lt;span style="color:#ff79c6"&gt;-&lt;/span&gt;&lt;span style="color:#bd93f9"&gt;1&lt;/span&gt;))
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;也就是：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-text" data-lang="text"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;[B, 32, 64]
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; │
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; ▼
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;[B, 2048]
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;然后把 &lt;code&gt;deter&lt;/code&gt;、&lt;code&gt;stoch&lt;/code&gt;、&lt;code&gt;action&lt;/code&gt; 各自通过一个输入映射（注意：这里的&amp;quot;分别 Linear 映射再 concat&amp;quot;是概念示意图，&lt;strong&gt;真正的核心在于 BlockLinear 的结构化参数化&lt;/strong&gt;，见下一节）：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-text" data-lang="text"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;deter ──► Linear ──┐
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; │
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;stoch ──► Linear ──┼──► concat ──► Block GRU
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; │
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;action ─► Linear ──┘
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;注意：&lt;/p&gt;</description></item><item><title>从代码理解 RSSM（二）：先验/后验、straight-through 采样与 unimix</title><link>https://worldsensetech.com/zh/articles/2026-08-20-rssm-stochastic-state/</link><pubDate>Thu, 20 Aug 2026 00:00:00 +0000</pubDate><guid>https://worldsensetech.com/zh/articles/2026-08-20-rssm-stochastic-state/</guid><description>&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;《从代码理解 RSSM》系列 · 第 2 篇 / 共 6 篇&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;系列目录（当前在第 2 篇，已加粗；上/下一篇见文末导航）：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;a href="https://worldsensetech.com/zh/articles/2026-08-19-rssm-code-walkthrough/"&gt;（一）RSSM 的位置与 stochastic 状态&lt;/a&gt;
+&lt;strong&gt;2. &lt;a href="https://worldsensetech.com/zh/articles/2026-08-20-rssm-stochastic-state/"&gt;（二）先验/后验、straight-through 与 unimix&lt;/a&gt;&lt;/strong&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://worldsensetech.com/zh/articles/2026-08-21-rssm-deterministic-core/"&gt;（三）_core()、deter=8192 与 Block GRU&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://worldsensetech.com/zh/articles/2026-08-22-rssm-kl-balancing/"&gt;（四）KL balancing、Free Nats 与最终 KL&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://worldsensetech.com/zh/articles/2026-08-23-rssm-imagine-reset/"&gt;（五）Imagine、Observe/Imagine 区别与 Reset&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://worldsensetech.com/zh/articles/2026-08-24-rssm-recap/"&gt;（六）默认配置、四条公式与对照表&lt;/a&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/blockquote&gt;
+&lt;h2 id="四把源码翻译成数学公式注意时间索引"&gt;四、把源码翻译成数学公式（注意时间索引）&lt;/h2&gt;
+&lt;p&gt;DreamerV3 的递推关系可以写成：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-text" data-lang="text"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;h_t = f(h_{t-1}, z_{t-1}, a_{t-1})
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;然后分别计算：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-text" data-lang="text"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;p(z_t | h_t) [prior，不读 observation]
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;q(z_t | h_t, o_t) [posterior，读 observation]
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;其中：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;p&lt;/code&gt;：prior；&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;q&lt;/code&gt;：posterior；&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;o_t&lt;/code&gt;：当前 observation；&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;h_t&lt;/code&gt;：deterministic state。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;一个非常重要、但初学者很容易卡住的时间索引说明：&lt;/strong&gt;&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;code&gt;h_t = f(h_{t-1}, z_{t-1}, a_{t-1})&lt;/code&gt; 中的 &lt;code&gt;h_t&lt;/code&gt; 已经融合了截至 &lt;code&gt;t-1&lt;/code&gt; 的 latent / action 历史，但&lt;strong&gt;它并不包含当前 &lt;code&gt;o_t&lt;/code&gt;&lt;/strong&gt;。当前 observation 只在 &lt;strong&gt;posterior 分支&lt;/strong&gt;中用于推断 &lt;code&gt;z_t&lt;/code&gt;，而不进入 deterministic transition。&lt;/p&gt;</description></item><item><title>从代码理解 RSSM（一）：RSSM 在 DreamerV3 中的位置与 stochastic 状态</title><link>https://worldsensetech.com/zh/articles/2026-08-19-rssm-code-walkthrough/</link><pubDate>Wed, 19 Aug 2026 00:00:00 +0000</pubDate><guid>https://worldsensetech.com/zh/articles/2026-08-19-rssm-code-walkthrough/</guid><description>&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;《从代码理解 RSSM》系列 · 第 1 篇 / 共 6 篇&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;系列目录（当前在第 1 篇，已加粗；上/下一篇见文末导航）：
+&lt;strong&gt;1. &lt;a href="https://worldsensetech.com/zh/articles/2026-08-19-rssm-code-walkthrough/"&gt;（一）RSSM 的位置与 stochastic 状态&lt;/a&gt;&lt;/strong&gt;
+2. &lt;a href="https://worldsensetech.com/zh/articles/2026-08-20-rssm-stochastic-state/"&gt;（二）先验/后验、straight-through 与 unimix&lt;/a&gt;
+3. &lt;a href="https://worldsensetech.com/zh/articles/2026-08-21-rssm-deterministic-core/"&gt;（三）_core()、deter=8192 与 Block GRU&lt;/a&gt;
+4. &lt;a href="https://worldsensetech.com/zh/articles/2026-08-22-rssm-kl-balancing/"&gt;（四）KL balancing、Free Nats 与最终 KL&lt;/a&gt;
+5. &lt;a href="https://worldsensetech.com/zh/articles/2026-08-23-rssm-imagine-reset/"&gt;（五）Imagine、Observe/Imagine 区别与 Reset&lt;/a&gt;
+6. &lt;a href="https://worldsensetech.com/zh/articles/2026-08-24-rssm-recap/"&gt;（六）默认配置、四条公式与对照表&lt;/a&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;源码阅读提示&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;本文有意不从&amp;quot;标准 RSSM 伪代码&amp;quot;开始，而是按照 &lt;code&gt;rssm.py&lt;/code&gt; 的实际执行路径展开。阅读时可以重点关注下面几个函数：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-text" data-lang="text"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;observe() → sequence-level wrapper，沿时间维调用 _observe()
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;_observe() → 单个时间步的状态推断（真实轨迹）
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;_core() → 单个时间步的 deterministic dynamics
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;imagine() → 无 observation 的 latent rollout
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;这里最容易混淆的一点是：&lt;strong&gt;&lt;code&gt;observe()&lt;/code&gt; 并不是一个&amp;quot;处理单步 transition&amp;quot;的函数&lt;/strong&gt;。它只是 sequence-level 的封装，内部通过 Ninjax 的 &lt;code&gt;nj.scan(...)&lt;/code&gt; 沿着时间维度反复调用 &lt;code&gt;_observe()&lt;/code&gt;；真正处理单个时间步的是 &lt;code&gt;_observe()&lt;/code&gt; 与 &lt;code&gt;_core()&lt;/code&gt;。把 &lt;code&gt;observe() / _observe() / _core() / imagine()&lt;/code&gt; 这一层调用关系理清，基本就能理解 DreamerV3 RSSM 的主体。&lt;/p&gt;</description></item><item><title>跑 DreamerV3 该租云 GPU 还是自建工作站？一个工程师的成本账</title><link>https://worldsensetech.com/zh/articles/2026-08-17-dreamerv3-gpu-infrastructure/</link><pubDate>Mon, 17 Aug 2026 00:00:00 +0000</pubDate><guid>https://worldsensetech.com/zh/articles/2026-08-17-dreamerv3-gpu-infrastructure/</guid><description>&lt;p&gt;前面几篇文章讲了 DreamerV3 的环境搭建和训练技巧。但有一个更基础的问题经常被忽略：&lt;strong&gt;你在什么硬件上跑？&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;这个问题看似简单，实际上直接影响你的研究节奏和钱包。我用了一个月的 AutoDL 云 GPU，又花了一周时间规划自建工作站，中间还收到了供应商 ¥36,000 的整机报价。这篇文章把整个过程和算账结果分享出来，希望能给同样在纠结&amp;quot;租还是买&amp;quot;的朋友一个参考。&lt;/p&gt;
+&lt;h2 id="先说结论"&gt;先说结论&lt;/h2&gt;
+&lt;p&gt;如果你确认自己会长期维持较高的 GPU 使用率，自建工作站值得认真做一次成本测算。按照我实际使用的 ¥2.58/GPU 小时计算，每天 12 小时的简单静态平衡点约 29 个月，每天 18 小时约 19 个月。纯经济账并不意味着&amp;quot;买一定比租便宜&amp;quot;——12 小时并不是一个&amp;quot;买了马上省钱&amp;quot;的分界线。但高频研究场景下，本地机器在等待时间、环境稳定性和数据管理上的优势，可能具有更高价值。&lt;/p&gt;
+&lt;p&gt;但&amp;quot;回本&amp;quot;不是唯一考量。自建工作站还有一个云 GPU 给不了的优势：&lt;strong&gt;随时可用、数据本地、不用排队、不用惦记关机省钱&lt;/strong&gt;。对于需要高频迭代的研究工作，这个体验差异是巨大的。&lt;/p&gt;
+&lt;h2 id="第一阶段autodl-云-gpu-的实际花费"&gt;第一阶段：AutoDL 云 GPU 的实际花费&lt;/h2&gt;
+&lt;p&gt;我最初的选择是 AutoDL——国内最常用的 GPU 云平台之一，按小时计费，机型丰富，不用自己维护环境。对于刚开始跑 DreamerV3 实验来说，这是最合理的选择。&lt;/p&gt;
+&lt;h3 id="实际花费"&gt;实际花费&lt;/h3&gt;
+&lt;p&gt;我实际使用的 AutoDL 实例折算下来约为 &lt;strong&gt;¥2.58/GPU 小时&lt;/strong&gt;（RTX 4090D 机型）。偶尔遇到过更低的短时优惠价（约 ¥1.67/h），但下面按 ¥2.58/h 这个实际常规价格估算月/年费用。&lt;/p&gt;
+&lt;p&gt;两天花了 ¥100 左右。听起来不多，但换算一下：&lt;/p&gt;
+&lt;table&gt;
+	&lt;thead&gt;
+			&lt;tr&gt;
+					&lt;th style="text-align: left"&gt;GPU 日均运行时长&lt;/th&gt;
+					&lt;th style="text-align: left"&gt;月花费&lt;/th&gt;
+					&lt;th style="text-align: left"&gt;年花费&lt;/th&gt;
+			&lt;/tr&gt;
+	&lt;/thead&gt;
+	&lt;tbody&gt;
+			&lt;tr&gt;
+					&lt;td style="text-align: left"&gt;每天 4 小时（轻度）&lt;/td&gt;
+					&lt;td style="text-align: left"&gt;约 ¥310&lt;/td&gt;
+					&lt;td style="text-align: left"&gt;约 ¥3,764&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td style="text-align: left"&gt;每天 8 小时（中度）&lt;/td&gt;
+					&lt;td style="text-align: left"&gt;约 ¥619&lt;/td&gt;
+					&lt;td style="text-align: left"&gt;约 ¥7,530&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td style="text-align: left"&gt;每天 12 小时（重度）&lt;/td&gt;
+					&lt;td style="text-align: left"&gt;约 ¥929&lt;/td&gt;
+					&lt;td style="text-align: left"&gt;约 ¥11,299&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td style="text-align: left"&gt;每天 18 小时（极限）&lt;/td&gt;
+					&lt;td style="text-align: left"&gt;约 ¥1,393&lt;/td&gt;
+					&lt;td style="text-align: left"&gt;约 ¥16,943&lt;/td&gt;
+			&lt;/tr&gt;
+	&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;注意这只是 GPU 租赁费用，还没算存储费用（AutoDL 的系统盘和数据盘另计费）和网络传输成本。&lt;/p&gt;</description></item><item><title>DreamerV3 训练技巧：从踩坑到收敛的实战经验</title><link>https://worldsensetech.com/zh/articles/dreamerv3-training-tips/</link><pubDate>Tue, 11 Aug 2026 00:00:00 +0000</pubDate><guid>https://worldsensetech.com/zh/articles/dreamerv3-training-tips/</guid><description>&lt;p&gt;上一篇文章梳理了世界模型的四条表征路线。今天我们回到 DreamerV3 的实战主题，聊聊训练过程中的那些坑和技巧。本文基于 DreamerV3 commit &lt;code&gt;e3f02248&lt;/code&gt;、JAX + Haiku、MuJoCo + DM Control 的本地实验环境，不同版本的参数名和配置可能有差异。&lt;/p&gt;
+&lt;p&gt;DreamerV3 是目前最开源、最成熟的世界模型实现之一。但如果你真的动手训练过，一定知道这个过程并不轻松——环境配置、超参数调优、训练不稳定、收敛慢……各种坑。&lt;/p&gt;
+&lt;p&gt;这篇文章总结我在训练 DreamerV3 过程中遇到的常见问题和解决方案，希望能帮你少走弯路。&lt;/p&gt;
+&lt;h2 id="环境配置的坑"&gt;环境配置的坑&lt;/h2&gt;
+&lt;h3 id="1-mujoco-版本问题"&gt;1. MuJoCo 版本问题&lt;/h3&gt;
+&lt;p&gt;DreamerV3 的官方实现基于 JAX + MuJoCo。但 MuJoCo 的版本选择很关键：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;MuJoCo 2.x vs 3.x。官方代码基于 MuJoCo 2.x，但 3.x 版本有性能改进。如果用 3.x，需要修改部分 API 调用。&lt;/li&gt;
+&lt;li&gt;mujoco-py vs mujoco。mujoco-py 是旧的 Python 绑定，已经停止维护。建议直接用官方的 mujoco 包。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;建议：优先使用与你当前 DreamerV3 commit 匹配的 MuJoCo 版本，不要一开始就升级整个环境。&lt;/p&gt;
+&lt;h3 id="2-jax-的-gpu-配置"&gt;2. JAX 的 GPU 配置&lt;/h3&gt;
+&lt;p&gt;JAX 的 GPU 支持需要正确安装 CUDA 和 cuDNN。常见问题：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;CUDA 版本不匹配。JAX 对 CUDA 版本有严格要求，安装前查看官方文档。&lt;/li&gt;
+&lt;li&gt;GPU 内存不足。JAX 默认会占用所有 GPU 内存。可以设置 &lt;code&gt;XLA_PYTHON_CLIENT_MEM_FRACTION=0.9&lt;/code&gt; 限制内存使用。如果遇到编译阶段内存峰值过高，也可以设置 &lt;code&gt;XLA_PYTHON_CLIENT_PREALLOCATE=false&lt;/code&gt; 关闭预分配。&lt;/li&gt;
+&lt;li&gt;多 GPU 问题。JAX 的多 GPU 支持和 PyTorch 不同，需要特别配置。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;下图是 DreamerV3 在 RTX 5090D 上训练时的实际 GPU 占用情况，显存占用约 25.6GB（32GB 的 78%），GPU 利用率 91%：
+![DreamerV3 训练时 GPU 占用情况](/images/nvidia smi.png) 图：RTX 5090D 上 DreamerV3 训练时的 GPU 显存占用（25.6GB / 32GB，利用率 91%）&lt;/p&gt;</description></item><item><title>世界模型如何表示世界：四条表征路线与机器人适应能力</title><link>https://worldsensetech.com/zh/articles/world-model-representations/</link><pubDate>Mon, 10 Aug 2026 00:00:00 +0000</pubDate><guid>https://worldsensetech.com/zh/articles/world-model-representations/</guid><description>&lt;p&gt;前面我们用 MuJoCo 和 Isaac Sim 的对比，理清了仿真器的选择。但不管用哪个仿真器，世界模型都面临一个更根本的问题：到底用什么来表示&amp;quot;世界&amp;quot;？&lt;/p&gt;
+&lt;p&gt;这个问题听起来抽象，但它直接决定了世界模型能做什么、不能做什么。就像你选错了数据结构，后面的算法再精妙也救不回来。&lt;/p&gt;
+&lt;p&gt;我把当前世界模型的表征方式归纳为四条主要路线。需要说明的是，这四条路线并不是严格互斥的——它们分别对应表征的不同维度：隐空间压缩是表征空间的选择，视觉生成是输出空间的选择，显式几何建模是世界几何的表示方式，对象级结构化是信息的组织方式。更准确地说，这四条路线不是互相替代的模型类别，而是世界模型设计中的四种归纳偏置（inductive bias）——不同表征给模型加入了不同的先验假设。实际系统中，它们经常交叉组合。但理解每条路线的核心逻辑和局限，是做出正确设计选择的前提。&lt;/p&gt;
+&lt;h2 id="路线一隐状态latent-state"&gt;路线一：隐状态（Latent State）&lt;/h2&gt;
+&lt;p&gt;代表：DreamerV3、TD-MPC2&lt;/p&gt;
+&lt;p&gt;核心思路：把观测（图像、传感器数据）压缩成一个固定维度的向量，在这个隐空间里建模动态、训练策略。&lt;/p&gt;
+&lt;p&gt;DreamerV3 的 RSSM 使用循环神经网络维护确定性状态（4096 维），并结合离散随机变量（32 个类别变量，每个 64 类）来表示不确定性，两者共同用于预测未来。TD-MPC2 更激进——512 维隐状态，不要求世界模型重建原始观测，而是在任务相关的隐空间中直接做模型预测控制。&lt;/p&gt;
+&lt;p&gt;这个路线解决什么问题？&lt;/p&gt;
+&lt;p&gt;样本效率和计算速度。隐状态是高度压缩的表征，一个 64×64×3 的图像被压缩成几千维的向量。在这个压缩空间里做想象训练，比直接在像素空间里预测快几个数量级。DreamerV3 相比像素级世界模型具有更低的计算需求，可以在有限算力下完成高效训练。TD-MPC2 在多个连续控制任务上也展示了较高的训练效率。&lt;/p&gt;
+&lt;p&gt;而且隐状态天然适合做控制。策略网络可以直接从隐状态输出动作，世界模型可以在隐空间里做 rollout，不需要生成完整的图像。对于实时控制场景（如机械臂操作），这种效率是必须的。&lt;/p&gt;
+&lt;p&gt;卡在哪里？&lt;/p&gt;
+&lt;p&gt;隐空间是个黑箱。它通常不提供显式可访问的 3D 结构——模型内部可能编码了深度、位置等空间线索，但这些信息难以被直接用于几何推理。它学到的是&amp;quot;做了这个动作后，隐向量会从 A 变成 B&amp;quot;，但 A 和 B 里面到底包含了什么空间信息，完全不透明。&lt;/p&gt;
+&lt;p&gt;这带来一个直接后果：长时间预测容易漂移。由于隐状态通常不显式约束几何一致性，每预测一步就可能引入微小误差，误差累积后，想象轨迹逐渐偏离真实动态。DreamerV3 通常采用较短的 imagination horizon（例如 15 步），这是在模型误差累积、价值估计偏差和计算成本之间的工程折中。&lt;/p&gt;
+&lt;p&gt;另一个问题是迁移。如果隐空间主要由单一任务数据学习得到，其状态语义往往缺少显式结构约束，跨场景迁移时可能需要重新适配。&lt;/p&gt;
+&lt;h2 id="路线二像素视频pixelvideo"&gt;路线二：像素/视频（Pixel/Video）&lt;/h2&gt;
+&lt;p&gt;代表：NVIDIA Cosmos、1X World Model&lt;/p&gt;
+&lt;p&gt;核心思路：直接预测未来的图像或视频帧。给世界模型一段过去的视频 + 动作序列，它生成未来的视频。&lt;/p&gt;
+&lt;p&gt;Cosmos 定位为 Physical AI 的基础模型，用两条路线处理视觉信息：一条是自回归的离散视觉 token（类似 GPT 预测下一个 token），一条是扩散模型生成连续帧。它的目标不仅是预测视频，更是通过大规模视觉生成获得通用的物理先验。1X World Model 也采用类似思路，用视频生成模型预测未来画面，同时预测离散隐状态码。&lt;/p&gt;
+&lt;p&gt;这个路线解决什么问题？&lt;/p&gt;</description></item><item><title>从零搭建世界模型实验环境：MuJoCo + DreamerV3 实战指南</title><link>https://worldsensetech.com/zh/articles/world-model-lab-setup/</link><pubDate>Wed, 05 Aug 2026 00:00:00 +0000</pubDate><guid>https://worldsensetech.com/zh/articles/world-model-lab-setup/</guid><description>&lt;p&gt;前面写了好几篇世界模型的理论文章——从 RSSM 的数学原理到 Sim-to-Real 迁移，到 VLA 和世界模型的对比。有读者问：道理我都懂了，怎么动手跑起来？&lt;/p&gt;
+&lt;p&gt;今天这篇就是回答这个问题的。我会手把手带你搭建一个完整的世界模型实验环境，从安装到训练到可视化，一步步走通。跑通之后，你就可以在这个基础上做自己的实验了。&lt;/p&gt;
+&lt;p&gt;我们选用的工具链是：MuJoCo（物理仿真）+ DreamerV3（世界模型）。如果你需要更高保真度的渲染，后面可以替换为 Isaac Sim，但入门阶段 MuJoCo 足够了。&lt;/p&gt;
+&lt;h2 id="工具选型为什么是这两个"&gt;工具选型：为什么是这两个&lt;/h2&gt;
+&lt;p&gt;MuJoCo：目前机器人仿真领域最主流的引擎之一。物理精度高、API 简洁、速度快。2021 年被 DeepMind 收购后开源免费，现在是机器人学习研究的事实标准，也是连续控制世界模型研究中最常用的 benchmark 之一。&lt;/p&gt;
+&lt;p&gt;DreamerV3：Danijar Hafner 等人开发的世界模型算法，是 Dreamer 系列的第三代。它用 RSSM（循环状态空间模型）学习环境动态，在想象空间中训练 Actor-Critic 策略。代码开源，文档清晰，是学习世界模型最好的起点。需要注意的是，DreamerV3 底层基于JAX + Haiku框架，而非 TensorFlow。&lt;/p&gt;
+&lt;p&gt;日志格式说明：DreamerV3（commit e3f02248）输出自己的日志格式（&lt;code&gt;metrics.jsonl&lt;/code&gt; 和 &lt;code&gt;scores.jsonl&lt;/code&gt;），不使用 TensorBoard 的 event files。虽然名字里带&amp;quot;json&amp;quot;，但这是 JSON Lines 格式（每行一个 JSON 对象），可以用 Python 直接读取和可视化。本教程会教你如何用 Python 分析这些日志。&lt;/p&gt;
+&lt;p&gt;如果你本地机器内存不足（低于 32GB），建议使用云端资源：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Google Colab：免费 GPU，内存约 12-25GB，适合快速验证。注意 Colab 的 session 有时长限制&lt;/li&gt;
+&lt;li&gt;AutoDL / 矩池云：国内云平台，按小时计费，GPU 机型丰富&lt;/li&gt;
+&lt;li&gt;AWS / GCP / Azure：按需启动 GPU 实例，适合长期实验&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;云端运行的好处是不受本地硬件限制，坏处是需要上传下载数据和模型。对于入门学习，Google Colab 是最经济的选择。&lt;/p&gt;</description></item><item><title>什么是机器人世界模型？一个工程师的深度解读</title><link>https://worldsensetech.com/zh/articles/world-model-intro/</link><pubDate>Sat, 01 Aug 2026 00:00:00 +0000</pubDate><guid>https://worldsensetech.com/zh/articles/world-model-intro/</guid><description>&lt;p&gt;如果你关注AI领域的最新进展，可能已经注意到一个趋势：从ChatGPT到Sora，从AlphaFold到机器人操控，AI正在从&amp;quot;理解语言&amp;quot;走向&amp;quot;理解世界&amp;quot;。而在这个转变中，有一个概念越来越核心——世界模型（World Model）。&lt;/p&gt;
+&lt;p&gt;今天这篇文章，我想从一个工程师的视角，聊聊什么是世界模型，为什么它对机器人如此重要，以及目前最有代表性的DreamerV3到底做了什么。&lt;/p&gt;
+&lt;h2 id="一个直觉机器人也需要想象力"&gt;一个直觉：机器人也需要&amp;quot;想象力&amp;quot;&lt;/h2&gt;
+&lt;p&gt;先做一个思想实验。&lt;/p&gt;
+&lt;p&gt;想象你面前有一杯水，你伸手去推它。在你真正动手之前，你的大脑已经&amp;quot;模拟&amp;quot;了这个动作的后果——水会洒出来，杯子会滑动，你的手会变湿。你没有真正去做，但你已经&amp;quot;知道&amp;quot;了结果。&lt;/p&gt;
+&lt;p&gt;这种能力，心理学家称之为&amp;quot;心智模拟&amp;quot;（Mental Simulation）。它是人类智能的核心能力之一。我们不需要每次都通过试错来学习，而是可以在脑海中&amp;quot;想象&amp;quot;行动的后果，然后选择最优的方案。&lt;/p&gt;
+&lt;p&gt;传统的机器人是怎么做的呢？大多数时候，它们靠的是试错。强化学习（Reinforcement Learning）的基本逻辑就是：在环境中执行动作，观察结果，获得奖励或惩罚，然后更新策略。这就像一个蒙着眼睛的人在迷宫里乱走，靠碰壁来学习地图。&lt;/p&gt;
+&lt;p&gt;问题很明显：效率太低了。一个真实的机械臂，每次试错都要消耗时间、磨损硬件，还可能造成损坏。如果机器人能像人一样，先在&amp;quot;脑海&amp;quot;中模拟一下，再决定怎么做，那效率会有质的飞跃。&lt;/p&gt;
+&lt;p&gt;世界模型，就是机器人的&amp;quot;想象力&amp;quot;。&lt;/p&gt;
+&lt;h2 id="世界模型到底在做什么"&gt;世界模型到底在做什么&lt;/h2&gt;
+&lt;p&gt;用一句话概括：世界模型学习的是&amp;quot;如果我执行某个动作，环境会怎么变化&amp;quot;。&lt;/p&gt;
+&lt;p&gt;技术上说，世界模型是一个环境的内部模拟器。它接收当前的状态和要执行的动作作为输入，输出预测的下一个状态和可能获得的奖励。形式化地表示：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;`下一个状态 = 世界模型(当前状态, 动作)
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;预测奖励 = 奖励函数(当前状态, 动作)`
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;这看起来很简单，但它的能力取决于模型学到了多好的环境动态。一个好的世界模型，能够准确预测几百步甚至上千步之后的环境状态。&lt;/p&gt;
+&lt;p&gt;有了世界模型之后，策略训练就变成了一个完全不同的游戏。机器人不需要在真实环境中试错，而是在世界模型构建的&amp;quot;想象空间&amp;quot;中训练。就像下棋的高手，不需要真的走每一步，而是在脑海中推演多种可能的走法，然后选择最优的。&lt;/p&gt;
+&lt;h2 id="dreamerv3当前最强的世界模型之一"&gt;DreamerV3：当前最强的世界模型之一&lt;/h2&gt;
+&lt;p&gt;说到世界模型在机器人领域的应用，就不得不提Dreamer系列。这是Danijar Hafner等人从2020年开始持续迭代的工作，到2023年的DreamerV3已经在多个基准测试上达到了SOTA。&lt;/p&gt;
+&lt;p&gt;DreamerV3的核心架构有三个关键组件：&lt;/p&gt;
+&lt;h3 id="1-rssm循环状态空间模型"&gt;1. RSSM：循环状态空间模型&lt;/h3&gt;
+&lt;p&gt;RSSM（Recurrent State-Space Model）是世界模型的&amp;quot;记忆体&amp;quot;。它维护两种状态：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;确定性状态 hₜ：捕捉环境的长期趋势和规律，比如&amp;quot;物体A在桌子左边&amp;quot;这种相对稳定的信息。&lt;/li&gt;
+&lt;li&gt;随机性状态 zₜ：捕捉环境的即时不确定性，比如&amp;quot;物体A的精确位置可能有几毫米的偏差&amp;quot;。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;为什么需要两种状态？因为真实世界既有确定性的一面（物理规律），也有不确定性的一面（传感噪声、未建模的动态）。传统的RNN只有一种隐状态，很难同时处理这两种特性。RSSM通过双轨设计，让模型既能记住长期规律，又能表达短期不确定性。&lt;/p&gt;
+&lt;h3 id="2-actor-critic在想象中训练策略"&gt;2. Actor-Critic：在想象中训练策略&lt;/h3&gt;
+&lt;p&gt;有了世界模型之后，怎么训练机器人的行为策略？DreamerV3用的是Actor-Critic方法：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Actor（演员）：负责选择动作。给定当前状态，输出一个动作分布。&lt;/li&gt;
+&lt;li&gt;Critic（评论家）：负责评估。给定当前状态，预测未来能获得的累计奖励。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;关键创新在于：Actor和Critic的训练完全在想象空间中进行。从经验回放池中采样起始状态，然后用世界模型&amp;quot;展开&amp;quot;一条轨迹（默认15步），在这条想象的轨迹上计算损失并更新网络。&lt;/p&gt;
+&lt;p&gt;这意味着什么？意味着机器人可以在&amp;quot;梦&amp;quot;中练习几百万次，而不需要动一下真实的硬件。&lt;/p&gt;
+&lt;h3 id="3-对称对数损失让训练更稳定"&gt;3. 对称对数损失：让训练更稳定&lt;/h3&gt;
+&lt;p&gt;DreamerV3相比前代最大的改进之一，是引入了对称对数（symlog）变换来处理奖励和价值的尺度问题。&lt;/p&gt;
+&lt;p&gt;不同任务的奖励尺度可能差异巨大——有的任务奖励是0到1，有的是0到10000。传统方法需要对每个任务手动缩放奖励，这很不优雅。DreamerV3通过对称对数变换，自动将任意尺度的奖励压缩到一个合理范围内，实现了真正的&amp;quot;一个算法跑所有任务&amp;quot;。&lt;/p&gt;
+&lt;h2 id="与传统强化学习的本质区别"&gt;与传统强化学习的本质区别&lt;/h2&gt;
+&lt;p&gt;很多人会问：这不就是强化学习吗？有什么区别？&lt;/p&gt;
+&lt;p&gt;区别在于样本效率。&lt;/p&gt;
+&lt;p&gt;传统的强化学习（比如PPO、SAC）是无模型（model-free）的。它们直接从环境交互中学习策略，不需要理解环境的动态。这就像一个人通过不断试错来学骑自行车——摔了很多次之后，身体&amp;quot;记住&amp;quot;了怎么保持平衡。&lt;/p&gt;
+&lt;p&gt;世界模型方法是有模型（model-based）的。它先学习环境的动态模型，然后在模型中训练策略。这更像一个人先理解自行车的物理原理（重心、角动量、转向几何），然后在脑海中模拟骑行的过程，最后再实际上车。&lt;/p&gt;
+&lt;p&gt;在实际效果上，DreamerV3的样本效率通常比PPO高出10到100倍。也就是说，达到同样的性能，DreamerV3可能只需要真实环境交互10万步，而PPO需要1000万步。对于机器人来说，这意味着训练时间从几周缩短到几小时。&lt;/p&gt;
+&lt;h2 id="应用场景不只是游戏"&gt;应用场景：不只是游戏&lt;/h2&gt;
+&lt;p&gt;DreamerV3最初在Atari游戏上展示了惊人的能力——用同一套超参数，在55款游戏中都取得了不错的成绩。但它的能力远不止于此。&lt;/p&gt;
+&lt;p&gt;在机器人领域，世界模型已经开始在以下场景中展现价值：&lt;/p&gt;
+&lt;p&gt;工业装配：机器人需要学会将不同形状的零件装配到产品上。传统方法需要为每种零件编写专门的程序，而世界模型方法可以通过想象训练快速适配新零件。&lt;/p&gt;
+&lt;p&gt;灵巧操作：比如翻转物体、拧瓶盖、系鞋带等需要精细力控的任务。这些任务在仿真中很难精确建模，世界模型可以从少量真实数据中学习到复杂的接触动态。&lt;/p&gt;
+&lt;p&gt;导航与探索：在未知环境中规划路径。世界模型可以预测&amp;quot;如果我往那边走，会看到什么&amp;quot;，从而做出更好的探索决策。&lt;/p&gt;
+&lt;h2 id="局限性与未来"&gt;局限性与未来&lt;/h2&gt;
+&lt;p&gt;当然，世界模型不是万能的。它目前面临几个主要挑战：&lt;/p&gt;
+&lt;p&gt;长程预测误差累积：世界模型的预测不可能完美，每一步都有小误差，多步之后误差会指数级放大。目前DreamerV3的想象步数限制在15步左右，更长的预测会变得不可靠。&lt;/p&gt;
+&lt;p&gt;复杂物理场景：对于涉及流体、软体、复杂接触的场景，世界模型的预测精度还不够高。比如抓取一块布料，布料的形变很难准确预测。&lt;/p&gt;
+&lt;p&gt;计算成本：训练一个高质量的世界模型需要大量的计算资源。虽然推理时很高效，但训练阶段并不便宜。&lt;/p&gt;
+&lt;p&gt;这些挑战也是当前研究的前沿方向。我相信在未来2-3年内，随着模型架构的改进和计算效率的提升，世界模型会在更多真实机器人场景中落地。&lt;/p&gt;
+&lt;h2 id="写在最后"&gt;写在最后&lt;/h2&gt;
+&lt;p&gt;世界模型的核心思想其实很朴素：先理解世界，再决定行动。这和人类的学习方式是一致的。我们不会一开始就盲目尝试，而是先观察、理解、预测，然后才采取行动。&lt;/p&gt;</description></item></channel></rss>

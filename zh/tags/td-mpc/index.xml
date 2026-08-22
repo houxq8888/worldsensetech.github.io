@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>TD-MPC on WorldSense 技术笔记</title><link>https://worldsensetech.com/zh/tags/td-mpc/</link><description>Recent content in TD-MPC on WorldSense 技术笔记</description><generator>Hugo</generator><language>zh-CN</language><lastBuildDate>Fri, 07 Aug 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://worldsensetech.com/zh/tags/td-mpc/index.xml" rel="self" type="application/rss+xml"/><item><title>TD-MPC：世界模型如何用于机器人控制？</title><link>https://worldsensetech.com/zh/articles/td-mpc-world-model-control/</link><pubDate>Fri, 07 Aug 2026 00:00:00 +0000</pubDate><guid>https://worldsensetech.com/zh/articles/td-mpc-world-model-control/</guid><description>&lt;p&gt;上一篇文章我们拆解了 RSSM 的双轨状态设计，理解了 Dreamer 系列如何在隐空间中&amp;quot;想象&amp;quot;未来。但 RSSM 并不是世界模型用于机器人控制的唯一路线。今天聊另一条重要路线：TD-MPC（Temporal Difference Model Predictive Control）。&lt;/p&gt;
+&lt;p&gt;如果说 Dreamer 的核心是利用学习到的世界模型，在隐空间中进行 imagined rollout，并通过 actor-critic 方法优化策略，那 TD-MPC 的核心思路更直接：学一个世界模型，然后在模型里做规划（planning），选出最优动作序列直接执行。它不把策略网络作为唯一决策方式，而是利用世界模型进行在线规划，并结合学习到的策略先验提高搜索效率。&lt;/p&gt;
+&lt;h2 id="为什么需要-model-predictive-control"&gt;为什么需要 Model Predictive Control&lt;/h2&gt;
+&lt;p&gt;先退一步。传统的强化学习（比如 DQN、PPO）学的是一个策略 π(a|s)——给定当前状态，直接输出动作。这个策略是在大量试错中训练出来的，一旦训练完成，推理时只需要前向传播一次。&lt;/p&gt;
+&lt;p&gt;但这种方式有两个问题：&lt;/p&gt;
+&lt;p&gt;第一，样本效率低。策略需要大量交互数据才能学好，而真实机器人的交互成本很高。&lt;/p&gt;
+&lt;p&gt;第二，缺乏&amp;quot;前瞻性&amp;quot;。策略网络只看当前状态就决定动作，不会主动&amp;quot;想一想如果我这样做，接下来几步会怎样&amp;quot;。&lt;/p&gt;
+&lt;p&gt;Model Predictive Control（MPC）的思路完全不同：在每个时间步，基于当前状态，在模型中模拟多条未来轨迹，评估每条轨迹的累积回报，选择回报最高的那条轨迹的第一个动作执行。然后到下一个时间步，重新规划。&lt;/p&gt;
+&lt;p&gt;这就像下棋：不是靠直觉走一步，而是向前推演几步，选最好的走法。&lt;/p&gt;
+&lt;h2 id="td-mpc-的核心设计"&gt;TD-MPC 的核心设计&lt;/h2&gt;
+&lt;p&gt;TD-MPC（Hansen et al., 2022）的关键贡献在于：它证明了一个面向控制任务学习的隐空间动力学模型，可以与 MPC 规划结合，并通过 TD 学习目标获得高效控制能力。注意，MPC 和 model-based RL 的结合并不是新概念——TD-MPC 的创新在于用 TD 目标替代重建损失来训练世界模型。&lt;/p&gt;
+&lt;h3 id="世界模型的结构"&gt;世界模型的结构&lt;/h3&gt;
+&lt;p&gt;TD-MPC 的核心组件包括状态编码器、隐空间动力学模型、奖励预测模型，以及用于价值评估的 Q 网络：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;状态编码器（Encoder）&lt;/li&gt;
+&lt;/ol&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;`z_t = Encoder(o_t)`
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;把高维观测（比如图像）压缩到一个低维的隐状态 z_t。这个隐状态不需要像 RSSM 那样拆成确定性和随机性两部分——TD-MPC 用的是确定性隐状态，结构更简单。&lt;/p&gt;
+&lt;ol start="2"&gt;
+&lt;li&gt;动力学模型（Dynamics Model）&lt;/li&gt;
+&lt;/ol&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;`z_{t+1} = f(z_t, a_t)`
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;给定当前隐状态和动作，预测下一步的隐状态。这就是世界模型的核心——它学会了环境的状态转移规律。&lt;/p&gt;</description></item></channel></rss>

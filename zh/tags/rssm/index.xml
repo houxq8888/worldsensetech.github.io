@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>RSSM on WorldSense 技术笔记</title><link>https://worldsensetech.com/zh/tags/rssm/</link><description>Recent content in RSSM on WorldSense 技术笔记</description><generator>Hugo</generator><language>zh-CN</language><lastBuildDate>Sat, 22 Aug 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://worldsensetech.com/zh/tags/rssm/index.xml" rel="self" type="application/rss+xml"/><item><title>从代码理解 RSSM（四）：KL balancing、Free Nats 与最终 KL 组合</title><link>https://worldsensetech.com/zh/articles/2026-08-22-rssm-kl-balancing/</link><pubDate>Sat, 22 Aug 2026 00:00:00 +0000</pubDate><guid>https://worldsensetech.com/zh/articles/2026-08-22-rssm-kl-balancing/</guid><description>&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;《从代码理解 RSSM》系列 · 第 4 篇 / 共 6 篇&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;系列目录（当前在第 4 篇，已加粗；上/下一篇见文末导航）：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;a href="https://worldsensetech.com/zh/articles/2026-08-19-rssm-code-walkthrough/"&gt;（一）RSSM 的位置与 stochastic 状态&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://worldsensetech.com/zh/articles/2026-08-20-rssm-stochastic-state/"&gt;（二）先验/后验、straight-through 与 unimix&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://worldsensetech.com/zh/articles/2026-08-21-rssm-deterministic-core/"&gt;（三）_core()、deter=8192 与 Block GRU&lt;/a&gt;
+&lt;strong&gt;4. &lt;a href="https://worldsensetech.com/zh/articles/2026-08-22-rssm-kl-balancing/"&gt;（四）KL balancing、Free Nats 与最终 KL&lt;/a&gt;&lt;/strong&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://worldsensetech.com/zh/articles/2026-08-23-rssm-imagine-reset/"&gt;（五）Imagine、Observe/Imagine 区别与 Reset&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://worldsensetech.com/zh/articles/2026-08-24-rssm-recap/"&gt;（六）默认配置、四条公式与对照表&lt;/a&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/blockquote&gt;
+&lt;h2 id="十四observe-阶段完整数据流observe--imagine-同一框架"&gt;十四、Observe 阶段完整数据流（Observe / Imagine 同一框架）&lt;/h2&gt;
+&lt;p&gt;到这里，可以把整个 RSSM 的状态转移框架画出来，并且把 &lt;strong&gt;Observe 与 Imagine 放在同一个 &lt;code&gt;_core()&lt;/code&gt; 转移框架里&lt;/strong&gt;：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-text" data-lang="text"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; ┌──────────────────────────┐
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; │ RSSM transition │
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; │ │
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;(h_{t-1},z_{t-1}) + a_{t-1}
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; │
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; ▼
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; _core()
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; │
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; ▼
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; h_t
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; │
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; ┌──────┴──────┐
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; │ │
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; ▼ ▼
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; Prior Observation
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; p(z_t | h_t) │
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; │ ▼
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; │ Posterior
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; │ q(z_t|h_t,o_t)
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; │ │
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; │ ▼
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; │ z_t
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; └───────┬─────┘
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; │
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; ▼
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; latent state
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; │
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; ▼
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; next step
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;在旁边注明两种用法，其实这就是全文最重要的两句话：&lt;/p&gt;</description></item><item><title>从代码理解 RSSM（三）：确定性转移 _core()、deter=8192 与 Block GRU</title><link>https://worldsensetech.com/zh/articles/2026-08-21-rssm-deterministic-core/</link><pubDate>Fri, 21 Aug 2026 00:00:00 +0000</pubDate><guid>https://worldsensetech.com/zh/articles/2026-08-21-rssm-deterministic-core/</guid><description>&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;《从代码理解 RSSM》系列 · 第 3 篇 / 共 6 篇&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;系列目录（当前在第 3 篇，已加粗；上/下一篇见文末导航）：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;a href="https://worldsensetech.com/zh/articles/2026-08-19-rssm-code-walkthrough/"&gt;（一）RSSM 的位置与 stochastic 状态&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://worldsensetech.com/zh/articles/2026-08-20-rssm-stochastic-state/"&gt;（二）先验/后验、straight-through 与 unimix&lt;/a&gt;
+&lt;strong&gt;3. &lt;a href="https://worldsensetech.com/zh/articles/2026-08-21-rssm-deterministic-core/"&gt;（三）_core()、deter=8192 与 Block GRU&lt;/a&gt;&lt;/strong&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://worldsensetech.com/zh/articles/2026-08-22-rssm-kl-balancing/"&gt;（四）KL balancing、Free Nats 与最终 KL&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://worldsensetech.com/zh/articles/2026-08-23-rssm-imagine-reset/"&gt;（五）Imagine、Observe/Imagine 区别与 Reset&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://worldsensetech.com/zh/articles/2026-08-24-rssm-recap/"&gt;（六）默认配置、四条公式与对照表&lt;/a&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/blockquote&gt;
+&lt;h2 id="九真正的-deterministic-transition_core"&gt;九、真正的 deterministic transition：&lt;code&gt;_core()&lt;/code&gt;&lt;/h2&gt;
+&lt;p&gt;这是整个 &lt;code&gt;rssm.py&lt;/code&gt; 中最值得读的部分。&lt;/p&gt;
+&lt;p&gt;源码并不是简单调用：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-python" data-lang="python"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;nn&lt;span style="color:#ff79c6"&gt;.&lt;/span&gt;GRUCell(&lt;span style="color:#ff79c6"&gt;...&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;而是自己构造了一个 block-wise GRU。&lt;/p&gt;
+&lt;p&gt;核心输入包括：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-python" data-lang="python"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;deter
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;stoch
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;action
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;首先：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-python" data-lang="python"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;stoch &lt;span style="color:#ff79c6"&gt;=&lt;/span&gt; stoch&lt;span style="color:#ff79c6"&gt;.&lt;/span&gt;reshape((stoch&lt;span style="color:#ff79c6"&gt;.&lt;/span&gt;shape[&lt;span style="color:#bd93f9"&gt;0&lt;/span&gt;], &lt;span style="color:#ff79c6"&gt;-&lt;/span&gt;&lt;span style="color:#bd93f9"&gt;1&lt;/span&gt;))
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;也就是：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-text" data-lang="text"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;[B, 32, 64]
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; │
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; ▼
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;[B, 2048]
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;然后把 &lt;code&gt;deter&lt;/code&gt;、&lt;code&gt;stoch&lt;/code&gt;、&lt;code&gt;action&lt;/code&gt; 各自通过一个输入映射（注意：这里的&amp;quot;分别 Linear 映射再 concat&amp;quot;是概念示意图，&lt;strong&gt;真正的核心在于 BlockLinear 的结构化参数化&lt;/strong&gt;，见下一节）：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-text" data-lang="text"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;deter ──► Linear ──┐
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; │
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;stoch ──► Linear ──┼──► concat ──► Block GRU
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; │
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;action ─► Linear ──┘
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;注意：&lt;/p&gt;</description></item><item><title>从代码理解 RSSM（二）：先验/后验、straight-through 采样与 unimix</title><link>https://worldsensetech.com/zh/articles/2026-08-20-rssm-stochastic-state/</link><pubDate>Thu, 20 Aug 2026 00:00:00 +0000</pubDate><guid>https://worldsensetech.com/zh/articles/2026-08-20-rssm-stochastic-state/</guid><description>&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;《从代码理解 RSSM》系列 · 第 2 篇 / 共 6 篇&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;系列目录（当前在第 2 篇，已加粗；上/下一篇见文末导航）：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;a href="https://worldsensetech.com/zh/articles/2026-08-19-rssm-code-walkthrough/"&gt;（一）RSSM 的位置与 stochastic 状态&lt;/a&gt;
+&lt;strong&gt;2. &lt;a href="https://worldsensetech.com/zh/articles/2026-08-20-rssm-stochastic-state/"&gt;（二）先验/后验、straight-through 与 unimix&lt;/a&gt;&lt;/strong&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://worldsensetech.com/zh/articles/2026-08-21-rssm-deterministic-core/"&gt;（三）_core()、deter=8192 与 Block GRU&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://worldsensetech.com/zh/articles/2026-08-22-rssm-kl-balancing/"&gt;（四）KL balancing、Free Nats 与最终 KL&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://worldsensetech.com/zh/articles/2026-08-23-rssm-imagine-reset/"&gt;（五）Imagine、Observe/Imagine 区别与 Reset&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://worldsensetech.com/zh/articles/2026-08-24-rssm-recap/"&gt;（六）默认配置、四条公式与对照表&lt;/a&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/blockquote&gt;
+&lt;h2 id="四把源码翻译成数学公式注意时间索引"&gt;四、把源码翻译成数学公式（注意时间索引）&lt;/h2&gt;
+&lt;p&gt;DreamerV3 的递推关系可以写成：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-text" data-lang="text"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;h_t = f(h_{t-1}, z_{t-1}, a_{t-1})
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;然后分别计算：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-text" data-lang="text"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;p(z_t | h_t) [prior，不读 observation]
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;q(z_t | h_t, o_t) [posterior，读 observation]
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;其中：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;p&lt;/code&gt;：prior；&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;q&lt;/code&gt;：posterior；&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;o_t&lt;/code&gt;：当前 observation；&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;h_t&lt;/code&gt;：deterministic state。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;一个非常重要、但初学者很容易卡住的时间索引说明：&lt;/strong&gt;&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;code&gt;h_t = f(h_{t-1}, z_{t-1}, a_{t-1})&lt;/code&gt; 中的 &lt;code&gt;h_t&lt;/code&gt; 已经融合了截至 &lt;code&gt;t-1&lt;/code&gt; 的 latent / action 历史，但&lt;strong&gt;它并不包含当前 &lt;code&gt;o_t&lt;/code&gt;&lt;/strong&gt;。当前 observation 只在 &lt;strong&gt;posterior 分支&lt;/strong&gt;中用于推断 &lt;code&gt;z_t&lt;/code&gt;，而不进入 deterministic transition。&lt;/p&gt;</description></item><item><title>从代码理解 RSSM（一）：RSSM 在 DreamerV3 中的位置与 stochastic 状态</title><link>https://worldsensetech.com/zh/articles/2026-08-19-rssm-code-walkthrough/</link><pubDate>Wed, 19 Aug 2026 00:00:00 +0000</pubDate><guid>https://worldsensetech.com/zh/articles/2026-08-19-rssm-code-walkthrough/</guid><description>&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;《从代码理解 RSSM》系列 · 第 1 篇 / 共 6 篇&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;系列目录（当前在第 1 篇，已加粗；上/下一篇见文末导航）：
+&lt;strong&gt;1. &lt;a href="https://worldsensetech.com/zh/articles/2026-08-19-rssm-code-walkthrough/"&gt;（一）RSSM 的位置与 stochastic 状态&lt;/a&gt;&lt;/strong&gt;
+2. &lt;a href="https://worldsensetech.com/zh/articles/2026-08-20-rssm-stochastic-state/"&gt;（二）先验/后验、straight-through 与 unimix&lt;/a&gt;
+3. &lt;a href="https://worldsensetech.com/zh/articles/2026-08-21-rssm-deterministic-core/"&gt;（三）_core()、deter=8192 与 Block GRU&lt;/a&gt;
+4. &lt;a href="https://worldsensetech.com/zh/articles/2026-08-22-rssm-kl-balancing/"&gt;（四）KL balancing、Free Nats 与最终 KL&lt;/a&gt;
+5. &lt;a href="https://worldsensetech.com/zh/articles/2026-08-23-rssm-imagine-reset/"&gt;（五）Imagine、Observe/Imagine 区别与 Reset&lt;/a&gt;
+6. &lt;a href="https://worldsensetech.com/zh/articles/2026-08-24-rssm-recap/"&gt;（六）默认配置、四条公式与对照表&lt;/a&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;源码阅读提示&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;本文有意不从&amp;quot;标准 RSSM 伪代码&amp;quot;开始，而是按照 &lt;code&gt;rssm.py&lt;/code&gt; 的实际执行路径展开。阅读时可以重点关注下面几个函数：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-text" data-lang="text"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;observe() → sequence-level wrapper，沿时间维调用 _observe()
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;_observe() → 单个时间步的状态推断（真实轨迹）
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;_core() → 单个时间步的 deterministic dynamics
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;imagine() → 无 observation 的 latent rollout
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;这里最容易混淆的一点是：&lt;strong&gt;&lt;code&gt;observe()&lt;/code&gt; 并不是一个&amp;quot;处理单步 transition&amp;quot;的函数&lt;/strong&gt;。它只是 sequence-level 的封装，内部通过 Ninjax 的 &lt;code&gt;nj.scan(...)&lt;/code&gt; 沿着时间维度反复调用 &lt;code&gt;_observe()&lt;/code&gt;；真正处理单个时间步的是 &lt;code&gt;_observe()&lt;/code&gt; 与 &lt;code&gt;_core()&lt;/code&gt;。把 &lt;code&gt;observe() / _observe() / _core() / imagine()&lt;/code&gt; 这一层调用关系理清，基本就能理解 DreamerV3 RSSM 的主体。&lt;/p&gt;</description></item><item><title>世界模型架构演进：RSSM、Transformer 与统一世界模型</title><link>https://worldsensetech.com/zh/articles/world-model-transformer/</link><pubDate>Wed, 12 Aug 2026 00:00:00 +0000</pubDate><guid>https://worldsensetech.com/zh/articles/world-model-transformer/</guid><description>&lt;p&gt;前面几篇文章中，我们深入讲解了 DreamerV3 的 RSSM 架构和训练技巧。RSSM 是强化学习世界模型中的经典设计，但如果你关注最近的研究，会发现一个明显的趋势：世界模型正在走向 Transformer 化。&lt;/p&gt;
+&lt;p&gt;从 Google 的 UniSim 到 Wayve 的 GAIA-1，从 NVIDIA 的 Cosmos 到国内具身智能团队的方案，Transformer 正成为大规模世界模型的重要技术路线。&lt;/p&gt;
+&lt;p&gt;为什么会这样？RSSM 有什么问题？Transformer 带来了什么优势？世界模型的架构演进方向是什么？&lt;/p&gt;
+&lt;p&gt;这篇文章梳理这条技术路线。&lt;/p&gt;
+&lt;p&gt;在展开之前，先澄清一个概念。所谓统一世界模型（unified world model），并不是指一个模型精确复制整个物理世界，而是希望通过统一的表示空间同时理解视觉、语言、动作和环境动态——让同一个模型既能&amp;quot;看&amp;quot;懂场景，又能&amp;quot;想&amp;quot;清因果，还能&amp;quot;做&amp;quot;出决策。这是当前世界模型研究的一个前沿方向。&lt;/p&gt;
+&lt;h2 id="rssm-的设计逻辑与局限"&gt;RSSM 的设计逻辑与局限&lt;/h2&gt;
+&lt;p&gt;先回顾一下 RSSM 为什么被设计出来。&lt;/p&gt;
+&lt;p&gt;RSSM（Recurrent State-Space Model）的核心思想是将隐状态分成两个轨道：确定性状态（deterministic state）和随机性状态（stochastic state）。确定性状态用 GRU 更新，捕捉规律性的动态；随机性状态通过离散分类分布采样——DreamerV3 使用 32 个离散 categorical 变量，每个变量包含 64 个类别，组合形成容量为 64^32 的随机隐空间，捕捉环境的不确定性。&lt;/p&gt;
+&lt;p&gt;这个设计有几个优点：&lt;/p&gt;
+&lt;p&gt;计算效率高。GRU 是循环网络，每一步只需要上一步的隐状态，不需要处理整个序列。训练和推理的内存开销较小。&lt;/p&gt;
+&lt;p&gt;隐空间结构清晰。确定性 + 随机性的双轨道设计，让模型同时学到&amp;quot;规律&amp;quot;和&amp;quot;不确定性&amp;quot;。这对物理世界的建模很重要——宏观物理规律通常具有较强确定性，而观测和环境扰动具有随机性。&lt;/p&gt;
+&lt;p&gt;想象训练方便。在隐空间中可以方便地&amp;quot;想象&amp;quot;未来轨迹：从当前状态出发，用 GRU 逐步推进，每一步采样随机状态，得到一系列隐状态，再解码成观测。&lt;/p&gt;
+&lt;p&gt;但 RSSM 也有几个明显的局限：&lt;/p&gt;
+&lt;p&gt;长程依赖问题。RSSM 通过 deterministic hidden state 维护历史信息，但由于状态更新仍是递归形式，超长时间跨度的信息需要压缩到固定维度的隐状态中，可能造成信息瓶颈。当任务需要记住很久以前的信息时（如延迟奖励、长程因果链），RSSM 的表现可能不够好。&lt;/p&gt;
+&lt;p&gt;并行化受限。循环网络在时间维度上是序列化的——每一步依赖上一步的输出。不过 RSSM 训练并非完全串行：observation encoder 可以并行处理，rollout imagination 也可以在 batch 维度并行。真正的瓶颈在于时间维度上的依赖关系，这使得训练速度受限于序列长度。&lt;/p&gt;</description></item><item><title>世界模型如何表示世界：四条表征路线与机器人适应能力</title><link>https://worldsensetech.com/zh/articles/world-model-representations/</link><pubDate>Mon, 10 Aug 2026 00:00:00 +0000</pubDate><guid>https://worldsensetech.com/zh/articles/world-model-representations/</guid><description>&lt;p&gt;前面我们用 MuJoCo 和 Isaac Sim 的对比，理清了仿真器的选择。但不管用哪个仿真器，世界模型都面临一个更根本的问题：到底用什么来表示&amp;quot;世界&amp;quot;？&lt;/p&gt;
+&lt;p&gt;这个问题听起来抽象，但它直接决定了世界模型能做什么、不能做什么。就像你选错了数据结构，后面的算法再精妙也救不回来。&lt;/p&gt;
+&lt;p&gt;我把当前世界模型的表征方式归纳为四条主要路线。需要说明的是，这四条路线并不是严格互斥的——它们分别对应表征的不同维度：隐空间压缩是表征空间的选择，视觉生成是输出空间的选择，显式几何建模是世界几何的表示方式，对象级结构化是信息的组织方式。更准确地说，这四条路线不是互相替代的模型类别，而是世界模型设计中的四种归纳偏置（inductive bias）——不同表征给模型加入了不同的先验假设。实际系统中，它们经常交叉组合。但理解每条路线的核心逻辑和局限，是做出正确设计选择的前提。&lt;/p&gt;
+&lt;h2 id="路线一隐状态latent-state"&gt;路线一：隐状态（Latent State）&lt;/h2&gt;
+&lt;p&gt;代表：DreamerV3、TD-MPC2&lt;/p&gt;
+&lt;p&gt;核心思路：把观测（图像、传感器数据）压缩成一个固定维度的向量，在这个隐空间里建模动态、训练策略。&lt;/p&gt;
+&lt;p&gt;DreamerV3 的 RSSM 使用循环神经网络维护确定性状态（4096 维），并结合离散随机变量（32 个类别变量，每个 64 类）来表示不确定性，两者共同用于预测未来。TD-MPC2 更激进——512 维隐状态，不要求世界模型重建原始观测，而是在任务相关的隐空间中直接做模型预测控制。&lt;/p&gt;
+&lt;p&gt;这个路线解决什么问题？&lt;/p&gt;
+&lt;p&gt;样本效率和计算速度。隐状态是高度压缩的表征，一个 64×64×3 的图像被压缩成几千维的向量。在这个压缩空间里做想象训练，比直接在像素空间里预测快几个数量级。DreamerV3 相比像素级世界模型具有更低的计算需求，可以在有限算力下完成高效训练。TD-MPC2 在多个连续控制任务上也展示了较高的训练效率。&lt;/p&gt;
+&lt;p&gt;而且隐状态天然适合做控制。策略网络可以直接从隐状态输出动作，世界模型可以在隐空间里做 rollout，不需要生成完整的图像。对于实时控制场景（如机械臂操作），这种效率是必须的。&lt;/p&gt;
+&lt;p&gt;卡在哪里？&lt;/p&gt;
+&lt;p&gt;隐空间是个黑箱。它通常不提供显式可访问的 3D 结构——模型内部可能编码了深度、位置等空间线索，但这些信息难以被直接用于几何推理。它学到的是&amp;quot;做了这个动作后，隐向量会从 A 变成 B&amp;quot;，但 A 和 B 里面到底包含了什么空间信息，完全不透明。&lt;/p&gt;
+&lt;p&gt;这带来一个直接后果：长时间预测容易漂移。由于隐状态通常不显式约束几何一致性，每预测一步就可能引入微小误差，误差累积后，想象轨迹逐渐偏离真实动态。DreamerV3 通常采用较短的 imagination horizon（例如 15 步），这是在模型误差累积、价值估计偏差和计算成本之间的工程折中。&lt;/p&gt;
+&lt;p&gt;另一个问题是迁移。如果隐空间主要由单一任务数据学习得到，其状态语义往往缺少显式结构约束，跨场景迁移时可能需要重新适配。&lt;/p&gt;
+&lt;h2 id="路线二像素视频pixelvideo"&gt;路线二：像素/视频（Pixel/Video）&lt;/h2&gt;
+&lt;p&gt;代表：NVIDIA Cosmos、1X World Model&lt;/p&gt;
+&lt;p&gt;核心思路：直接预测未来的图像或视频帧。给世界模型一段过去的视频 + 动作序列，它生成未来的视频。&lt;/p&gt;
+&lt;p&gt;Cosmos 定位为 Physical AI 的基础模型，用两条路线处理视觉信息：一条是自回归的离散视觉 token（类似 GPT 预测下一个 token），一条是扩散模型生成连续帧。它的目标不仅是预测视频，更是通过大规模视觉生成获得通用的物理先验。1X World Model 也采用类似思路，用视频生成模型预测未来画面，同时预测离散隐状态码。&lt;/p&gt;
+&lt;p&gt;这个路线解决什么问题？&lt;/p&gt;</description></item><item><title>RSSM状态空间模型详解：世界模型的核心引擎</title><link>https://worldsensetech.com/zh/articles/rssm-deep-dive/</link><pubDate>Sun, 02 Aug 2026 00:00:00 +0000</pubDate><guid>https://worldsensetech.com/zh/articles/rssm-deep-dive/</guid><description>&lt;p&gt;上一篇文章我们聊了世界模型的基本概念和DreamerV3的整体架构。有读者反馈说，想更深入地了解RSSM到底是怎么工作的。这篇文章就来拆解这个Dreamer系列世界模型的核心组件。&lt;/p&gt;
+&lt;p&gt;我会尽量把数学讲清楚，但不会过度形式化。毕竟我们的目标是理解原理，而不是证明定理。&lt;/p&gt;
+&lt;h2 id="为什么需要状态空间模型"&gt;为什么需要状态空间模型&lt;/h2&gt;
+&lt;p&gt;在讨论RSSM之前，先退一步想想：为什么我们需要状态空间模型？直接用RNN或者Transformer不行吗？&lt;/p&gt;
+&lt;p&gt;先说RNN。传统RNN的问题在于，它把所有信息压缩到一个确定性的隐状态向量里。这就像让你用一个数字来描述&amp;quot;今天天气怎么样&amp;quot;——不管你怎么选这个数字，都会丢失大量信息。更关键的是，RNN没有表达不确定性的能力。如果环境有随机因素（比如一阵风吹来），RNN无法表达&amp;quot;我不确定接下来会发生什么&amp;quot;。&lt;/p&gt;
+&lt;p&gt;再说Transformer。Transformer的注意力机制确实强大，但它有两个问题：一是计算复杂度随序列长度平方增长，对于需要长程记忆的机器人任务来说成本太高；二是它本质上是一个开环模型，没有显式的状态转移结构，不太适合做控制。&lt;/p&gt;
+&lt;p&gt;状态空间模型（SSM）是一个折中方案。它有显式的状态转移方程，能捕捉动态系统的本质；同时通过精心设计的状态表示，在表达能力和计算效率之间取得平衡。&lt;/p&gt;
+&lt;h2 id="rssm的核心思想双轨状态"&gt;RSSM的核心思想：双轨状态&lt;/h2&gt;
+&lt;p&gt;RSSM的全称是Recurrent State-Space Model，循环状态空间模型。它的核心创新在于把隐状态拆成了两条轨道：&lt;/p&gt;
+&lt;p&gt;确定性状态 hₜ（Deterministic State）&lt;/p&gt;
+&lt;p&gt;这个状态类似于传统RNN的隐状态，通过一个GRU（门控循环单元）更新：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;`hₜ = GRU(hₜ₋₁, zₜ₋₁, aₜ₋₁)`
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;它捕捉的是环境中的确定性规律——那些可以精确预测的部分。比如&amp;quot;如果机械臂向右移动10厘米，末端执行器的x坐标就增加10厘米&amp;quot;这种确定的物理关系。&lt;/p&gt;
+&lt;p&gt;随机性状态 zₜ（Stochastic State）&lt;/p&gt;
+&lt;p&gt;这个状态是从一个分布中采样得到的：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;`zₜ ~ p(zₜ | hₜ) # 先验（想象时）
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;zₜ ~ q(zₜ | hₜ, oₜ) # 后验（训练时）`
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;它捕捉的是环境中的不确定性——那些无法精确预测的部分。比如&amp;quot;两个表面之间的摩擦力可能在0.2到0.4之间&amp;quot;这种模糊的物理特性。&lt;/p&gt;
+&lt;p&gt;为什么要这样拆分？因为真实世界就是由确定性规律和不确定性因素共同构成的。把它们分开建模，模型就能更准确地理解环境。&lt;/p&gt;
+&lt;h2 id="完整的状态转移过程"&gt;完整的状态转移过程&lt;/h2&gt;
+&lt;p&gt;让我们一步步走一遍RSSM的状态转移过程。假设在时刻t，我们有一个观测 oₜ（比如相机图像）和一个动作 aₜ（比如关节力矩）：&lt;/p&gt;
+&lt;p&gt;第一步：更新确定性状态&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;`hₜ = GRU(hₜ₋₁, zₜ₋₁, aₜ₋₁)`
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;把上一步的确定性状态hₜ₋₁、随机性状态zₜ₋₁和动作aₜ₋₁拼在一起，通过GRU得到新的确定性状态。这一步类似于传统RNN的更新。&lt;/p&gt;
+&lt;p&gt;第二步：计算随机性状态&lt;/p&gt;
+&lt;p&gt;这里有两种模式：&lt;/p&gt;
+&lt;p&gt;训练时（有真实观测），我们用后验分布：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;`μₜ, σₜ = Encoder(hₜ, oₜ)
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;zₜ = μₜ + σₜ * ε, 其中 ε ~ N(0, I)`
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;推理时（没有真实观测，在想象中），我们用先验分布：&lt;/p&gt;</description></item></channel></rss>

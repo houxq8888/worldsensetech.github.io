@@ -1,0 +1,113 @@
+<!doctype html><html lang=en-US><head><meta name=generator content="Hugo 0.164.0"><meta charset=UTF-8><meta name=viewport content="width=device-width,initial-scale=1"><title>WorldSense Tech Blog</title><meta name=description content="专注具身智能、世界模型与 Sim-to-Real 的技术博客。从算法研究到工程实践，记录机器人 AI 的探索之路。"><meta name=baidu-site-verification content="codeva-RcngxmWb36"><link rel=stylesheet href="/css/style.css?v=20260815"><script async src="https://www.googletagmanager.com/gtag/js?id=G-6EQ7ZKS9L8"></script><script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag("js",new Date),gtag("config","G-6EQ7ZKS9L8")</script><script async src=https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js></script><link rel=canonical href=https://worldsensetech.com/en/><link rel=alternate hreflang=zh-CN href=https://worldsensetech.com/zh/><link rel=alternate hreflang=x-default href=https://worldsensetech.com/en/><link rel=alternate type=application/rss+xml href=https://worldsensetech.com/en/index.xml title="WorldSense Tech Blog"><meta property="og:title" content="WorldSense Tech Blog"><meta property="og:description" content="专注具身智能、世界模型与 Sim-to-Real 的技术博客。从算法研究到工程实践，记录机器人 AI 的探索之路。"><meta property="og:type" content="website"><meta property="og:url" content="https://worldsensetech.com/en/"><meta property="og:site_name" content="WorldSense Tech Blog"><meta property="og:image" content="https://worldsensetech.com/images/avatar.png"><meta name=twitter:card content="summary_large_image"><meta name=twitter:title content="WorldSense Tech Blog"><meta name=twitter:description content="专注具身智能、世界模型与 Sim-to-Real 的技术博客。从算法研究到工程实践，记录机器人 AI 的探索之路。"><meta name=twitter:image content="https://worldsensetech.com/images/avatar.png"><script type=application/ld+json>{"@context":"https://schema.org","@type":"WebSite","name":"WorldSense Tech Blog","url":"https://worldsensetech.com/en/","description":"专注具身智能、世界模型与 Sim-to-Real 的技术博客。从算法研究到工程实践，记录机器人 AI 的探索之路。","author":{"@type":"Person","name":"侯晓琴","url":"https://worldsensetech.com/about/"},"inLanguage":"en-US"}</script></head><body><header><div class=header-inner><a href=/en/ class=site-title>WorldSense Tech Blog</a><nav><a href=/en/>Articles</a>
+<a href=/en/categories/>Categories</a>
+<a href=/en/archive/>Archive</a>
+<a href=/en/about/>About</a>
+<a href=https://github.com/houxq8888/worldsensetech.github.io target=_blank>GitHub</a>
+<a href=https://worldsensetech.com/zh/>中文</a></nav></div></header><section class=hero><h1>World Models for Robot Intelligence</h1><p>A tech blog focused on Embodied AI, World Models, and Sim-to-Real transfer. From algorithm research to engineering practice.</p><p style=font-size:.9rem;color:#64748b;margin-top:.5rem>Author: MSc at Northwestern Polytechnical University · Robot AI Engineer</p></section><section style="max-width:800px;margin:2rem auto;padding:0 1.5rem"><h2 style="font-size:1.2rem;color:#1e293b;margin-bottom:1rem;border-bottom:1px solid #e2e8f0;padding-bottom:.5rem">Latest Articles</h2></section><main class=article-list><article class=article-item><div class=article-meta>Aug 22, 2026 · ~5 min read</div><h2><a href=/en/articles/2026-08-22-rssm-kl-balancing/>Understanding RSSM Through Code (4): KL Balancing, Free Nats, and the Final KL Combination</a></h2><div><span class=tag>RSSM</span>
+<span class=tag>DreamerV3</span>
+<span class=tag>World Model</span>
+<span class=tag>State Space Model</span>
+<span class=tag>Code Walkthrough</span>
+<span class=tag>RSSM Series</span></div><p class=article-excerpt>The core of training the world model: the complete Observe-phase data flow, the gradient routing of dyn/rep KLs, free_nats as a loss floor, and how …</p></article><article class=article-item><div class=article-meta>Aug 21, 2026 · ~6 min read</div><h2><a href=/en/articles/2026-08-21-rssm-deterministic-core/>Understanding RSSM Through Code (3): Deterministic Transition _core(), deter=8192, and Block GRU</a></h2><div><span class=tag>RSSM</span>
+<span class=tag>DreamerV3</span>
+<span class=tag>World Model</span>
+<span class=tag>State Space Model</span>
+<span class=tag>Code Walkthrough</span>
+<span class=tag>RSSM Series</span></div><p class=article-excerpt>Trace the real deterministic dynamics: how _core() does one-step transition, why deter is 8192, the block-wise parameterization of Block GRU, and what …</p></article><article class=article-item><div class=article-meta>Aug 20, 2026 · ~6 min read</div><h2><a href=/en/articles/2026-08-20-rssm-stochastic-state/>Understanding RSSM Through Code (2): Prior/Posterior, Straight-Through Sampling, and unimix</a></h2><div><span class=tag>RSSM</span>
+<span class=tag>DreamerV3</span>
+<span class=tag>World Model</span>
+<span class=tag>State Space Model</span>
+<span class=tag>Code Walkthrough</span>
+<span class=tag>RSSM Series</span></div><p class=article-excerpt>Translate the code into math with correct time indexing; understand the prior/posterior pair, straight-through categorical sampling, and how unimix …</p></article><article class=article-item><div class=article-meta>Aug 19, 2026 · ~6 min read</div><h2><a href=/en/articles/2026-08-19-rssm-code-walkthrough/>Understanding RSSM Through Code (1): Where RSSM Sits in DreamerV3 and the Stochastic State</a></h2><div><span class=tag>RSSM</span>
+<span class=tag>DreamerV3</span>
+<span class=tag>World Model</span>
+<span class=tag>State Space Model</span>
+<span class=tag>Code Walkthrough</span>
+<span class=tag>RSSM Series</span></div><p class=article-excerpt>Series opener: where RSSM fits in DreamerV3, why the stochastic state is not 'an integer then one-hot', and how real observations enter RSSM (the …</p></article><article class=article-item><div class=article-meta>Aug 18, 2026 · ~6 min read</div><h2><a href=/en/articles/2026-08-18-world-model-ai-trend/>The World Model Hype Has Been Exaggerated: A Technical Analysis</a></h2><div><span class=tag>World Models</span>
+<span class=tag>Industry Analysis</span>
+<span class=tag>Technical Debate</span>
+<span class=tag>Cooling Down</span></div><p class=article-excerpt>The World Model Hype Has Been Exaggerated: A Technical Analysis - WorldSense Tech Blog</p></article><article class=article-item><div class=article-meta>Aug 17, 2026 · ~16 min read</div><h2><a href=/en/articles/2026-08-17-dreamerv3-gpu-infrastructure/>DreamerV3 GPU Infrastructure: Cloud vs Self-Built Cost Analysis</a></h2><div><span class=tag>GPU</span>
+<span class=tag>DreamerV3</span>
+<span class=tag>AutoDL</span>
+<span class=tag>RTX 5090D</span>
+<span class=tag>Cost Analysis</span></div><p class=article-excerpt>DreamerV3 GPU Infrastructure: Cloud vs Self-Built Cost Analysis - WorldSense Tech Blog</p></article><article class=article-item><div class=article-meta>Aug 16, 2026 · ~11 min read</div><h2><a href=/en/articles/2026-08-16-ai-physical-shell/>AI Is Looking for a Physical Shell: From Smart Glasses to Wearable Agents</a></h2><div><span class=tag>AI Hardware</span>
+<span class=tag>Smart Glasses</span>
+<span class=tag>Wearable</span>
+<span class=tag>Meta Ray-Ban</span>
+<span class=tag>AI Pin</span></div><p class=article-excerpt>AI Is Looking for a Physical Shell: From Smart Glasses to Wearable Agents - WorldSense Tech Blog</p></article><article class=article-item><div class=article-meta>Aug 15, 2026 · ~7 min read</div><h2><a href=/en/articles/isaac-lab-install-guide/>Isaac Lab Installation Guide: From Zero to Running on AutoDL</a></h2><div><span class=tag>Isaac Lab</span>
+<span class=tag>Installation</span>
+<span class=tag>AutoDL</span>
+<span class=tag>Isaac Sim</span>
+<span class=tag>Tutorial</span></div><p class=article-excerpt>Isaac Lab Installation Guide: From Zero to Running on AutoDL - WorldSense Tech Blog</p></article><article class=article-item><div class=article-meta>Aug 14, 2026 · ~11 min read</div><h2><a href=/en/articles/isaac-lab-robot-rl/>Isaac Lab: From DreamerV3 to Industrial-Scale Robot RL Training</a></h2><div><span class=tag>Isaac Lab</span>
+<span class=tag>Isaac Sim</span>
+<span class=tag>Robot RL</span>
+<span class=tag>GPU Parallel</span>
+<span class=tag>DreamerV3</span></div><p class=article-excerpt>Isaac Lab: From DreamerV3 to Industrial-Scale Robot RL Training - WorldSense Tech Blog</p></article><article class=article-item><div class=article-meta>Aug 13, 2026 · ~10 min read</div><h2><a href=/en/articles/robot-data-challenge/>The Data Challenge in Robotics: Where Does Robot Learning Data Come From?</a></h2><div><span class=tag>Robot Data</span>
+<span class=tag>Imitation Learning</span>
+<span class=tag>Simulation</span>
+<span class=tag>VLA</span>
+<span class=tag>World Models</span></div><p class=article-excerpt>The Data Challenge in Robotics: Where Does Robot Learning Data Come From? - WorldSense Tech Blog</p></article><article class=article-item><div class=article-meta>Aug 12, 2026 · ~13 min read</div><h2><a href=/en/articles/world-model-transformer/>When World Models Meet Transformers: From RSSM to Large-Scale Sequence Modeling</a></h2><div><span class=tag>Transformer</span>
+<span class=tag>World Models</span>
+<span class=tag>RSSM</span>
+<span class=tag>DreamerV3</span>
+<span class=tag>UniSim</span>
+<span class=tag>Cosmos</span></div><p class=article-excerpt>When World Models Meet Transformers: From RSSM to Large-Scale Sequence Modeling - WorldSense Tech Blog</p></article><article class=article-item><div class=article-meta>Aug 11, 2026 · ~9 min read</div><h2><a href=/en/articles/dreamerv3-training-tips/>DreamerV3 Training Tips: Lessons from Real-World Debugging</a></h2><div><span class=tag>DreamerV3</span>
+<span class=tag>Training</span>
+<span class=tag>Debugging</span>
+<span class=tag>RSSM</span>
+<span class=tag>Tutorial</span></div><p class=article-excerpt>DreamerV3 Training Tips: Lessons from Real-World Debugging - WorldSense Tech Blog</p></article><article class=article-item><div class=article-meta>Aug 10, 2026 · ~16 min read</div><h2><a href=/en/articles/world-model-representations/>Four Paradigms of World Model Representations: A Comparative Analysis</a></h2><div><span class=tag>World Models</span>
+<span class=tag>Representations</span>
+<span class=tag>Latent State</span>
+<span class=tag>3D Structure</span>
+<span class=tag>Object-Centric</span></div><p class=article-excerpt>Four Paradigms of World Model Representations: A Comparative Analysis - WorldSense Tech Blog</p></article><article class=article-item><div class=article-meta>Aug 9, 2026 · ~11 min read</div><h2><a href=/en/articles/mujoco-vs-isaac-sim/>MuJoCo vs Isaac Sim: How to Choose the Right Robot Simulation Platform</a></h2><div><span class=tag>MuJoCo</span>
+<span class=tag>Isaac Sim</span>
+<span class=tag>Simulation</span>
+<span class=tag>Robotics</span>
+<span class=tag>RL</span></div><p class=article-excerpt>MuJoCo vs Isaac Sim: How to Choose the Right Robot Simulation Platform - WorldSense Tech Blog</p></article><article class=article-item><div class=article-meta>Aug 8, 2026 · ~10 min read</div><h2><a href=/en/articles/domain-randomization-sim-to-real/>Domain Randomization: The Bridge from Simulation to Reality</a></h2><div><span class=tag>Domain Randomization</span>
+<span class=tag>Sim-to-Real</span>
+<span class=tag>Simulation</span>
+<span class=tag>Robotics</span></div><p class=article-excerpt>Domain Randomization: The Bridge from Simulation to Reality - WorldSense Tech Blog</p></article><article class=article-item><div class=article-meta>Aug 7, 2026 · ~9 min read</div><h2><a href=/en/articles/td-mpc-world-model-control/>TD-MPC: How World Models Enable Robot Control</a></h2><div><span class=tag>TD-MPC</span>
+<span class=tag>Model Predictive Control</span>
+<span class=tag>World Models</span>
+<span class=tag>Robot Control</span></div><p class=article-excerpt>TD-MPC: How World Models Enable Robot Control - WorldSense Tech Blog</p></article><article class=article-item><div class=article-meta>Aug 6, 2026 · ~13 min read</div><h2><a href=/en/articles/world-model-synthetic-data-for-vla/>World Models as Synthetic Data Engines for VLA Training</a></h2><div><span class=tag>Synthetic Data</span>
+<span class=tag>VLA</span>
+<span class=tag>World Models</span>
+<span class=tag>Data Generation</span>
+<span class=tag>Robot Learning</span></div><p class=article-excerpt>World Models as Synthetic Data Engines for VLA Training - WorldSense Tech Blog</p></article><article class=article-item><div class=article-meta>Aug 5, 2026 · ~11 min read</div><h2><a href=/en/articles/sim-to-real-transfer/>Is Sim-to-Real Too Hard? World Model-Driven Adaptive Transfer Methods</a></h2><div><span class=tag>Sim-to-Real</span>
+<span class=tag>World Models</span>
+<span class=tag>Domain Adaptation</span></div><p class=article-excerpt>Is Sim-to-Real Too Hard? World Model-Driven Adaptive Transfer Methods - WorldSense Tech Blog</p></article><article class=article-item><div class=article-meta>Aug 5, 2026 · ~21 min read</div><h2><a href=/en/articles/world-model-lab-setup/>Building a World Model Lab from Scratch: A MuJoCo + DreamerV3 Practical Guide</a></h2><div><span class=tag>Practical Tutorial</span>
+<span class=tag>MuJoCo</span>
+<span class=tag>DreamerV3</span></div><p class=article-excerpt>Building a World Model Lab from Scratch: A MuJoCo + DreamerV3 Practical Guide - WorldSense Tech Notes</p></article><article class=article-item><div class=article-meta>Aug 5, 2026 · ~4 min read</div><h2><a href=/en/articles/abot-world-0-24h-inference/>ABot-World-0: 24-Hour Stable Inference from an Interactive World Model</a></h2><div><span class=tag>ABot</span>
+<span class=tag>World Models</span>
+<span class=tag>Interactive Inference</span>
+<span class=tag>Video Generation</span></div><p class=article-excerpt>ABot-World-0: 24-Hour Stable Inference from an Interactive World Model - WorldSense Tech Blog</p></article><article class=article-item><div class=article-meta>Aug 4, 2026 · ~10 min read</div><h2><a href=/en/articles/vla-vs-world-model/>VLA vs World Models: Which Will Prevail?</a></h2><div><span class=tag>VLA</span>
+<span class=tag>World Model</span>
+<span class=tag>Technical Directions</span></div><p class=article-excerpt>VLA vs World Models: Which Will Prevail? - WorldSense Tech Notes</p></article><article class=article-item><div class=article-meta>Aug 4, 2026 · ~5 min read</div><h2><a href=/en/articles/embodied-ai-rl-prospects/>Embodied AI and RL: Career Prospects and Salary Guide in 2026</a></h2><div><span class=tag>Career</span>
+<span class=tag>RL</span>
+<span class=tag>Embodied AI</span>
+<span class=tag>Salary</span>
+<span class=tag>Job Market</span></div><p class=article-excerpt>Embodied AI and RL: Career Prospects and Salary Guide in 2026 - WorldSense Tech Blog</p></article><article class=article-item><div class=article-meta>Aug 3, 2026 · ~4 min read</div><h2><a href=/en/articles/world-model-8year-bottleneck/>World Models: 8 Years and the Same Bottleneck</a></h2><div><span class=tag>World Models</span>
+<span class=tag>Bottleneck</span>
+<span class=tag>Sim-to-Real</span>
+<span class=tag>Challenges</span></div><p class=article-excerpt>World Models: 8 Years and the Same Bottleneck - WorldSense Tech Blog</p></article><article class=article-item><div class=article-meta>Aug 3, 2026 · ~4 min read</div><h2><a href=/en/articles/world-model-2026-trend/>World Models in 2026: Where Are the Real Opportunities?</a></h2><div><span class=tag>World Models</span>
+<span class=tag>2026 Trends</span>
+<span class=tag>Opportunities</span>
+<span class=tag>Robotics</span>
+<span class=tag>Industry</span></div><p class=article-excerpt>World Models in 2026: Where Are the Real Opportunities? - WorldSense Tech Blog</p></article><article class=article-item><div class=article-meta>Aug 3, 2026 · ~4 min read</div><h2><a href=/en/articles/world-model-good-direction/>Is World Model a Good Research Direction? An Engineer's Honest Assessment</a></h2><div><span class=tag>World Models</span>
+<span class=tag>Research Direction</span>
+<span class=tag>Career</span>
+<span class=tag>DreamerV3</span></div><p class=article-excerpt>Is World Model a Good Research Direction? An Engineer's Honest Assessment - WorldSense Tech Blog</p></article><article class=article-item><div class=article-meta>Aug 3, 2026 · ~5 min read</div><h2><a href=/en/articles/reinforcement-learning-how-to-start/>How to Get Started with Reinforcement Learning: A Practical Guide</a></h2><div><span class=tag>RL</span>
+<span class=tag>Tutorial</span>
+<span class=tag>PyTorch</span>
+<span class=tag>MuJoCo</span>
+<span class=tag>Beginner</span></div><p class=article-excerpt>How to Get Started with Reinforcement Learning: A Practical Guide - WorldSense Tech Blog</p></article><article class=article-item><div class=article-meta>Aug 3, 2026 · ~5 min read</div><h2><a href=/en/articles/embodied-ai-2026-breakthrough/>Embodied AI in 2026: What Breakthroughs Can We Expect?</a></h2><div><span class=tag>Embodied AI</span>
+<span class=tag>2026 Trends</span>
+<span class=tag>World Models</span>
+<span class=tag>Sim-to-Real</span>
+<span class=tag>Humanoid</span></div><p class=article-excerpt>Embodied AI in 2026: What Breakthroughs Can We Expect? - WorldSense Tech Blog</p></article><article class=article-item><div class=article-meta>Aug 2, 2026 · ~8 min read</div><h2><a href=/en/articles/rssm-deep-dive/>Deep Dive into RSSM: The Core Engine of World Models</a></h2><div><span class=tag>RSSM</span>
+<span class=tag>Technical Deep Dive</span>
+<span class=tag>State Space</span></div><p class=article-excerpt>Deep Dive into RSSM: The Core Engine of World Models - WorldSense Tech Notes</p></article><article class=article-item><div class=article-meta>Aug 1, 2026 · ~8 min read</div><h2><a href=/en/articles/world-model-intro/>What Is a Robot World Model? An Engineer's Deep Dive</a></h2><div><span class=tag>World Model</span>
+<span class=tag>DreamerV3</span>
+<span class=tag>Getting Started</span></div><p class=article-excerpt>What Is a Robot World Model? An Engineer's Deep Dive - WorldSense Tech Notes</p></article><article class=article-item><div class=article-meta>Jul 31, 2026 · ~8 min read</div><h2><a href=/en/articles/embodied-ai-guide/>Can You Break Into Embodied AI Without a PhD?</a></h2><div><span class=tag>Career Path</span>
+<span class=tag>Embodied AI</span>
+<span class=tag>Learning Guide</span></div><p class=article-excerpt>Can You Break Into Embodied AI Without a PhD? - WorldSense Tech Notes</p></article></main><div id=admin-stats style="display:none;max-width:800px;margin:2rem auto;padding:1.5rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px"><h3 style="margin:0 0 1rem;font-size:1.1rem;color:#1a1a2e">Site Statistics</h3><div id=stats-content style=font-size:.9rem;color:#64748b>Loading...</div></div><script>(function(){var e,t,n,s,o=new URLSearchParams(window.location.search);if(o.get("stats")!=="1")return;if(t=document.getElementById("admin-stats"),e=document.getElementById("stats-content"),!t||!e)return;t.style.display="block",s="https://vkbbaulinnpgywowgztp.supabase.co/rest/v1/blog_stats?select=*",n="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZrYmJhdWxpbm5wZ3l3b3dnenRwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU3OTM3MDMsImV4cCI6MjEwMTM2OTcwM30.oB4arqje9FP2x5Ws1yvCkGCTUPzmtY7XH5wes41egwc",fetch(s,{headers:{apikey:n,Authorization:"Bearer "+n}}).then(function(e){return e.json()}).then(function(t){if(!t||t.length===0){e.innerHTML="<p>暂无数据</p>";return}var n=0,s=0,o=t.map(function(e){return n+=e.likes||0,s+=e.bookmarks||0,'<tr><td style="padding:0.5rem; border-bottom:1px solid #e2e8f0;">'+e.path+'</td><td style="padding:0.5rem; border-bottom:1px solid #e2e8f0; text-align:center;">'+(e.likes||0)+'</td><td style="padding:0.5rem; border-bottom:1px solid #e2e8f0; text-align:center;">'+(e.bookmarks||0)+"</td></tr>"}).join("");e.innerHTML='<table style="width:100%; border-collapse:collapse; margin-bottom:1rem;"><thead><tr style="background:#e2e8f0;"><th style="padding:0.5rem; text-align:left;">文章路径</th><th style="padding:0.5rem; text-align:center;">点赞</th><th style="padding:0.5rem; text-align:center;">收藏</th></tr></thead><tbody>'+o+'</tbody><tfoot><tr style="background:#f1f5f9; font-weight:600;"><td style="padding:0.5rem;">总计</td><td style="padding:0.5rem; text-align:center;">'+n+'</td><td style="padding:0.5rem; text-align:center;">'+s+"</td></tr></tfoot></table>"}).catch(function(t){e.innerHTML='<p style="color:#ef4444;">加载失败: '+t.message+"</p>"})})()</script><footer><p>&copy; 2026 WorldSense · <a href=https://worldsensetech.com>worldsensetech.com</a></p><span id=busuanzi_container_site_pv style=font-size:.8rem;color:#999>Total Visits: <span id=busuanzi_value_site_pv style=color:#2563eb></span></span></footer></body></html>

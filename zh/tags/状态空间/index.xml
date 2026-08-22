@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>状态空间 on WorldSense 技术笔记</title><link>https://worldsensetech.com/zh/tags/%E7%8A%B6%E6%80%81%E7%A9%BA%E9%97%B4/</link><description>Recent content in 状态空间 on WorldSense 技术笔记</description><generator>Hugo</generator><language>zh-CN</language><lastBuildDate>Sun, 02 Aug 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://worldsensetech.com/zh/tags/%E7%8A%B6%E6%80%81%E7%A9%BA%E9%97%B4/index.xml" rel="self" type="application/rss+xml"/><item><title>RSSM状态空间模型详解：世界模型的核心引擎</title><link>https://worldsensetech.com/zh/articles/rssm-deep-dive/</link><pubDate>Sun, 02 Aug 2026 00:00:00 +0000</pubDate><guid>https://worldsensetech.com/zh/articles/rssm-deep-dive/</guid><description>&lt;p&gt;上一篇文章我们聊了世界模型的基本概念和DreamerV3的整体架构。有读者反馈说，想更深入地了解RSSM到底是怎么工作的。这篇文章就来拆解这个Dreamer系列世界模型的核心组件。&lt;/p&gt;
+&lt;p&gt;我会尽量把数学讲清楚，但不会过度形式化。毕竟我们的目标是理解原理，而不是证明定理。&lt;/p&gt;
+&lt;h2 id="为什么需要状态空间模型"&gt;为什么需要状态空间模型&lt;/h2&gt;
+&lt;p&gt;在讨论RSSM之前，先退一步想想：为什么我们需要状态空间模型？直接用RNN或者Transformer不行吗？&lt;/p&gt;
+&lt;p&gt;先说RNN。传统RNN的问题在于，它把所有信息压缩到一个确定性的隐状态向量里。这就像让你用一个数字来描述&amp;quot;今天天气怎么样&amp;quot;——不管你怎么选这个数字，都会丢失大量信息。更关键的是，RNN没有表达不确定性的能力。如果环境有随机因素（比如一阵风吹来），RNN无法表达&amp;quot;我不确定接下来会发生什么&amp;quot;。&lt;/p&gt;
+&lt;p&gt;再说Transformer。Transformer的注意力机制确实强大，但它有两个问题：一是计算复杂度随序列长度平方增长，对于需要长程记忆的机器人任务来说成本太高；二是它本质上是一个开环模型，没有显式的状态转移结构，不太适合做控制。&lt;/p&gt;
+&lt;p&gt;状态空间模型（SSM）是一个折中方案。它有显式的状态转移方程，能捕捉动态系统的本质；同时通过精心设计的状态表示，在表达能力和计算效率之间取得平衡。&lt;/p&gt;
+&lt;h2 id="rssm的核心思想双轨状态"&gt;RSSM的核心思想：双轨状态&lt;/h2&gt;
+&lt;p&gt;RSSM的全称是Recurrent State-Space Model，循环状态空间模型。它的核心创新在于把隐状态拆成了两条轨道：&lt;/p&gt;
+&lt;p&gt;确定性状态 hₜ（Deterministic State）&lt;/p&gt;
+&lt;p&gt;这个状态类似于传统RNN的隐状态，通过一个GRU（门控循环单元）更新：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;`hₜ = GRU(hₜ₋₁, zₜ₋₁, aₜ₋₁)`
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;它捕捉的是环境中的确定性规律——那些可以精确预测的部分。比如&amp;quot;如果机械臂向右移动10厘米，末端执行器的x坐标就增加10厘米&amp;quot;这种确定的物理关系。&lt;/p&gt;
+&lt;p&gt;随机性状态 zₜ（Stochastic State）&lt;/p&gt;
+&lt;p&gt;这个状态是从一个分布中采样得到的：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;`zₜ ~ p(zₜ | hₜ) # 先验（想象时）
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;zₜ ~ q(zₜ | hₜ, oₜ) # 后验（训练时）`
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;它捕捉的是环境中的不确定性——那些无法精确预测的部分。比如&amp;quot;两个表面之间的摩擦力可能在0.2到0.4之间&amp;quot;这种模糊的物理特性。&lt;/p&gt;
+&lt;p&gt;为什么要这样拆分？因为真实世界就是由确定性规律和不确定性因素共同构成的。把它们分开建模，模型就能更准确地理解环境。&lt;/p&gt;
+&lt;h2 id="完整的状态转移过程"&gt;完整的状态转移过程&lt;/h2&gt;
+&lt;p&gt;让我们一步步走一遍RSSM的状态转移过程。假设在时刻t，我们有一个观测 oₜ（比如相机图像）和一个动作 aₜ（比如关节力矩）：&lt;/p&gt;
+&lt;p&gt;第一步：更新确定性状态&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;`hₜ = GRU(hₜ₋₁, zₜ₋₁, aₜ₋₁)`
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;把上一步的确定性状态hₜ₋₁、随机性状态zₜ₋₁和动作aₜ₋₁拼在一起，通过GRU得到新的确定性状态。这一步类似于传统RNN的更新。&lt;/p&gt;
+&lt;p&gt;第二步：计算随机性状态&lt;/p&gt;
+&lt;p&gt;这里有两种模式：&lt;/p&gt;
+&lt;p&gt;训练时（有真实观测），我们用后验分布：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;`μₜ, σₜ = Encoder(hₜ, oₜ)
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;zₜ = μₜ + σₜ * ε, 其中 ε ~ N(0, I)`
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;推理时（没有真实观测，在想象中），我们用先验分布：&lt;/p&gt;</description></item></channel></rss>
