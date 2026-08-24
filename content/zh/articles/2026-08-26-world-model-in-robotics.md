@@ -1,0 +1,413 @@
+---
+title: "机器人世界模型到底在做什么？从感知到行动的完整链路"
+slug: "2026-08-26-world-model-in-robotics"
+date: 2026-08-26
+draft: false
+categories: ["世界模型"]
+tags: ["世界模型", "机器人", "DreamerV3", "RSSM", "感知融合", "Sim-to-Real"]
+description: "从传感器到执行器，拆解世界模型在机器人系统中的完整链路：感知融合、隐状态预测、策略学习、Sim-to-Real，以及不同机器人形态对世界模型的不同需求。"
+toc: true
+---
+
+> **Dreamer 系列 · 第 2 篇**
+>
+> [上一篇](/zh/articles/2026-08-25-dreamer-explained/)从架构层面拆解了 Dreamer 的整体设计。这篇把视角拉远一步：世界模型在整个机器人系统中到底处于什么位置？从传感器数据到最终执行动作，中间经历了哪些环节？本文不讨论如何训练一个通用机器人世界模型，而讨论它在机器人系统中的功能位置。
+
+## 一、一个根本区别：机器人世界模型和语言模型完全不同
+
+过去几年，"模型"这个词在 AI 领域被反复使用。语言模型预测下一个 token，视觉模型预测下一帧图像，自动驾驶模型预测交通参与者的行为。它们都在做某种"预测"，但预测的对象和约束条件差异很大。
+
+机器人世界模型面对的问题有一个根本不同：**它需要学习 action-conditioned future dynamics**——给定当前观察和行动，预测未来可能出现的状态、观测以及任务相关结果。注意这里用"观测"而不是"状态"，因为不同类型的世界模型预测的对象不同：Dreamer RSSM 在 latent space 中预测（latent → latent），video world model 在像素空间预测（action + video → future video），"state"并不是统一接口。
+
+想象一个场景：桌上的机械臂要推开一个杯子。在真正执行之前，它需要预测：手接触杯子后，杯子会往哪个方向滑？如果杯子太重推不动怎么办？如果桌面很滑，杯子会不会飞出去？
+
+这种预测不是从语言中学到的"杯子通常放在桌上"这种语义知识，而是"手以某个角度接触杯子、施加某个力，杯子会沿桌面滑动大约 10cm"这种与行动相关的未来预测。
+
+我觉得这是理解机器人世界模型最重要的出发点。语言模型通过海量文本学会了语言结构，视觉模型通过海量图像学会了视觉规律，而机器人世界模型需要通过交互经验学会行动与后果之间的关系。
+
+但这里有一个很重要的区分：世界模型并不需要显式恢复完整的物理规律。它可能只需要在 latent space 中预测：
+
+```text
+latent_t + action
+        ↓
+latent_{t+1}
+        ↓
+未来任务相关结果
+```
+
+而不需要真的知道：
+
+```text
+摩擦系数 = 0.31
+质量 = 247g
+接触力 = 1.8N
+```
+
+**世界模型不是为了"还原世界"，而是为了预测行动相关的未来。** 这条主线会贯穿整篇文章。
+
+## 二、机器人世界模型到底在预测什么？
+
+用一句话概括：世界模型学习的是"如果执行某个动作，决策相关的状态会怎么变化"。
+
+技术上说，世界模型学习状态转移动态（state transition dynamics），并通常额外学习 reward、continuation 等任务相关预测头：
+
+```text
+WorldModel:
+  dynamics:  (s_t, a_t) → s_{t+1}
+  heads:     s_{t+1} → r_t, γ_t, ...
+```
+
+实际实现中，世界模型通常不是直接预测完整的原始状态，而是在隐空间中预测 latent dynamics。
+
+看起来简单，但这个定义中有几个关键问题，在机器人场景下变得特别复杂。
+
+**"状态"是什么？** 对语言模型来说，状态是 token 序列。对机器人来说，状态来自多个异构源：相机图像（高维视觉）、关节角度和力矩（低维本体感知）、可能还有触觉传感器、深度相机等。世界模型需要先把这些信息融合成一个统一的状态表示，然后才能预测。
+
+**世界模型需要维护什么？** 世界模型需要维护一个足以支持未来预测和决策的内部表示。这个内部表示可能编码机器人自身状态、环境信息、历史上下文以及无法显式解释但有助于预测的隐变量——它更接近 POMDP 中的 belief state，而不是一个简单的压缩物理状态。比如机械臂需要预测"杯子被推后会滑到哪里"，移动机器人需要预测"前方障碍物是否会移动"。需要注意的是，latent world model 并不是一个压缩后的物理状态估计器——它更像是一个"足以支撑预测的信息容器"，其中可能包含无法直接对应到物理量的隐变量。
+
+**预测需要多可靠？** 语言模型可以容忍偶尔的"幻觉"——生成一段不太准确但流畅的文字。但对世界模型而言，关键并不是把未来每一个像素都预测得极其准确，而是对策略真正关心的未来差异进行可靠预测。预测抓取力足够但实际不够，物体就会滑落——这种对决策相关预测质量的要求，是机器人世界模型与通用生成模型的重要区别。
+
+## 三、从传感器到动作：完整链路
+
+理解了世界模型在预测什么之后，接下来看它在机器人系统中到底处于什么位置。
+
+需要首先明确的是：**世界模型不是机器人系统的必经中间层。** Model-free RL 可以直接从 observation → policy → action，不经过任何世界模型。世界模型是一种让策略能够在"预测的未来"中学习和规划的模型化组件，而不是所有机器人系统的标配。
+
+一个典型的基于世界模型的机器人系统，完整链路是这样的：
+
+```text
+                 ┌─────────────────────┐
+                 │      感知模块         │
+                 │                     │
+                 │  Camera → Encoder    │
+                 │       ↓              │
+                 │  Proprio → Encoder   │
+                 │       ↓              │
+                 │  latent state (s_t)  │
+                 └──────────┬──────────┘
+                            │
+               ┌────────────┴────────────┐
+               ↓                         ↓
+         World Model           Direct Policy
+               ↓                         │
+      imagined futures                   │
+               ↓                         │
+       Policy / Planner ◄────────────────┘
+               ↓
+            Action
+               ↓
+         Real Robot
+               ↓
+         Observation
+               │
+               └────────→ 回到感知模块
+```
+
+注意图中的关键结构：感知提供 latent state 后，有两条路径通向决策。一条经过世界模型：先预测 imagined futures，再由 Policy/Planner 基于预测做决策。另一条是直接策略路径（如 model-free RL），从 latent state 直接输出 action。**世界模型是增强决策，不是必经路径。**
+
+同时，世界模型的训练还有一条并行的想象路径：
+
+```text
+从 replay buffer 采样 posterior latent state
+         ↓
+    只用 Prior 做 rollout（不看观测）
+         ↓
+    (h_t, z_t) → Prior → (h_{t+1}, z_{t+1})
+         ↓
+    Actor 采样 action_t
+         ↓
+    Reward predictor → r_t
+    Continuation predictor → γ_t
+    Critic → V(h_{t+1}, z_{t+1})
+         ↓
+    用 imagined (r_t, γ_t, V_t) 更新 Actor 和 Critic
+```
+
+continuation 用于判断 imagined trajectory 是否仍然处于有效 rollout 范围——在 episode 边界处，γ_t 会衰减为 0，防止想象超出合理范围。
+
+这里有一个关键区分：**Observe 阶段有真实观测纠正 latent；Imagine 阶段没有真实观测。** **Imagine 的关键不是"把真实世界再模拟一遍"，而是在已经被真实观测校正过的 latent state 上，把未来交给 learned dynamics 自己展开。** 这不是像素级的心理模拟（pixel simulation），而是 latent rollout。关于 Dreamer 中 Observe 和 Imagine 的详细机制，可以参考 [读懂 Dreamer](/zh/articles/2026-08-25-dreamer-explained/)。
+
+这两条路径的关系是：真实环境提供数据来学习世界模型，世界模型提供想象空间来训练策略，策略回到真实环境执行并产生新数据。Observe 和 Imagine 在整个训练过程中反复交替进行。
+
+这个链路中有几个关键的设计选择：
+
+**感知融合方式。** 在机器人系统中，更常见的做法是让视觉、本体感知、触觉等传感器分别编码，再在隐空间中融合。Dreamer 风格的 RSSM 可以把这些信息进一步压缩成用于动态预测的 latent state。
+
+**动作条件。** 世界模型的预测需要明确知道"正在评估哪个动作"。对于多自由度机器人，不同关节的动作组合会极大影响状态转移，世界模型必须准确地以动作为条件进行预测。
+
+**想象起点。** 想象轨迹不是从随机状态开始的，而是从 replay buffer 中真实观测对应的 posterior latent state 出发。这保证了想象轨迹的起点在真实数据分布上。
+
+### Prediction ≠ Planning
+
+最后值得强调的是：**世界模型预测未来，不等于世界模型自己完成规划。**
+
+```text
+当前状态 s_t
+
+        ├── action A → predicted future A → value 0.8
+        ├── action B → predicted future B → value 0.4
+        └── action C → predicted future C → value 0.9
+
+                         ↓
+
+                    choose C
+```
+
+在这个例子中：世界模型回答"如果做这个动作，会发生什么？"；reward/value 回答"这个未来好不好？"；actor/planner 回答"那我应该做什么？"。**预测和规划是分离的**——世界模型提供预测，策略/规划模块基于预测做决策。这也是下一篇讨论 Actor-Critic 设计的出发点。
+
+### 为什么机器人需要世界模型？
+
+回到一个根本问题：为什么机器人需要世界模型？
+
+真实机器人最大的问题不是不能学习，而是**每一次失败都很贵。**
+
+强化学习如果直接依赖真实交互，需要大量试错：
+
+```text
+100 万次尝试
+× 机械损耗
+× 人工监督
+× 安全风险
+```
+
+代价巨大。世界模型的价值在于把这个过程转移到想象空间中：
+
+```text
+少量真实经验
+        ↓
+学习 dynamics
+        ↓
+大量 latent imagination
+        ↓
+训练策略
+```
+
+它把机器人学习从"在现实世界里试错"转变为"在学习到的世界中先练习"。这也是 Dreamer 系列最核心的贡献之一——通过 imagined trajectories 大幅减少对真实交互的依赖。
+
+## 四、不同机器人，不同需求
+
+"机器人"是一个很大的类别。不同类型的机器人，对世界模型的需求差异很大。
+
+### 机械臂操作
+
+机械臂的自由度相对固定（通常 6-7 DoF），工作空间有限，环境通常是结构化的（桌面、已知物体）。主要挑战在于**接触动力学**的精确预测——推、抓、放等操作涉及复杂的刚体接触和摩擦。
+
+世界模型需要的是：短期内（几步到几十步）的高精度接触预测。Dreamer 系列在连续控制 benchmark 中验证了 latent dynamics + imagination RL 的有效性，但真实机械臂操作仍然面临接触建模、视觉闭环和 sim-to-real 等挑战。
+
+### 移动机器人导航
+
+移动机器人（AGV、无人机等）需要在更大的空间中运动，处理动态障碍物，传感器数据往往有噪声和不完整性。主要挑战在于**长期预测**和**不确定性管理**——"如果我往那边走，几秒后会看到什么？"
+
+世界模型需要的是：较长时间跨度的预测能力，以及对"我不知道会发生什么"的合理表达。RSSM 的 stochastic state 允许模型保留无法由 deterministic history 完全确定的信息，因此在部分可观测、未来存在多种可能演化的任务中具有优势。这种 stochasticity 提供的是 latent-level 的随机建模能力，并不等价于一个经过校准的未来概率预测系统。关于 RSSM 的双轨状态设计，可以参考 [RSSM 状态空间模型详解](/zh/articles/rssm-deep-dive/)。
+
+### 人形机器人
+
+人形机器人有数十个甚至更多自由度，步态平衡本身就是一个持续的控制问题，还涉及与地面的复杂接触。主要挑战在于**高维动态系统**的建模——世界模型需要同时预测机器人自身的高维状态和外部环境的响应。
+
+世界模型需要的是：能处理高维状态空间的高效表征。DreamerV3 使用 Block GRU 将大规模 deterministic state 分块处理，以降低 recurrent computation 的计算成本。这种结构展示了如何提高大规模 latent dynamics 建模的计算效率，对于未来高自由度机器人系统具有启发意义。关于 Block GRU 的具体实现，可以参考 [RSSM 代码解析（三）](/zh/articles/2026-08-21-rssm-deterministic-core/)。
+
+### 灵巧操作
+
+灵巧手操作是当前机器人操作中最具挑战性的场景之一。多指手的自由度可能超过 20，加上物体的形状不确定性，接触动力学极其复杂。主要挑战在于**精细力控**和**形变预测**——拧瓶盖、翻物体、操作柔性材料等任务，需要世界模型捕捉微妙的力-形变关系。
+
+世界模型需要的是：对精细接触和形变的建模能力。这目前是世界模型的一个薄弱环节——对于涉及流体、软体、复杂接触的场景，预测精度还不够高。
+
+这四种类型展示了世界模型设计中的一个核心张力：机器人的自由度越高、环境越不确定，世界模型需要预测的空间就越大，对精度和泛化的要求也越高。
+
+## 五、世界模型不是另一个仿真器：它和 Simulator 的关系
+
+讨论机器人世界模型，绕不开仿真器。
+
+真实机器人的交互成本很高——硬件磨损、时间消耗、安全风险。仿真器（MuJoCo、Isaac Sim、Gazebo）提供了一个低成本的替代环境。但仿真器和世界模型的关系，其实比表面上看起来更复杂。
+
+当前有三种主要模式：
+
+**模式一：物理模型驱动。** 在物理仿真器中直接训练策略（model-free RL），然后通过 sim-to-real 技术迁移到真实机器人。这里的"model-free"指策略学习过程不使用环境 dynamics model，而不是说训练环境不存在——仿真器本身就是环境。域随机化（Domain Randomization）是这条路线的代表性方法——在仿真中随机化物理参数（摩擦、质量、延迟等），让策略学会对参数变化鲁棒。
+
+```text
+Physics Simulator → RL → Sim-to-Real → 真实机器人
+```
+
+**模式二：数据驱动世界模型。** 用真实或仿真产生的交互数据学习世界模型，策略在世界模型中想象训练，最后迁移到真实环境。
+
+```text
+Real / Sim Data → World Model → Imagination → Policy → 真实机器人
+```
+
+**模式三：混合式。** 先用仿真器生成合成数据，在世界模型中预训练，再用真实交互数据适应和微调。这种模式越来越常见，因为现实机器人研究很可能越来越多走 physics + learned dynamics 的融合路线，而不是 physics vs world model 二选一。
+
+```text
+Physics Simulator → synthetic data
+                         ↓
+                   World Model
+                         ↑
+Real data ───────────────┘
+         ↓
+     adapted World Model
+         ↓
+       Policy
+```
+
+从训练机制上看，Dreamer 可以把 RSSM 视为一个用于 latent imagination 的"内部模拟器"；但它并不是 MuJoCo / Isaac Sim 那种显式物理仿真器，也不追求复现所有环境状态。两者的根本区别在于：
+
+```text
+物理仿真器
+    目标：尽可能真实地模拟物理世界
+    层级：物理状态 → 物理状态
+
+世界模型（如 RSSM）
+    目标：学习对决策有用的未来预测
+    层级：latent state → latent state
+```
+
+二者甚至可以组合：物理仿真器提供数据分布，世界模型学习更适合决策的抽象动力学。这也是模式三（混合式）背后的核心思路。
+
+三种模式不是互斥的。关于 MuJoCo 和 Isaac Sim 的选择，可以参考 [MuJoCo vs Isaac Sim 对比](/zh/articles/mujoco-vs-isaac-sim/)；关于 Sim-to-Real 迁移方法，可以参考 [Sim-to-Real 自适应迁移](/zh/articles/sim-to-real-transfer/)。
+
+这三种模式背后的核心区别在于：**仿真器提供的是一个由人设计的世界；世界模型学习的是一个由数据约束出来的世界。** 当然，世界模型依然受到模型结构、数据分布和训练目标的约束——它不是"无中生有"，而是在数据驱动下学习对决策有用的那部分动态。
+
+## 六、Sim-to-Real：世界模型的最后一公里
+
+世界模型在仿真中训练得再好，最终需要在真实机器人上工作。这就引出了 Sim-to-Real 的问题。
+
+对于机器人世界模型，一个核心问题是：**到底应该迁移 policy，还是迁移 world model？**
+
+```text
+方案 A：迁移策略
+Sim → Policy → Deploy on Real Robot
+
+方案 B：迁移世界模型
+Sim → World Model + Policy → Deploy on Real Robot
+
+方案 C：联合迁移
+Sim → World Model
+Real data ───────┘
+       ↓
+ adapted World Model + Policy → Deploy on Real Robot
+```
+
+**方案 A** 是最传统的思路：在仿真中训练好策略，直接部署到真实机器人。问题是仿真和真实之间的差异可能导致策略失效。
+
+**方案 B** 世界模型预训练 + 适应：在仿真数据上预学习 dynamics，然后用真实数据适应微调，再训练策略部署。这是当前的研究趋势——直接迁移 sim world model 到 real 往往因为 dynamics gap 太大而效果有限，预训练 + 适应是更实际的路径。
+
+**方案 C** 联合 sim-real 学习：在训练过程中同时利用仿真数据和真实数据，让世界模型持续在两者之间适应。这是未来方向——Dreamer 的 Observe-Imagine 交替循环天然支持这种方式。
+
+应对这些挑战，当前有几种常见思路：
+
+系统辨识（System Identification）：通过实验标定仿真器参数，使仿真尽可能接近真实。这是最传统的方法，但对于复杂场景（如接触丰富的操控任务），精确建模非常困难。
+
+域随机化：不试图精确匹配真实参数，而是在仿真中随机化各种参数，让策略/世界模型学会对参数变化鲁棒。关于域随机化的详细技术，可以参考 [域随机化：Sim-to-Real 的核心技术](/zh/articles/domain-randomization-sim-to-real/)。
+
+在线自适应：部署后，用真实环境的数据持续更新世界模型，让它逐渐适应真实动态。Dreamer 的 Observe-Imagine 交替循环天然支持这种方式——每次真实交互产生的新数据都可以用来更新世界模型，然后策略在适应后的世界模型中重新想象训练。这正好对应上面的方案 C。
+
+## 七、世界模型与其他方法的关系
+
+世界模型不是机器人学习的唯一方法。理解它和其他方法的关系，有助于判断什么时候该用世界模型。
+
+**与 Model-Free RL 的关系。** PPO、SAC 等 model-free 方法直接从交互中学习策略，不需要显式的环境模型。优点是理论上可以逼近任意策略，缺点是样本效率低。世界模型方法可以理解为：先学一个模型，然后用模型生成的想象数据来辅助策略学习。两者不是替代关系，而是可以互补的。
+
+**与模仿学习的关系。** 模仿学习（IL）从专家示范中学习，不需要奖励函数。但纯 IL 的问题在于泛化——遇到训练数据没覆盖的情况就不知所措。世界模型可以提供"想象"能力：在遇到新情况时，通过世界模型预测不同行动的后果，而不是只能复现专家行为。
+
+**与 VLA 的关系。** VLA（Vision-Language-Action）模型如 RT-2、OpenVLA 直接从视觉和语言指令映射到动作。VLA 的优势在于利用了大语言模型的视觉理解和指令跟随能力。典型 VLA 的核心训练目标是从视觉、语言和机器人状态直接预测动作，而不是显式学习一个可供 rollout 的 action-conditioned dynamics model。世界模型则提供了"如果这样做会怎样"的预测能力。一种可能的未来组合方式是，让 VLA 提供语义条件和任务级行为先验，让世界模型负责 action-conditioned dynamics prediction，并在局部未来上进行评估和规划。这种组合的关键挑战，是如何让语言空间中的任务目标与 latent dynamics 空间中的物理预测建立稳定接口。两者的结合，本质上是在解决"知道做什么"和"知道怎么做"之间的鸿沟。关于 VLA 和世界模型的详细对比，可以参考 [VLA vs 世界模型](/zh/articles/vla-vs-world-model/)。
+
+### 一个重要误区：世界模型 ≠ Dreamer
+
+最后需要做一个重要区分。这篇文章讲了很多 Dreamer / RSSM 的例子，但 **Dreamer 只是"latent world model + imagination-based RL"的一种具体实现，而不是世界模型本身。** 机器人世界模型是一个更大的概念：
+
+```text
+机器人 World Model
+        │
+        ├── latent dynamics
+        │      ├── RSSM / Dreamer
+        │      ├── Transformer world model
+        │      └── other latent models
+        │
+        ├── pixel / video prediction
+        │
+        └── action-conditioned predictive models
+```
+
+后续文章中我们会讨论 TD-MPC（在世界模型中做模型预测控制）和 Transformer 路线，它们和世界模型的关系同样重要。不要把 World Model 等同于 RSSM 或 Dreamer。
+
+## 八、把之前的文章串起来
+
+这篇把世界模型在机器人系统中的位置梳理了一遍。结合博客上的其他内容，可以形成这样的阅读路径：
+
+```text
+什么是世界模型（概念入门）
+        ↓
+RSSM 数学详解 → RSSM 代码系列（6篇）
+        ↓              ↓
+Dreamer 架构详解    世界模型表征路线
+        ↓              ↓
+机器人世界模型（本篇）←→ 仿真器对比
+        ↓              ↓
+TD-MPC / VLA     Sim-to-Real
+        ↓
+世界模型 + VLA 融合
+```
+
+相关主题的文章：
+
+**入门概念：**[什么是机器人世界模型？](/zh/articles/world-model-intro/) 从"机器人也需要想象力"出发，介绍世界模型的基本概念和 DreamerV3 概览。
+
+**RSSM 深度解析：**[RSSM 状态空间模型详解](/zh/articles/rssm-deep-dive/) 讲 RSSM 的数学原理；[RSSM 代码解析系列](/zh/articles/2026-08-19-rssm-code-walkthrough/) 从代码层面拆解 stochastic state、deterministic core、KL balancing 和 imagine reset。
+
+**Dreamer 架构：**[读懂 Dreamer](/zh/articles/2026-08-25-dreamer-explained/) 从架构层面讲清楚 Dreamer 的 Observe → RSSM → Imagine → Actor/Critic 完整设计。
+
+**表征与架构：**[世界模型如何表示世界](/zh/articles/world-model-representations/) 对比四条表征路线；[世界模型架构演进](/zh/articles/world-model-transformer/) 讨论 RSSM 与 Transformer 的融合趋势。
+
+**控制方法：**[TD-MPC：世界模型如何用于机器人控制](/zh/articles/td-mpc-world-model-control/) 介绍另一条重要路线——在世界模型中做模型预测控制。
+
+**仿真与迁移：**[MuJoCo vs Isaac Sim](/zh/articles/mujoco-vs-isaac-sim/) 仿真器选择；[域随机化与 Sim-to-Real](/zh/articles/domain-randomization-sim-to-real/) 迁移技术；[Sim-to-Real 自适应迁移](/zh/articles/sim-to-real-transfer/) 世界模型驱动的迁移方法。
+
+**未来方向：**[世界模型 + VLA：用想象力训练机器人](/zh/articles/world-model-synthetic-data-for-vla/) 讨论世界模型与 VLA 的结合。
+
+## 九、总结
+
+机器人世界模型的核心工作，可以概括为一句话：**学习行动与后果之间的关系，然后在预测中训练策略。**
+
+回到文章开头的那条主线：世界模型不是为了"还原世界"，而是为了预测行动相关的未来。在一个完整的机器人系统中，这个目标通过三个核心问题来实现：
+
+**1. 现在发生了什么？** → 感知模块把传感器数据变成 latent state。
+
+**2. 如果我这么做，会发生什么？** → 世界模型在 latent space 中预测多个可能的未来。
+
+**3. 哪个未来值得去实现？** → reward/value 评价这些未来，policy/planner 做出选择。
+
+```text
+         现在是什么？
+              ↓
+          Perception
+              ↓
+         latent state
+              ↓
+     如果这么做会怎样？
+              ↓
+        World Model
+              ↓
+        多个可能未来
+         ↙    ↓    ↘
+       A      B      C
+       ↓      ↓      ↓
+     value  value  value
+       ↘      ↓      ↙
+          Policy
+             ↓
+          Action
+             ↓
+        Real Robot
+             ↓
+      New Observation
+             ↺
+```
+
+这个世界模型不是孤立存在的。上游连接着感知模块（把传感器数据变成可用的状态表示），下游连接着策略/规划模块（把预测变成行动），旁边还有仿真器提供训练数据，以及 Sim-to-Real 技术把学到的能力迁移到真实硬件。
+
+不同类型的机器人对世界模型有不同的需求——机械臂需要精确的接触预测，移动机器人需要长期预测能力，人形机器人需要处理高维动态系统，灵巧操作需要精细的力-形变建模。**不存在一个统一世界模型架构可以同时优化所有机器人任务。** 而且 Dreamer 只是"latent world model + imagination-based RL"的一种实现，不是世界模型的全部。
+
+我觉得理解世界模型在机器人系统中的这个"位置"，比单纯理解它的数学公式更重要。因为世界模型的价值不在于它本身有多精确，而在于它能不能为策略学习提供足够好的想象空间。
+
+**感知告诉我现在是什么；世界模型告诉我行动之后可能发生什么；价值/策略告诉我哪个未来值得追求。**
+
+下一篇我们会讨论 Actor-Critic 在想象空间中的具体设计——它们怎么把世界模型的预测变成有用的策略，以及 symlog 变换为什么对价值学习如此重要。
