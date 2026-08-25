@@ -148,6 +148,11 @@
 
     <footer>
         <p>&copy; 2026 WorldSense · <a href="https://worldsensetech.com">worldsensetech.com</a></p>
+        {{ if eq .Site.Language.Lang "zh" }}
+        <p style="font-size:0.8rem;color:#999;margin:4px 0;">
+            <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener" style="color:#999;">沪ICP备2026041639号</a>
+        </p>
+        {{ end }}
         <span id="busuanzi_container_site_pv" style="font-size:0.8rem;color:#999;">
           {{ if eq .Site.Language.Lang "zh" }}总访问量{{ else }}Total Visits:{{ end }} <span id="busuanzi_value_site_pv" style="color:#2563eb;"></span> {{ if eq .Site.Language.Lang "zh" }}次{{ else }}{{ end }}
         </span>
