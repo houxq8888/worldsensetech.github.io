@@ -77,4 +77,4 @@ User-agent: Moonshot
 Allow: /
 
 # Sitemap
-Sitemap: https://worldsensetech.com/sitemap.xml
+Sitemap: https://www.worldsensetech.com/sitemap.xml

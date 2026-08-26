@@ -1,4 +1,4 @@
-baseURL = "https://worldsensetech.com/"
+baseURL = "https://www.worldsensetech.com/"
 title = "WorldSense 技术笔记"
 theme = "worldsense"
 enableRobotsTXT = true
