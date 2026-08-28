@@ -9,6 +9,13 @@ categories: ["世界模型"]
 tags: ["世界模型", "AI风口", "行业趋势"]
 description: "2026年，「世界模型」会是下一个AI风口么？ - WorldSense 技术笔记"
 toc: true
+related_articles:
+  - world-model-good-direction
+  - world-model-8year-bottleneck
+  - vla-vs-world-model
+  - world-model-intro
+  - embodied-ai-guide
+  - 2026-08-31-world-model-future
 ---
 
 

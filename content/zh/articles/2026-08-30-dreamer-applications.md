@@ -7,6 +7,13 @@ categories: ["世界模型"]
 tags: ["DreamerV3", "应用实践", "Sim-to-Real", "机器人控制", "Dreamer系列"]
 description: "Dreamer 系列在实际任务中的表现如何？从 DMC、Atari 到机器人控制，再到 Sim-to-Real 的探索与挑战。"
 toc: true
+related_articles:
+  - 2026-08-25-dreamer-explained
+  - 2026-08-27-dreamer-actor-critic
+  - 2026-08-28-dreamerv3-training-tips
+  - mujoco-vs-isaac-sim
+  - sim-to-real-transfer
+  - 2026-08-31-world-model-future
 ---
 
 > **Dreamer 系列 · 第 5 篇**

@@ -9,6 +9,13 @@ categories: ["世界模型"]
 tags: ["世界模型", "Transformer", "RSSM", "UniSim", "Dreamer", "架构演进"]
 description: "世界模型架构演进：RSSM、Transformer 与统一世界模型 - WorldSense 技术笔记"
 toc: true
+related_articles:
+  - rssm-deep-dive
+  - world-model-representations
+  - 2026-08-31-world-model-future
+  - 2026-08-25-dreamer-explained
+  - vla-vs-world-model
+  - td-mpc-world-model-control
 ---
 
 

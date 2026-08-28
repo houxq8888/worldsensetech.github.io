@@ -7,6 +7,13 @@ categories: ["World Models"]
 tags: ["DreamerV3", "World Models", "RSSM", "Actor-Critic", "Imagination Training", "Dreamer Series"]
 description: "Understanding Dreamer's Actor-Critic design from source code: imagine loop, lambda-return, two-hot value prediction, and symlog transformation."
 toc: true
+related_articles:
+  - 2026-08-25-dreamer-explained
+  - 2026-08-28-dreamerv3-training-tips
+  - rssm-deep-dive
+  - world-model-intro
+  - vla-vs-world-model
+  - 2026-08-30-dreamer-applications
 ---
 
 > **Dreamer Series - Part 2**

@@ -7,6 +7,13 @@ categories: ["世界模型"]
 tags: ["世界模型", "机器人", "DreamerV3", "RSSM", "感知融合", "Sim-to-Real"]
 description: "从传感器到执行器，拆解世界模型在机器人系统中的完整链路：感知融合、隐状态预测、策略学习、Sim-to-Real，以及不同机器人形态对世界模型的不同需求。"
 toc: true
+related_articles:
+  - rssm-deep-dive
+  - 2026-08-25-dreamer-explained
+  - world-model-intro
+  - sim-to-real-transfer
+  - vla-vs-world-model
+  - world-model-representations
 ---
 
 > **Dreamer 系列 · 第 2 篇**

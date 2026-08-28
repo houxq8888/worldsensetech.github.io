@@ -7,6 +7,13 @@ categories: ["世界模型"]
 tags: ["DreamerV3", "世界模型", "RSSM", "Actor-Critic", "想象训练", "Dreamer系列"]
 description: "从源码理解 Dreamer 的 Actor-Critic 设计：imagine loop、λ-return、two-hot value prediction 和 symlog 变换。"
 toc: true
+related_articles:
+  - 2026-08-25-dreamer-explained
+  - 2026-08-28-dreamerv3-training-tips
+  - rssm-deep-dive
+  - world-model-intro
+  - vla-vs-world-model
+  - 2026-08-30-dreamer-applications
 ---
 
 > **Dreamer 系列 · 第 2 篇**

@@ -7,6 +7,13 @@ categories: ["World Models"]
 tags: ["World Models", "Research Direction", "Career", "DreamerV3"]
 description: "Is World Model a Good Research Direction? An Engineer's Honest Assessment - WorldSense Tech Blog"
 toc: true
+related_articles:
+  - world-model-2026-trend
+  - world-model-8year-bottleneck
+  - vla-vs-world-model
+  - embodied-ai-guide
+  - world-model-intro
+  - reinforcement-learning-how-to-start
 aliases:
   - /en/articles/world-model-good-direction.html
 ---

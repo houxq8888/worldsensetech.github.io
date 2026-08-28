@@ -9,6 +9,13 @@ categories: ["World Models", "Embodied AI"]
 tags: ["VLA", "World Model", "Technical Directions"]
 description: "VLA vs World Models: Which Will Prevail? - WorldSense Tech Notes"
 toc: true
+related_articles:
+  - rssm-deep-dive
+  - world-model-intro
+  - world-model-synthetic-data-for-vla
+  - world-model-8year-bottleneck
+  - 2026-08-25-dreamer-explained
+  - world-model-2026-trend
 ---
 
 

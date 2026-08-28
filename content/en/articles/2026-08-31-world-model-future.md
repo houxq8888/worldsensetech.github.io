@@ -7,6 +7,13 @@ categories: ["World Models"]
 tags: ["DreamerV3", "World Models", "Transformer", "V-JEPA", "Genie", "LLM Agent", "Dreamer Series"]
 description: "Starting from DreamerV3, a comprehensive roadmap of Transformer world models, V-JEPA, Genie, LLM Agents, and robotics foundation models — toward modular agent architectures."
 toc: true
+related_articles:
+  - vla-vs-world-model
+  - 2026-08-30-dreamer-applications
+  - world-model-transformer
+  - world-model-representations
+  - rssm-deep-dive
+  - world-model-8year-bottleneck
 ---
 
 > **Dreamer Series · Part 6**

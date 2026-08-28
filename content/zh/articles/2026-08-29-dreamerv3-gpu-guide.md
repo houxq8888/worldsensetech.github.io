@@ -7,6 +7,13 @@ categories: ["世界模型"]
 tags: ["DreamerV3", "GPU", "显存", "硬件", "选型", "Dreamer系列"]
 description: "DreamerV3 训练需要什么样的 GPU？从显存需求、计算性能到性价比分析，帮你做出合理选择。"
 toc: true
+related_articles:
+  - 2026-08-17-dreamerv3-gpu-infrastructure
+  - 2026-08-28-dreamerv3-training-tips
+  - 2026-08-25-dreamer-explained
+  - 2026-08-30-dreamer-applications
+  - mujoco-vs-isaac-sim
+  - world-model-lab-setup
 ---
 
 > **Dreamer 系列 · 第 4 篇**

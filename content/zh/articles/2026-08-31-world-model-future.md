@@ -7,6 +7,13 @@ categories: ["世界模型"]
 tags: ["DreamerV3", "世界模型", "Transformer", "V-JEPA", "Genie", "LLM Agent", "Dreamer系列"]
 description: "从 DreamerV3 出发，解析 Transformer 世界模型、V-JEPA、Genie、LLM Agent 和机器人基础模型的发展路线与融合趋势。"
 toc: true
+related_articles:
+  - vla-vs-world-model
+  - 2026-08-30-dreamer-applications
+  - world-model-transformer
+  - world-model-representations
+  - rssm-deep-dive
+  - world-model-8year-bottleneck
 ---
 
 > **Dreamer 系列 · 第 6 篇**

@@ -9,6 +9,13 @@ categories: ["Sim-to-Real"]
 tags: ["Sim-to-Real", "World Models", "Domain Adaptation"]
 description: "Is Sim-to-Real Too Hard? World Model-Driven Adaptive Transfer Methods - WorldSense Tech Blog"
 toc: true
+related_articles:
+  - domain-randomization-sim-to-real
+  - mujoco-vs-isaac-sim
+  - world-model-intro
+  - 2026-08-30-dreamer-applications
+  - td-mpc-world-model-control
+  - isaac-lab-robot-rl
 ---
 
 This is the fourth article in the World Models series. The first three covered the basic concepts of world models, the core principles of RSSM, and an introduction to embodied AI. Today, we're diving into a more practical topic: how do we actually deploy policies trained in simulation onto real robots?

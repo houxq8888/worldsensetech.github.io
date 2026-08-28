@@ -9,6 +9,13 @@ categories: ["强化学习"]
 tags: ["强化学习", "入门指南", "学习路径"]
 description: "强化学习应该怎么入门？ - WorldSense 技术笔记"
 toc: true
+related_articles:
+  - embodied-ai-guide
+  - world-model-intro
+  - world-model-good-direction
+  - td-mpc-world-model-control
+  - 2026-08-25-dreamer-explained
+  - mujoco-vs-isaac-sim
 ---
 
 

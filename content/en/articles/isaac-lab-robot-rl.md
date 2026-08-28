@@ -7,6 +7,13 @@ categories: ["Simulation"]
 tags: ["Isaac Lab", "Isaac Sim", "Robot RL", "GPU Parallel", "DreamerV3"]
 description: "Isaac Lab: From DreamerV3 to Industrial-Scale Robot RL Training - WorldSense Tech Blog"
 toc: true
+related_articles:
+  - isaac-lab-install-guide
+  - mujoco-vs-isaac-sim
+  - sim-to-real-transfer
+  - domain-randomization-sim-to-real
+  - embodied-ai-guide
+  - 2026-08-30-dreamer-applications
 aliases:
   - /en/articles/isaac-lab-robot-rl.html
 ---

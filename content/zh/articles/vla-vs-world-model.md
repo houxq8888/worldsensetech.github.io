@@ -9,6 +9,13 @@ categories: ["世界模型", "具身智能"]
 tags: ["VLA", "世界模型", "技术路线"]
 description: "VLA vs 世界模型，谁主沉浮？ - WorldSense 技术笔记"
 toc: true
+related_articles:
+  - rssm-deep-dive
+  - world-model-intro
+  - world-model-synthetic-data-for-vla
+  - world-model-8year-bottleneck
+  - 2026-08-25-dreamer-explained
+  - world-model-2026-trend
 ---
 
 

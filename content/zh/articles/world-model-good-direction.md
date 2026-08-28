@@ -9,6 +9,13 @@ categories: ["世界模型"]
 tags: ["世界模型", "具身智能", "职业方向"]
 description: "世界模型（world model）当下是一个好的方向吗？ - WorldSense 技术笔记"
 toc: true
+related_articles:
+  - world-model-2026-trend
+  - world-model-8year-bottleneck
+  - vla-vs-world-model
+  - embodied-ai-guide
+  - world-model-intro
+  - reinforcement-learning-how-to-start
 ---
 
 

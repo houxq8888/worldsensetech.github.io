@@ -9,6 +9,13 @@ categories: ["世界模型"]
 tags: ["世界模型", "Sim-to-Real", "技术瓶颈"]
 description: "回看世界模型8年进展，始终没突破的瓶颈是什么？ - WorldSense 技术笔记"
 toc: true
+related_articles:
+  - world-model-2026-trend
+  - world-model-good-direction
+  - vla-vs-world-model
+  - rssm-deep-dive
+  - world-model-intro
+  - 2026-08-31-world-model-future
 ---
 
 

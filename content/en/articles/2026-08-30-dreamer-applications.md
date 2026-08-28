@@ -7,6 +7,13 @@ categories: ["World Models"]
 tags: ["DreamerV3", "Applications", "Sim-to-Real", "Robotics", "Dreamer Series"]
 description: "How does Dreamer perform on real tasks? From DMC and Atari to robotics control, exploring the applications and challenges of Sim-to-Real."
 toc: true
+related_articles:
+  - 2026-08-25-dreamer-explained
+  - 2026-08-27-dreamer-actor-critic
+  - 2026-08-28-dreamerv3-training-tips
+  - mujoco-vs-isaac-sim
+  - sim-to-real-transfer
+  - 2026-08-31-world-model-future
 ---
 
 > **Dreamer Series - Part 5**

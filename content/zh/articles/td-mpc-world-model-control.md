@@ -9,6 +9,13 @@ categories: ["世界模型"]
 tags: ["TD-MPC", "模型预测控制", "世界模型", "机器人控制"]
 description: "TD-MPC：世界模型如何用于机器人控制？ - WorldSense 技术笔记"
 toc: true
+related_articles:
+  - rssm-deep-dive
+  - 2026-08-25-dreamer-explained
+  - world-model-transformer
+  - world-model-intro
+  - mujoco-vs-isaac-sim
+  - sim-to-real-transfer
 ---
 
 

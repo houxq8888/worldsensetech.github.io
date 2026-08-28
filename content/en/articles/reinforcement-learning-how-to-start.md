@@ -7,6 +7,13 @@ categories: ["Tutorial"]
 tags: ["RL", "Tutorial", "PyTorch", "MuJoCo", "Beginner"]
 description: "How to Get Started with Reinforcement Learning: A Practical Guide - WorldSense Tech Blog"
 toc: true
+related_articles:
+  - embodied-ai-guide
+  - world-model-intro
+  - world-model-good-direction
+  - td-mpc-world-model-control
+  - 2026-08-25-dreamer-explained
+  - mujoco-vs-isaac-sim
 aliases:
   - /en/articles/reinforcement-learning-how-to-start.html
 ---

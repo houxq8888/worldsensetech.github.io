@@ -7,6 +7,13 @@ categories: ["World Models"]
 tags: ["World Models", "Representations", "Latent State", "3D Structure", "Object-Centric"]
 description: "Four Paradigms of World Model Representations: A Comparative Analysis - WorldSense Tech Blog"
 toc: true
+related_articles:
+  - world-model-transformer
+  - rssm-deep-dive
+  - world-model-intro
+  - 2026-08-31-world-model-future
+  - vla-vs-world-model
+  - mujoco-vs-isaac-sim
 aliases:
   - /en/articles/world-model-representations.html
 ---

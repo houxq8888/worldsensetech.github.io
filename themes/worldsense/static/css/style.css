@@ -680,6 +680,68 @@ footer a:hover { color: var(--primary); }
     color: var(--primary);
 }
 
+/* Related Reading (Continue Reading) */
+.related-reading {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem;
+}
+
+.related-reading h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.related-reading ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+}
+
+.related-reading li {
+    padding: 0.75rem 1rem;
+    background: var(--bg-alt);
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.related-reading li:hover {
+    border-color: var(--primary);
+    box-shadow: 0 1px 4px rgba(37, 99, 235, 0.08);
+}
+
+.related-reading a {
+    color: var(--text);
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 0.92rem;
+    line-height: 1.5;
+    display: block;
+}
+
+.related-reading a:hover {
+    color: var(--primary);
+}
+
+.related-reading p {
+    color: var(--text-light);
+    font-size: 0.8rem;
+    line-height: 1.5;
+    margin-top: 0.3rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
 /* Responsive */
 @media (max-width: 640px) {
     .header-inner {
@@ -698,4 +760,6 @@ footer a:hover { color: var(--primary); }
     .comments-section { padding: 1.5rem 1.5rem 1rem; }
     .categories-page, .archive-page { padding: 1.5rem; }
     .article-nav { padding: 1rem 1.5rem; }
+    .related-reading { padding: 1rem 1.5rem; }
+    .related-reading ul { grid-template-columns: 1fr; }
 }

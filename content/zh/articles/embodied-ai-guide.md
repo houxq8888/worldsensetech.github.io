@@ -9,6 +9,13 @@ categories: ["具身智能"]
 tags: ["职业路径", "具身智能", "学习指南"]
 description: "没有博士学位，也能进入具身智能领域吗？ - WorldSense 技术笔记"
 toc: true
+related_articles:
+  - world-model-intro
+  - reinforcement-learning-how-to-start
+  - world-model-good-direction
+  - vla-vs-world-model
+  - isaac-lab-install-guide
+  - mujoco-vs-isaac-sim
 ---
 
 

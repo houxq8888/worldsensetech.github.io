@@ -9,6 +9,13 @@ categories: ["世界模型", "具身智能", "数据"]
 tags: ["世界模型", "VLA", "合成数据"]
 description: "世界模型 + VLA：用想象力训练机器人 - WorldSense 技术笔记"
 toc: true
+related_articles:
+  - vla-vs-world-model
+  - world-model-intro
+  - 2026-08-25-dreamer-explained
+  - 2026-08-31-world-model-future
+  - world-model-lab-setup
+  - rssm-deep-dive
 ---
 
 

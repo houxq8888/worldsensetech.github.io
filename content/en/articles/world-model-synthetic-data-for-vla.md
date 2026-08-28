@@ -7,6 +7,13 @@ categories: ["World Models"]
 tags: ["Synthetic Data", "VLA", "World Models", "Data Generation", "Robot Learning"]
 description: "World Models as Synthetic Data Engines for VLA Training - WorldSense Tech Blog"
 toc: true
+related_articles:
+  - vla-vs-world-model
+  - world-model-intro
+  - 2026-08-25-dreamer-explained
+  - 2026-08-31-world-model-future
+  - world-model-lab-setup
+  - rssm-deep-dive
 aliases:
   - /en/articles/world-model-synthetic-data-for-vla.html
 ---

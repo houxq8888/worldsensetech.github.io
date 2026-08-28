@@ -7,6 +7,13 @@ categories: ["World Models"]
 tags: ["DreamerV3", "GPU", "VRAM", "Hardware", "Selection Guide", "Dreamer Series"]
 description: "What GPU do you need for DreamerV3 training? A practical analysis of VRAM requirements, compute performance, and cost-effectiveness to help you make the right choice."
 toc: true
+related_articles:
+  - 2026-08-17-dreamerv3-gpu-infrastructure
+  - 2026-08-28-dreamerv3-training-tips
+  - 2026-08-25-dreamer-explained
+  - 2026-08-30-dreamer-applications
+  - mujoco-vs-isaac-sim
+  - world-model-lab-setup
 ---
 
 > **Dreamer Series - Part 4**

@@ -7,6 +7,13 @@ categories: ["World Models"]
 tags: ["TD-MPC", "Model Predictive Control", "World Models", "Robot Control"]
 description: "TD-MPC: How World Models Enable Robot Control - WorldSense Tech Blog"
 toc: true
+related_articles:
+  - rssm-deep-dive
+  - 2026-08-25-dreamer-explained
+  - world-model-transformer
+  - world-model-intro
+  - mujoco-vs-isaac-sim
+  - sim-to-real-transfer
 aliases:
   - /en/articles/td-mpc-world-model-control.html
 ---

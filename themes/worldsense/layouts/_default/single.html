@@ -40,6 +40,8 @@
         </button>
     </div>
 
+    {{ partial "related-reading.html" . }}
+
     {{ $articles := where .Site.RegularPages "Section" "articles" }}
     {{ $articlesByDate := $articles.ByDate }}
     {{ $current := . }}

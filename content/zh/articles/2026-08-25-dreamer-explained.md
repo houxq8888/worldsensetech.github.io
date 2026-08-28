@@ -7,6 +7,13 @@ categories: ["世界模型"]
 tags: ["DreamerV3", "世界模型", "RSSM", "强化学习", "imagination", "Dreamer系列"]
 description: "从 RSSM 到 imagination，理解 Dreamer 如何在内部世界中训练策略。"
 toc: true
+related_articles:
+  - rssm-deep-dive
+  - 2026-08-27-dreamer-actor-critic
+  - 2026-08-28-dreamerv3-training-tips
+  - world-model-intro
+  - vla-vs-world-model
+  - td-mpc-world-model-control
 ---
 
 > **Dreamer 系列 · 第 1 篇**

@@ -1,0 +1,31 @@
+{{/* 继续阅读 - Curated internal links for high-engagement articles */}}
+{{ $related := .Params.related_articles }}
+{{ $lang := .Site.Language.Lang }}
+{{ if $related }}
+{{ $pages := slice }}
+{{ range $slug := $related }}
+    {{ $match := where $.Site.RegularPages "Params.slug" $slug }}
+    {{ if $match }}
+        {{ $pages = $pages | append (index $match 0) }}
+    {{ else }}
+        {{/* fallback: try by filename */}}
+        {{ $match2 := where $.Site.RegularPages "File.TranslationBaseName" $slug }}
+        {{ if $match2 }}
+            {{ $pages = $pages | append (index $match2 0) }}
+        {{ end }}
+    {{ end }}
+{{ end }}
+{{ if gt (len $pages) 0 }}
+<div class="related-reading">
+    <h3>{{ if eq $lang "zh" }}继续阅读{{ else }}Continue Reading{{ end }}</h3>
+    <ul>
+    {{ range $pages }}
+        <li>
+            <a href="{{ .RelPermalink }}">{{ .Title }}</a>
+            {{ with .Description }}<p>{{ . }}</p>{{ end }}
+        </li>
+    {{ end }}
+    </ul>
+</div>
+{{ end }}
+{{ end }}

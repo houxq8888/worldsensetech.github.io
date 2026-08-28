@@ -9,6 +9,13 @@ categories: ["仿真"]
 tags: ["MuJoCo", "Isaac Sim", "仿真环境", "具身智能", "工具链"]
 description: "机器人训练为什么需要虚拟世界？MuJoCo 和 Isaac Sim 全面对比 - WorldSense 技术笔记"
 toc: true
+related_articles:
+  - isaac-lab-install-guide
+  - isaac-lab-robot-rl
+  - sim-to-real-transfer
+  - domain-randomization-sim-to-real
+  - 2026-08-30-dreamer-applications
+  - world-model-lab-setup
 ---
 
 

@@ -7,6 +7,13 @@ categories: ["Simulation"]
 tags: ["MuJoCo", "Isaac Sim", "Simulation", "Robotics", "RL"]
 description: "MuJoCo vs Isaac Sim: How to Choose the Right Robot Simulation Platform - WorldSense Tech Blog"
 toc: true
+related_articles:
+  - isaac-lab-install-guide
+  - isaac-lab-robot-rl
+  - sim-to-real-transfer
+  - domain-randomization-sim-to-real
+  - 2026-08-30-dreamer-applications
+  - world-model-lab-setup
 aliases:
   - /en/articles/mujoco-vs-isaac-sim.html
 ---

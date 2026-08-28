@@ -7,6 +7,13 @@ categories: ["World Models"]
 tags: ["World Models", "Bottleneck", "Sim-to-Real", "Challenges"]
 description: "World Models: 8 Years and the Same Bottleneck - WorldSense Tech Blog"
 toc: true
+related_articles:
+  - world-model-2026-trend
+  - world-model-good-direction
+  - vla-vs-world-model
+  - rssm-deep-dive
+  - world-model-intro
+  - 2026-08-31-world-model-future
 aliases:
   - /en/articles/world-model-8year-bottleneck.html
 ---

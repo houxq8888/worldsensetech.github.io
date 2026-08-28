@@ -7,6 +7,13 @@ categories: ["世界模型"]
 tags: ["DreamerV3", "训练技巧", "GPU", "超参数", "工程实践", "Dreamer系列"]
 description: "DreamerV3 训练中的工程实战经验：GPU 显存优化、超参数调优、常见坑与解决方案。"
 toc: true
+related_articles:
+  - 2026-08-25-dreamer-explained
+  - 2026-08-27-dreamer-actor-critic
+  - 2026-08-29-dreamerv3-gpu-guide
+  - 2026-08-17-dreamerv3-gpu-infrastructure
+  - rssm-deep-dive
+  - 2026-08-30-dreamer-applications
 ---
 
 > **Dreamer 系列 · 第 3 篇**

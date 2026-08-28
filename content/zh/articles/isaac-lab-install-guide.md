@@ -9,6 +9,13 @@ categories: ["仿真"]
 tags: ["Isaac Lab", "Isaac Sim", "安装教程", "具身智能"]
 description: "Isaac Lab 安装避坑指南：从零到跑通全流程 - WorldSense 技术笔记"
 toc: true
+related_articles:
+  - mujoco-vs-isaac-sim
+  - isaac-lab-robot-rl
+  - sim-to-real-transfer
+  - world-model-lab-setup
+  - 2026-08-30-dreamer-applications
+  - embodied-ai-guide
 ---
 
 

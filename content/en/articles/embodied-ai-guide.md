@@ -9,6 +9,13 @@ categories: ["Embodied AI"]
 tags: ["Career Path", "Embodied AI", "Learning Guide"]
 description: "Can You Break Into Embodied AI Without a PhD? - WorldSense Tech Notes"
 toc: true
+related_articles:
+  - world-model-intro
+  - reinforcement-learning-how-to-start
+  - world-model-good-direction
+  - vla-vs-world-model
+  - isaac-lab-install-guide
+  - mujoco-vs-isaac-sim
 ---
 
 

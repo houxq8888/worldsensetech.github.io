@@ -9,6 +9,13 @@ categories: ["世界模型", "Sim-to-Real"]
 tags: ["Sim-to-Real", "世界模型", "域适应"]
 description: "Sim-to-Real太难？世界模型驱动的自适应迁移方法 - WorldSense 技术笔记"
 toc: true
+related_articles:
+  - domain-randomization-sim-to-real
+  - mujoco-vs-isaac-sim
+  - world-model-intro
+  - 2026-08-30-dreamer-applications
+  - td-mpc-world-model-control
+  - isaac-lab-robot-rl
 ---
 
 

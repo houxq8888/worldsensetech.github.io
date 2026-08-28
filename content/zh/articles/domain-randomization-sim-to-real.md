@@ -9,6 +9,13 @@ categories: ["Sim-to-Real"]
 tags: ["域随机化", "Sim-to-Real", "机器人", "仿真训练"]
 description: "域随机化（Domain Randomization）：机器人 Sim-to-Real 迁移的核心技术 - WorldSense 技术笔记"
 toc: true
+related_articles:
+  - sim-to-real-transfer
+  - mujoco-vs-isaac-sim
+  - td-mpc-world-model-control
+  - isaac-lab-install-guide
+  - 2026-08-30-dreamer-applications
+  - world-model-intro
 ---
 
 

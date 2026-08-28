@@ -7,6 +7,13 @@ categories: ["World Models"]
 tags: ["DreamerV3", "Training Tips", "GPU", "Hyperparameters", "Engineering Practice", "Dreamer Series"]
 description: "Practical engineering experience training DreamerV3: GPU memory optimization, hyperparameter tuning, common pitfalls and solutions."
 toc: true
+related_articles:
+  - 2026-08-25-dreamer-explained
+  - 2026-08-27-dreamer-actor-critic
+  - 2026-08-29-dreamerv3-gpu-guide
+  - 2026-08-17-dreamerv3-gpu-infrastructure
+  - rssm-deep-dive
+  - 2026-08-30-dreamer-applications
 ---
 
 > **Dreamer Series - Part 3**

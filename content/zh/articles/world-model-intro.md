@@ -9,6 +9,13 @@ categories: ["世界模型"]
 tags: ["世界模型", "DreamerV3", "入门"]
 description: "什么是机器人世界模型？一个工程师的深度解读 - WorldSense 技术笔记"
 toc: true
+related_articles:
+  - rssm-deep-dive
+  - world-model-representations
+  - world-model-transformer
+  - embodied-ai-guide
+  - vla-vs-world-model
+  - world-model-8year-bottleneck
 ---
 
 

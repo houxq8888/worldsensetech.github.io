@@ -9,6 +9,13 @@ categories: ["世界模型"]
 tags: ["世界模型", "表征学习", "DreamerV3", "Cosmos", "3D高斯", "物体中心", "RSSM"]
 description: "世界模型如何表示世界：四条表征路线与机器人适应能力 - WorldSense 技术笔记"
 toc: true
+related_articles:
+  - world-model-transformer
+  - rssm-deep-dive
+  - world-model-intro
+  - 2026-08-31-world-model-future
+  - vla-vs-world-model
+  - mujoco-vs-isaac-sim
 ---
 
 
