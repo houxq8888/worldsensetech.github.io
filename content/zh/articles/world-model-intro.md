@@ -6,8 +6,8 @@ aliases:
 date: 2026-08-01
 draft: false
 categories: ["世界模型"]
-tags: ["世界模型", "DreamerV3", "入门"]
-description: "什么是机器人世界模型？一个工程师的深度解读 - WorldSense 技术笔记"
+tags: ["世界模型", "DreamerV3", "RSSM", "入门", "机器人AI", "Sim-to-Real", "具身智能"]
+description: "从 DreamerV3 到 RSSM，系统解读机器人世界模型的核心概念、技术架构与工程实践，帮你理解 AI 如何从「理解语言」走向「理解世界」。"
 toc: true
 related_articles:
   - rssm-deep-dive

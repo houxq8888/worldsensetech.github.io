@@ -6,8 +6,8 @@ aliases:
 date: 2026-08-03
 draft: false
 categories: ["世界模型"]
-tags: ["世界模型", "具身智能", "职业方向"]
-description: "世界模型（world model）当下是一个好的方向吗？ - WorldSense 技术笔记"
+tags: ["世界模型", "具身智能", "职业方向", "行业趋势", "机器人AI", "DreamerV3"]
+description: "作为在这个方向摸爬滚打了大半年的工程师，从技术前景、产业需求、职业路径三个维度，聊聊世界模型到底值不值得投入。"
 toc: true
 related_articles:
   - world-model-2026-trend

@@ -4,8 +4,8 @@ slug: "world-model-good-direction"
 date: 2026-08-03
 draft: false
 categories: ["World Models"]
-tags: ["World Models", "Research Direction", "Career", "DreamerV3"]
-description: "Is World Model a Good Research Direction? An Engineer's Honest Assessment - WorldSense Tech Blog"
+tags: ["World Models", "Research Direction", "Career", "DreamerV3", "Industry Trends", "Robot AI", "Embodied AI"]
+description: "An engineer's honest assessment after half a year in the field: is world model worth the investment, from technology prospects, industry demand, and career path perspectives."
 toc: true
 related_articles:
   - world-model-2026-trend

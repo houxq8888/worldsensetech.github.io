@@ -6,8 +6,8 @@ aliases:
 date: 2026-07-31
 draft: false
 categories: ["Embodied AI"]
-tags: ["Career Path", "Embodied AI", "Learning Guide"]
-description: "Can You Break Into Embodied AI Without a PhD? - WorldSense Tech Notes"
+tags: ["Embodied AI", "Career Transition", "Learning Path", "World Model", "Reinforcement Learning", "Robot AI"]
+description: "Can you break into embodied AI with a bachelor's degree and embedded development experience? A practical career transition guide covering learning paths, skill requirements, and project portfolio building."
 toc: true
 related_articles:
   - world-model-intro

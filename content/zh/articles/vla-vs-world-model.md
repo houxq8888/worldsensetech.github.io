@@ -6,8 +6,8 @@ aliases:
 date: 2026-08-04
 draft: false
 categories: ["世界模型", "具身智能"]
-tags: ["VLA", "世界模型", "技术路线"]
-description: "VLA vs 世界模型，谁主沉浮？ - WorldSense 技术笔记"
+tags: ["VLA", "世界模型", "技术路线", "机器人AI", "具身智能", "DreamerV3", "RT-2", "OpenVLA"]
+description: "对比 RT-2、OpenVIA、π0 等 VLA 方案与 DreamerV3、Genie 等世界模型方案，分析两条技术路线在架构设计、数据来源、泛化能力上的核心差异，以及未来融合趋势。"
 toc: true
 related_articles:
   - rssm-deep-dive

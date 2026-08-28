@@ -5,7 +5,7 @@ date: 2026-08-25
 draft: false
 categories: ["世界模型"]
 tags: ["DreamerV3", "世界模型", "RSSM", "强化学习", "imagination", "Dreamer系列"]
-description: "从 RSSM 到 imagination，理解 Dreamer 如何在内部世界中训练策略。"
+description: "从 RSSM 架构到 imagination 机制，完整拆解 Dreamer 如何在隐空间中构建世界模型、生成训练数据并优化策略，附源码级解读。"
 toc: true
 related_articles:
   - rssm-deep-dive

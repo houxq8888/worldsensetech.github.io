@@ -6,8 +6,8 @@ aliases:
 date: 2026-08-04
 draft: false
 categories: ["World Models", "Embodied AI"]
-tags: ["VLA", "World Model", "Technical Directions"]
-description: "VLA vs World Models: Which Will Prevail? - WorldSense Tech Notes"
+tags: ["VLA", "World Model", "Technical Directions", "Robot AI", "Embodied AI", "DreamerV3", "RT-2", "OpenVLA"]
+description: "A comprehensive comparison of VLA approaches (RT-2, OpenVLA, pi-0) vs World Models (DreamerV3, Genie, DIAMOND): architecture design, data requirements, generalization capabilities, and the convergence trend."
 toc: true
 related_articles:
   - rssm-deep-dive

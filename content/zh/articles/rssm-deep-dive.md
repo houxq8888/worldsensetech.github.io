@@ -6,8 +6,8 @@ aliases:
 date: 2026-08-02
 draft: false
 categories: ["世界模型"]
-tags: ["RSSM", "技术深度", "状态空间"]
-description: "RSSM状态空间模型详解：世界模型的核心引擎 - WorldSense 技术笔记"
+tags: ["RSSM", "状态空间模型", "DreamerV3", "隐状态", "强化学习", "世界模型", "Dreamer系列"]
+description: "深入拆解 Dreamer 系列世界模型的核心组件 RSSM：确定性路径与随机性路径的双轨设计、隐状态预测机制、KL 散度平衡与想象训练，附源码级解读。"
 toc: true
 related_articles:
   - 2026-08-25-dreamer-explained

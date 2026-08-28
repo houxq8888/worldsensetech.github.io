@@ -5,7 +5,7 @@ date: 2026-08-25
 draft: false
 categories: ["World Models"]
 tags: ["DreamerV3", "World Models", "RSSM", "Reinforcement Learning", "imagination", "Dreamer Series"]
-description: "From RSSM to imagination, understand how Dreamer trains policies inside an internal world."
+description: "From RSSM architecture to the imagination mechanism: a complete breakdown of how Dreamer builds world models in latent space, generates training data, and optimizes policies — with source code walkthrough."
 toc: true
 related_articles:
   - rssm-deep-dive

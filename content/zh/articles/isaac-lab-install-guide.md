@@ -6,8 +6,8 @@ aliases:
 date: 2026-08-15
 draft: false
 categories: ["仿真"]
-tags: ["Isaac Lab", "Isaac Sim", "安装教程", "具身智能"]
-description: "Isaac Lab 安装避坑指南：从零到跑通全流程 - WorldSense 技术笔记"
+tags: ["Isaac Lab", "Isaac Sim", "安装教程", "具身智能", "Ubuntu", "GPU", "机器人仿真"]
+description: "Isaac Lab 从安装到跑通第一个 example 的完整流程，覆盖环境配置、常见报错排查、AutoDL 云端部署方案，帮你跳过所有坑。"
 toc: true
 related_articles:
   - mujoco-vs-isaac-sim

@@ -6,8 +6,8 @@ aliases:
 date: 2026-07-31
 draft: false
 categories: ["具身智能"]
-tags: ["职业路径", "具身智能", "学习指南"]
-description: "没有博士学位，也能进入具身智能领域吗？ - WorldSense 技术笔记"
+tags: ["具身智能", "职业转型", "学习路径", "世界模型", "强化学习", "机器人AI"]
+description: "本科毕业、三年嵌入式经验，如何转入具身智能方向？从学习路径、技能储备、项目实战到职业选择，一份工程师视角的转型指南。"
 toc: true
 related_articles:
   - world-model-intro

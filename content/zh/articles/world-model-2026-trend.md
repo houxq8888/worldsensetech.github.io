@@ -6,8 +6,8 @@ aliases:
 date: 2026-08-03
 draft: false
 categories: ["世界模型"]
-tags: ["世界模型", "AI风口", "行业趋势"]
-description: "2026年，「世界模型」会是下一个AI风口么？ - WorldSense 技术笔记"
+tags: ["世界模型", "AI风口", "行业趋势", "具身智能", "机器人AI", "DreamerV3"]
+description: "是世界模型的风口，但不是所有人的风口。从技术成熟度、落地场景到职业选择，冷静分析 2026 年世界模型方向的真实机会与风险。"
 toc: true
 related_articles:
   - world-model-good-direction

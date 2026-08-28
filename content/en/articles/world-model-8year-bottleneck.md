@@ -4,8 +4,8 @@ slug: "world-model-8year-bottleneck"
 date: 2026-08-03
 draft: false
 categories: ["World Models"]
-tags: ["World Models", "Bottleneck", "Sim-to-Real", "Challenges"]
-description: "World Models: 8 Years and the Same Bottleneck - WorldSense Tech Blog"
+tags: ["World Models", "Bottleneck", "Sim-to-Real", "Challenges", "Generalization", "DreamerV3", "Embodied AI"]
+description: "From 2018 to 2026, world models have yet to fundamentally break through in generalization, Sim-to-Real transfer, and long-horizon prediction. Analyzing where the bottlenecks are and why they persist."
 toc: true
 related_articles:
   - world-model-2026-trend

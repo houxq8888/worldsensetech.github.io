@@ -6,8 +6,8 @@ aliases:
 date: 2026-08-03
 draft: false
 categories: ["世界模型"]
-tags: ["世界模型", "Sim-to-Real", "技术瓶颈"]
-description: "回看世界模型8年进展，始终没突破的瓶颈是什么？ - WorldSense 技术笔记"
+tags: ["世界模型", "Sim-to-Real", "技术瓶颈", "泛化能力", "DreamerV3", "具身智能"]
+description: "从 2018 到 2026，世界模型在泛化能力、Sim-to-Real 迁移、长时预测三个方面始终没有根本性突破。结合最新综述和实践经验，分析瓶颈在哪里、为什么难突破。"
 toc: true
 related_articles:
   - world-model-2026-trend

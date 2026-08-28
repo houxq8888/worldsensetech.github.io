@@ -6,8 +6,8 @@ aliases:
 date: 2026-08-02
 draft: false
 categories: ["World Models"]
-tags: ["RSSM", "Technical Deep Dive", "State Space"]
-description: "Deep Dive into RSSM: The Core Engine of World Models - WorldSense Tech Notes"
+tags: ["RSSM", "State Space Model", "DreamerV3", "Latent State", "Reinforcement Learning", "World Model", "Dreamer Series"]
+description: "Deep dive into RSSM, the core component of Dreamer world models: dual-track deterministic/stochastic design, latent dynamics prediction, KL balancing, and imagination training — with source code walkthrough."
 toc: true
 related_articles:
   - 2026-08-25-dreamer-explained

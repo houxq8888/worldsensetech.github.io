@@ -4,8 +4,8 @@ slug: "isaac-lab-install-guide"
 date: 2026-08-15
 draft: false
 categories: ["Tutorial"]
-tags: ["Isaac Lab", "Installation", "AutoDL", "Isaac Sim", "Tutorial"]
-description: "Isaac Lab Installation Guide: From Zero to Running on AutoDL - WorldSense Tech Blog"
+tags: ["Isaac Lab", "Installation", "AutoDL", "Isaac Sim", "Tutorial", "Ubuntu", "GPU", "Robot Simulation"]
+description: "Complete walkthrough of installing Isaac Lab and running your first example — covering environment setup, common error troubleshooting, and AutoDL cloud deployment."
 toc: true
 related_articles:
   - mujoco-vs-isaac-sim

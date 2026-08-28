@@ -4,8 +4,8 @@ slug: "mujoco-vs-isaac-sim"
 date: 2026-08-09
 draft: false
 categories: ["Simulation"]
-tags: ["MuJoCo", "Isaac Sim", "Simulation", "Robotics", "RL"]
-description: "MuJoCo vs Isaac Sim: How to Choose the Right Robot Simulation Platform - WorldSense Tech Blog"
+tags: ["MuJoCo", "Isaac Sim", "Simulation", "Robotics", "RL", "Robot Simulation", "GPU Parallel"]
+description: "A comprehensive comparison of MuJoCo and Isaac Sim across physics engine, rendering, GPU parallelism, and ecosystem — helping you choose the right simulation platform for your robotics task."
 toc: true
 related_articles:
   - isaac-lab-install-guide

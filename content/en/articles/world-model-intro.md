@@ -6,8 +6,8 @@ aliases:
 date: 2026-08-01
 draft: false
 categories: ["World Models"]
-tags: ["World Model", "DreamerV3", "Getting Started"]
-description: "What Is a Robot World Model? An Engineer's Deep Dive - WorldSense Tech Notes"
+tags: ["World Model", "DreamerV3", "RSSM", "Getting Started", "Robot AI", "Sim-to-Real", "Embodied AI"]
+description: "A systematic introduction to robot world models: from DreamerV3 to RSSM, covering core concepts, technical architecture, and engineering practice — understanding how AI moves from language to world understanding."
 toc: true
 related_articles:
   - rssm-deep-dive

@@ -6,8 +6,8 @@ aliases:
 date: 2026-08-09
 draft: false
 categories: ["仿真"]
-tags: ["MuJoCo", "Isaac Sim", "仿真环境", "具身智能", "工具链"]
-description: "机器人训练为什么需要虚拟世界？MuJoCo 和 Isaac Sim 全面对比 - WorldSense 技术笔记"
+tags: ["MuJoCo", "Isaac Sim", "仿真环境", "具身智能", "机器人仿真", "强化学习", "GPU并行"]
+description: "从物理引擎、渲染方式、GPU 并行能力到社区生态，全面对比 MuJoCo 和 Isaac Sim 两大机器人仿真平台，帮你根据任务需求做出选择。"
 toc: true
 related_articles:
   - isaac-lab-install-guide
