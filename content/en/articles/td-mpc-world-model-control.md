@@ -4,8 +4,8 @@ slug: "td-mpc-world-model-control"
 date: 2026-08-07
 draft: false
 categories: ["World Models"]
-tags: ["TD-MPC", "Model Predictive Control", "World Models", "Robot Control"]
-description: "TD-MPC: How World Models Enable Robot Control - WorldSense Tech Blog"
+tags: ["TD-MPC", "Model Predictive Control", "World Models", "Robot Control", "Planning", "Latent Dynamics", "Sample Efficiency"]
+description: "How TD-MPC combines learned latent dynamics with model predictive control to achieve sample-efficient robot manipulation — and why this matters for real-world deployment."
 toc: true
 related_articles:
   - rssm-deep-dive

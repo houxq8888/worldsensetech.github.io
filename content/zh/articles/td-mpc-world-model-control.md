@@ -6,8 +6,8 @@ aliases:
 date: 2026-08-07
 draft: false
 categories: ["世界模型"]
-tags: ["TD-MPC", "模型预测控制", "世界模型", "机器人控制"]
-description: "TD-MPC：世界模型如何用于机器人控制？ - WorldSense 技术笔记"
+tags: ["TD-MPC", "模型预测控制", "世界模型", "机器人控制", "DreamerV3", "MPC", "JAX"]
+description: "RSSM 不是世界模型用于机器人控制的唯一路线。TD-MPC 用模型预测控制在隐空间中直接优化动作序列，不需要显式策略网络。对比两种路线的设计哲学和适用场景。"
 toc: true
 related_articles:
   - rssm-deep-dive

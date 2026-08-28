@@ -4,8 +4,8 @@ slug: "2026-08-17-dreamerv3-gpu-infrastructure"
 date: 2026-08-17
 draft: false
 categories: ["Infrastructure"]
-tags: ["GPU", "DreamerV3", "AutoDL", "RTX 5090D", "Cost Analysis"]
-description: "DreamerV3 GPU Infrastructure: Cloud vs Self-Built Cost Analysis - WorldSense Tech Blog"
+tags: ["GPU", "DreamerV3", "AutoDL", "RTX 5090D", "Cost Analysis", "Cloud GPU", "Workstation"]
+description: "Cloud GPU offers pay-per-hour flexibility but costs more long-term; a self-built workstation requires upfront investment but has unstable utilization. A real cost breakdown covering VRAM, training time, electricity, and networking."
 toc: true
 aliases:
   - /en/articles/2026-08-17-dreamerv3-gpu-infrastructure.html

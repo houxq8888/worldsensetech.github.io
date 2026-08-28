@@ -4,8 +4,8 @@ slug: "world-model-synthetic-data-for-vla"
 date: 2026-08-06
 draft: false
 categories: ["World Models"]
-tags: ["Synthetic Data", "VLA", "World Models", "Data Generation", "Robot Learning"]
-description: "World Models as Synthetic Data Engines for VLA Training - WorldSense Tech Blog"
+tags: ["Synthetic Data", "VLA", "World Models", "Data Generation", "Robot Learning", "Simulation", "Imitation Learning", "Data Augmentation"]
+description: "Exploring how world models can generate synthetic training data for Vision-Language-Action models, reducing reliance on expensive real-world demonstrations while maintaining policy quality."
 toc: true
 related_articles:
   - vla-vs-world-model

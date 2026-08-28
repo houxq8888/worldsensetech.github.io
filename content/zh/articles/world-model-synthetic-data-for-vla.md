@@ -6,8 +6,8 @@ aliases:
 date: 2026-08-06
 draft: false
 categories: ["世界模型", "具身智能", "数据"]
-tags: ["世界模型", "VLA", "合成数据"]
-description: "世界模型 + VLA：用想象力训练机器人 - WorldSense 技术笔记"
+tags: ["世界模型", "VLA", "合成数据", "DreamerV3", "数据增强", "机器人学习"]
+description: "真实机器人数据采集成本高、覆盖面窄。用训练好的世界模型生成合成数据来增强 VLA 训练，相当于让机器人在「想象」中学习，大幅提升样本效率。"
 toc: true
 related_articles:
   - vla-vs-world-model

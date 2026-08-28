@@ -6,8 +6,8 @@ aliases:
 date: 2026-08-08
 draft: false
 categories: ["Sim-to-Real"]
-tags: ["域随机化", "Sim-to-Real", "机器人", "仿真训练"]
-description: "域随机化（Domain Randomization）：机器人 Sim-to-Real 迁移的核心技术 - WorldSense 技术笔记"
+tags: ["域随机化", "Sim-to-Real", "机器人", "仿真训练", "DreamerV3", "MuJoCo", "Isaac Sim"]
+description: "仿真里训练的策略为什么一到真实机器人就失效？域随机化通过随机化物理参数、视觉外观和传感器噪声，让策略学会「忽略差异」，是目前最实用的 Sim-to-Real 方案。"
 toc: true
 related_articles:
   - sim-to-real-transfer

@@ -6,8 +6,8 @@ aliases:
 date: 2026-08-05
 draft: false
 categories: ["世界模型", "Sim-to-Real"]
-tags: ["Sim-to-Real", "世界模型", "域适应"]
-description: "Sim-to-Real太难？世界模型驱动的自适应迁移方法 - WorldSense 技术笔记"
+tags: ["Sim-to-Real", "世界模型", "域适应", "DreamerV3", "域随机化", "机器人"]
+description: "仿真训练的策略部署到真实机器人时性能暴跌 30-50%，这就是 Sim-to-Real Gap。世界模型通过生成合成数据和自适应迁移，正在提供一条新的解决思路。"
 toc: true
 related_articles:
   - domain-randomization-sim-to-real

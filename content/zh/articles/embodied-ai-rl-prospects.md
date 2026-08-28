@@ -6,8 +6,8 @@ aliases:
 date: 2026-08-04
 draft: false
 categories: ["强化学习", "具身智能"]
-tags: ["具身智能", "强化学习", "职业前景"]
-description: "具身智能、强化学习的前景如何？ - WorldSense 技术笔记"
+tags: ["具身智能", "强化学习", "职业前景", "世界模型", "机器人AI", "行业趋势"]
+description: "强化学习和具身智能正处于从实验室走向产业的关键阶段。从技术成熟度、岗位需求到薪资水平，聊聊这个方向值不值得 all-in。"
 toc: true
 ---
 

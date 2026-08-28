@@ -6,8 +6,8 @@ aliases:
 date: 2026-08-05
 draft: false
 categories: ["Sim-to-Real"]
-tags: ["Sim-to-Real", "World Models", "Domain Adaptation"]
-description: "Is Sim-to-Real Too Hard? World Model-Driven Adaptive Transfer Methods - WorldSense Tech Blog"
+tags: ["Sim-to-Real", "World Models", "Domain Adaptation", "DreamerV3", "Domain Randomization", "Robotics"]
+description: "Policies trained in simulation often see 30-50% performance drops when deployed on real robots — the Sim-to-Real Gap. World models are providing new solutions through synthetic data generation and adaptive transfer."
 toc: true
 related_articles:
   - domain-randomization-sim-to-real

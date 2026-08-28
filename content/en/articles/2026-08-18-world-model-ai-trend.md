@@ -4,8 +4,8 @@ slug: "2026-08-18-world-model-ai-trend"
 date: 2026-08-18
 draft: false
 categories: ["World Models"]
-tags: ["World Models", "Industry Analysis", "Technical Debate", "Cooling Down"]
-description: "The World Model Hype Has Been Exaggerated: A Technical Analysis - WorldSense Tech Blog"
+tags: ["World Models", "Industry Analysis", "Technical Debate", "Cooling Down", "Embodied AI", "DreamerV3"]
+description: "The world model concept is being over-consumed. From technology maturity to deployment feasibility to business viability — layer by layer, separating real breakthroughs from hype."
 toc: true
 aliases:
   - /en/articles/2026-08-18-world-model-ai-trend.html

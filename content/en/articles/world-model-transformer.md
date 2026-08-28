@@ -4,8 +4,8 @@ slug: "world-model-transformer"
 date: 2026-08-12
 draft: false
 categories: ["World Models"]
-tags: ["Transformer", "World Models", "RSSM", "DreamerV3", "UniSim", "Cosmos"]
-description: "When World Models Meet Transformers: From RSSM to Large-Scale Sequence Modeling - WorldSense Tech Blog"
+tags: ["Transformer", "World Models", "RSSM", "DreamerV3", "UniSim", "Cosmos", "Attention", "Sequence Modeling", "Video Prediction"]
+description: "Tracing the convergence of world models and Transformer architectures — from RSSM's recurrent state space to UniSim and Cosmos, and what large-scale sequence modeling means for next-generation world simulators."
 toc: true
 related_articles:
   - rssm-deep-dive

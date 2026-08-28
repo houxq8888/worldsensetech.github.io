@@ -7,7 +7,7 @@ date: 2026-08-12
 draft: false
 categories: ["世界模型"]
 tags: ["世界模型", "Transformer", "RSSM", "UniSim", "Dreamer", "架构演进"]
-description: "世界模型架构演进：RSSM、Transformer 与统一世界模型 - WorldSense 技术笔记"
+description: "从 RSSM 的循环架构到 Transformer 的序列建模，再到 UniSim/Cosmos 的统一世界模型——梳理世界模型架构的演进脉络和未来方向。"
 toc: true
 related_articles:
   - rssm-deep-dive

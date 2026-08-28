@@ -5,7 +5,7 @@ date: 2026-08-14
 draft: false
 categories: ["Simulation"]
 tags: ["Isaac Lab", "Isaac Sim", "Robot RL", "GPU Parallel", "DreamerV3"]
-description: "Isaac Lab: From DreamerV3 to Industrial-Scale Robot RL Training - WorldSense Tech Blog"
+description: "Isaac Lab is NVIDIA's GPU-accelerated robot learning platform for embodied AI. From platform architecture to parallel training capabilities and differences from MuJoCo — understanding why more teams are adopting it."
 toc: true
 related_articles:
   - isaac-lab-install-guide

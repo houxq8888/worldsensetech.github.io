@@ -6,8 +6,8 @@ aliases:
 date: 2026-08-03
 draft: false
 categories: ["强化学习"]
-tags: ["强化学习", "入门指南", "学习路径"]
-description: "强化学习应该怎么入门？ - WorldSense 技术笔记"
+tags: ["强化学习", "入门指南", "学习路径", "PyTorch", "MuJoCo", "世界模型", "具身智能"]
+description: "从传统自动化到强化学习，我自己踩过不少坑。从数学基础、编程框架到实战项目，分享一条对工程师最高效的入门路径。"
 toc: true
 related_articles:
   - embodied-ai-guide

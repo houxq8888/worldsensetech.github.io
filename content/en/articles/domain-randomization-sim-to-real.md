@@ -4,8 +4,8 @@ slug: "domain-randomization-sim-to-real"
 date: 2026-08-08
 draft: false
 categories: ["Sim-to-Real"]
-tags: ["Domain Randomization", "Sim-to-Real", "Simulation", "Robotics"]
-description: "Domain Randomization: The Bridge from Simulation to Reality - WorldSense Tech Blog"
+tags: ["Domain Randomization", "Sim-to-Real", "Simulation", "Robotics", "DreamerV3", "MuJoCo", "Isaac Sim"]
+description: "Why do policies trained in simulation fail on real robots? Domain randomization randomizes physics parameters, visual appearance, and sensor noise to make policies robust to the sim-to-real gap."
 toc: true
 related_articles:
   - sim-to-real-transfer

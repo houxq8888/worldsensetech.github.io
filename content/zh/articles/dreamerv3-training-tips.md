@@ -6,8 +6,8 @@ aliases:
 date: 2026-08-11
 draft: false
 categories: ["世界模型", "教程"]
-tags: ["DreamerV3", "世界模型", "训练技巧", "强化学习", "MuJoCo"]
-description: "DreamerV3 训练技巧：从踩坑到收敛的实战经验 - WorldSense 技术笔记"
+tags: ["DreamerV3", "世界模型", "训练技巧", "强化学习", "MuJoCo", "超参数", "工程实践"]
+description: "训练 DreamerV3 最常踩的坑：显存溢出、奖励不收敛、超参数敏感。从 MuJoCo 环境配置到训练稳定性调优，一份实战经验总结。"
 toc: true
 ---
 

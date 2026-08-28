@@ -6,8 +6,8 @@ aliases:
 date: 2026-08-05
 draft: false
 categories: ["世界模型"]
-tags: ["世界模型", "交互式生成", "高德"]
-description: "从1分钟到24小时：ABot-World-0突破的核心意义 - WorldSense 技术笔记"
+tags: ["世界模型", "交互式生成", "高德", "ABot-World-0", "长时推理", "自动驾驶"]
+description: "高德 ABot-World-0 将交互式世界模型的推理时长从 1 分钟提升到 24 小时，这意味着什么？从技术突破到产业影响，解读这一里程碑的核心意义。"
 toc: true
 ---
 

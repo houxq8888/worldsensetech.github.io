@@ -6,8 +6,8 @@ aliases:
 date: 2026-08-05
 draft: false
 categories: ["World Models", "Tutorials"]
-tags: ["Practical Tutorial", "MuJoCo", "DreamerV3"]
-description: "Building a World Model Lab from Scratch: A MuJoCo + DreamerV3 Practical Guide - WorldSense Tech Notes"
+tags: ["Practical Tutorial", "MuJoCo", "DreamerV3", "Reinforcement Learning", "GPU Setup", "AutoDL", "Robot Simulation"]
+description: "A hands-on walkthrough of setting up a world model research environment — from MuJoCo physics simulation to training DreamerV3 on AutoDL GPUs, with common pitfalls and performance tips."
 toc: true
 ---
 

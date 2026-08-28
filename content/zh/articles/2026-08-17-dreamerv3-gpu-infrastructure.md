@@ -6,8 +6,8 @@ aliases:
 date: 2026-08-17
 draft: false
 categories: ["世界模型"]
-tags: ["DreamerV3", "GPU加速", "世界模型", "训练技巧", "实战教程"]
-description: "跑 DreamerV3 该租云 GPU 还是自建工作站？一个工程师的成本账 - WorldSense 技术笔记"
+tags: ["DreamerV3", "GPU", "云GPU", "工作站", "成本分析", "AutoDL", "工程实践"]
+description: "租云 GPU 按小时计费灵活但长期贵，自建工作站一次性投入大但利用率不稳定。从显存需求、训练时长到电费网费，算一笔真实的成本账。"
 toc: true
 ---
 

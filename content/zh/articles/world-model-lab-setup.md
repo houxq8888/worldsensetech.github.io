@@ -6,8 +6,8 @@ aliases:
 date: 2026-08-05
 draft: false
 categories: ["世界模型", "教程"]
-tags: ["实战教程", "MuJoCo", "DreamerV3"]
-description: "从零搭建世界模型实验环境：MuJoCo + DreamerV3 实战指南 - WorldSense 技术笔记"
+tags: ["实战教程", "MuJoCo", "DreamerV3", "环境搭建", "强化学习", "JAX", "入门"]
+description: "从零搭建世界模型实验环境：安装 MuJoCo、配置 DreamerV3 代码库、跑通第一个训练任务。覆盖环境踩坑、依赖版本兼容和训练参数配置。"
 toc: true
 ---
 

@@ -4,8 +4,8 @@ slug: "world-model-representations"
 date: 2026-08-10
 draft: false
 categories: ["World Models"]
-tags: ["World Models", "Representations", "Latent State", "3D Structure", "Object-Centric"]
-description: "Four Paradigms of World Model Representations: A Comparative Analysis - WorldSense Tech Blog"
+tags: ["World Models", "Representations", "Latent State", "3D Structure", "Object-Centric", "RSSM", "Scene Graphs", "NeRF"]
+description: "A systematic comparison of four world model representation paradigms — flat vectors, structured 3D, object-centric, and hybrid — analyzing their trade-offs in prediction accuracy, generalization, and downstream task performance."
 toc: true
 related_articles:
   - world-model-transformer

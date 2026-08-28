@@ -6,8 +6,8 @@ aliases:
 date: 2026-08-03
 draft: false
 categories: ["具身智能"]
-tags: ["具身智能", "2026预测", "世界模型"]
-description: "你认为具身智能领域在2026年会有什么突破性进展？ - WorldSense 技术笔记"
+tags: ["具身智能", "2026预测", "世界模型", "人形机器人", "VLA", "DreamerV3"]
+description: "从世界模型到 VLA，从灵巧手操作到全身运动控制——2026 年具身智能最可能突破的方向在哪里？结合最新论文和产业动态做预判。"
 toc: true
 ---
 

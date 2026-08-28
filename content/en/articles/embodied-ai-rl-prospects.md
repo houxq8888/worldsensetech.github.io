@@ -4,8 +4,8 @@ slug: "embodied-ai-rl-prospects"
 date: 2026-08-04
 draft: false
 categories: ["Embodied AI"]
-tags: ["Career", "RL", "Embodied AI", "Salary", "Job Market"]
-description: "Embodied AI and RL: Career Prospects and Salary Guide in 2026 - WorldSense Tech Blog"
+tags: ["Career", "RL", "Embodied AI", "Salary", "Job Market", "World Models", "Robot AI"]
+description: "Reinforcement learning and embodied AI are at a critical stage of moving from lab to industry. From technology maturity to job market demand to salary levels — is this direction worth going all-in?"
 toc: true
 aliases:
   - /en/articles/embodied-ai-rl-prospects.html

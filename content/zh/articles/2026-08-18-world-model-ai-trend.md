@@ -6,8 +6,8 @@ aliases:
 date: 2026-08-18
 draft: false
 categories: ["世界模型"]
-tags: ["世界模型", "AI风口", "行业趋势", "具身智能"]
-description: "世界模型风口被放大了：技术辨析与冷思考 - WorldSense 技术笔记"
+tags: ["世界模型", "AI风口", "行业趋势", "具身智能", "技术辨析", "冷思考", "DreamerV3"]
+description: "世界模型的概念正在被过度消费。从技术成熟度、落地可行性到商业闭环，逐层拆解哪些是真突破、哪些是泡沫，帮你做出冷静判断。"
 toc: true
 ---
 

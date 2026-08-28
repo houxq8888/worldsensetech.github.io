@@ -7,7 +7,7 @@ date: 2026-08-14
 draft: false
 categories: ["具身智能", "仿真"]
 tags: ["Isaac Lab", "Isaac Sim", "强化学习", "GPU加速", "NVIDIA", "机器人", "Sim-to-Real"]
-description: "Isaac Lab 入门：面向具身智能的 GPU 加速机器人学习平台 - WorldSense 技术笔记"
+description: "Isaac Lab 是 NVIDIA 面向具身智能的 GPU 加速机器人学习平台。从平台架构、并行训练能力到与 MuJoCo 的差异，帮你理解它为什么被越来越多团队采用。"
 toc: true
 related_articles:
   - isaac-lab-install-guide

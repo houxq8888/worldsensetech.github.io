@@ -4,8 +4,8 @@ slug: "reinforcement-learning-how-to-start"
 date: 2026-08-03
 draft: false
 categories: ["Tutorial"]
-tags: ["RL", "Tutorial", "PyTorch", "MuJoCo", "Beginner"]
-description: "How to Get Started with Reinforcement Learning: A Practical Guide - WorldSense Tech Blog"
+tags: ["RL", "Tutorial", "PyTorch", "MuJoCo", "Beginner", "World Models", "Embodied AI"]
+description: "I transitioned from traditional automation to reinforcement learning and stumbled through plenty of pitfalls. From math foundations to programming frameworks to hands-on projects — the most efficient path for engineers."
 toc: true
 related_articles:
   - embodied-ai-guide

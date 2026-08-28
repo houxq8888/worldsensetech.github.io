@@ -7,7 +7,7 @@ date: 2026-08-10
 draft: false
 categories: ["世界模型"]
 tags: ["世界模型", "表征学习", "DreamerV3", "Cosmos", "3D高斯", "物体中心", "RSSM"]
-description: "世界模型如何表示世界：四条表征路线与机器人适应能力 - WorldSense 技术笔记"
+description: "世界模型用什么来「表示」世界？对比像素空间、隐状态空间、3D 结构和物体中心四条表征路线，分析各自对机器人适应能力的优劣。"
 toc: true
 related_articles:
   - world-model-transformer
