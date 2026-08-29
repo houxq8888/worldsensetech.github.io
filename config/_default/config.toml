@@ -17,6 +17,9 @@ defaultContentLanguageInSubdir = true
     weight = 1
     title = "WorldSense 技术笔记"
     contentDir = "content/zh"
+    [languages.zh.params]
+      description = "专注具身智能、世界模型与 Sim-to-Real 的技术博客。从算法研究到工程实践，记录机器人 AI 的探索之路。"
+      author = "侯晓琴"
     [[languages.zh.menu.main]]
       name = "首页"
       url = "/"
@@ -40,6 +43,9 @@ defaultContentLanguageInSubdir = true
     weight = 2
     title = "WorldSense Tech Blog"
     contentDir = "content/en"
+    [languages.en.params]
+      description = "A tech blog focused on Embodied AI, World Models, and Sim-to-Real transfer. From algorithm research to engineering practice, documenting the journey of robot AI."
+      author = "Hou Xiaoqin"
     [[languages.en.menu.main]]
       name = "Home"
       url = "/"
