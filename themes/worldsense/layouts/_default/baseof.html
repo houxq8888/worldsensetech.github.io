@@ -73,8 +73,19 @@
         "@type": "Article",
         "headline": {{ .Title }},
         "description": {{ with .Description }}{{ . }}{{ else }}{{ .Site.Params.description }}{{ end }},
+        "url": {{ .Permalink }},
         "datePublished": {{ .Date.Format "2006-01-02T15:04:05Z07:00" }},
         "dateModified": {{ .Lastmod.Format "2006-01-02T15:04:05Z07:00" }},
+        "articleBody": {{ with .Description }}{{ . }}{{ else }}{{ .Summary | plainify | truncate 500 }}{{ end }},
+        {{ with .Params.categories }}
+        "articleSection": {{ index . 0 }},
+        {{ end }}
+        {{ with .Params.tags }}
+        "keywords": [{{ range $i, $e := . }}{{ if $i }},{{ end }}{{ $e }}{{ end }}],
+        {{ end }}
+        "isAccessibleForFree": true,
+        "wordCount": {{ .WordCount }},
+        "inLanguage": {{ .Language.Locale }},
         "author": {
             "@type": "Person",
             "name": {{ .Site.Params.author }},
@@ -85,7 +96,9 @@
             "name": {{ .Site.Title }},
             "logo": {
                 "@type": "ImageObject",
-                "url": {{ "/images/avatar.png" | absURL }}
+                "url": {{ "/images/avatar.png" | absURL }},
+                "width": 512,
+                "height": 512
             }
         },
         "mainEntityOfPage": {
@@ -95,10 +108,8 @@
         {{ with .Params.images }}
         "image": [{{ range $i, $e := . }}{{ if $i }},{{ end }}{{ $e | absURL }}{{ end }}],
         {{ else }}
-        "image": [{{ "/images/avatar.png" | absURL }}],
+        "image": [{{ "/images/avatar.png" | absURL }}]
         {{ end }}
-        "wordCount": {{ .WordCount }},
-        "inLanguage": {{ .Language.Locale }}
     }
     </script>
     {{ else }}
@@ -109,12 +120,30 @@
         "name": {{ .Site.Title }},
         "url": {{ .Site.Home.Permalink }},
         "description": {{ .Site.Params.description }},
+        "inLanguage": {{ .Language.Locale }},
         "author": {
             "@type": "Person",
             "name": {{ .Site.Params.author }},
             "url": {{ "/about/" | absURL }}
         },
-        "inLanguage": {{ .Language.Locale }}
+        "publisher": {
+            "@type": "Organization",
+            "name": {{ .Site.Title }},
+            "logo": {
+                "@type": "ImageObject",
+                "url": {{ "/images/avatar.png" | absURL }},
+                "width": 512,
+                "height": 512
+            }
+        },
+        "potentialAction": {
+            "@type": "SearchAction",
+            "target": {
+                "@type": "EntryPoint",
+                "urlTemplate": {{ printf "%s?q={search_term_string}" (.Site.Home.Permalink | strings.TrimSuffix "/") }}
+            },
+            "query-input": "required name=search_term_string"
+        }
     }
     </script>
     {{ end }}
