@@ -1,11 +1,11 @@
 ---
-title: "JEPA Deep Dive: From I-JEPA to V-JEPA 2 — LeCun's Predictive Representation Learning Path"
+title: "JEPA Deep Dive: From I-JEPA to V-JEPA 2-AC — How Predictive Representation Learning Leads to World Models"
 slug: "2026-09-02-jepa-deep-dive"
 date: 2026-09-02
 draft: false
 categories: ["World Models", "Paper Analysis"]
-tags: ["JEPA", "I-JEPA", "V-JEPA", "V-JEPA 2", "AMI Labs", "LeCun", "Predictive Representation Learning", "Self-Supervised Learning", "World Models", "Embodied AI"]
-description: "From the 2022 theoretical blueprint to I-JEPA in 2023, V-JEPA in 2024, V-JEPA 2 in 2025, and AMI Labs' $1.03B funding in 2026 — LeCun's JEPA path took four years to go from 'predicting representations beats predicting pixels' to 'zero-shot robot manipulation.' This article breaks down the core ideas and key experiments across the entire JEPA series."
+tags: ["JEPA", "I-JEPA", "V-JEPA", "V-JEPA 2", "V-JEPA 2-AC", "AMI Labs", "LeCun", "Predictive Representation Learning", "Self-Supervised Learning", "World Models", "Embodied AI"]
+description: "From the 2022 theoretical blueprint to I-JEPA in 2023, V-JEPA in 2024, V-JEPA 2 and V-JEPA 2-AC in 2025, and AMI Labs' $1.03B funding in 2026 — LeCun's JEPA path took four years to go from 'predicting representations beats predicting pixels' to 'action-conditioned robot manipulation.' This article breaks down the core ideas, key experiments, and open questions across the entire JEPA series."
 toc: true
 related_articles:
   - 2026-09-01-world-model-h2-review
@@ -57,7 +57,7 @@ This is where I-JEPA differs fundamentally from MAE (Masked Autoencoder).
 
 MAE masks at the pixel level — randomly masking 75% of patches and asking the model to reconstruct those pixels.
 
-I-JEPA masks at the **representation level**. Specifically: it uses a multi-block strategy, selecting 4 target regions (each 15%-20% of the image) and 1 context region (85%-100%), removing overlaps. The key difference is that masking happens at the Target Encoder's output, not at the input pixels.
+I-JEPA's masking strategy shares a similar "mask-and-predict" structure with MAE, but the key difference lies not in "where to mask" but in **what the prediction target is**. Specifically: I-JEPA uses a multi-block strategy, selecting 4 target regions (each 15%-20% of the image) and 1 context region (85%-100%), removing overlaps. The Context Encoder only receives patches from the context region, the Target Encoder encodes patches from the target region, and the Predictor maps context representations to target representations. The final optimization uses representation-space prediction loss, not pixel reconstruction loss.
 
 This means: the model doesn't need to reconstruct masked content from the pixel level. Instead, it needs to **infer** what the masked regions should look like in abstract representation space from the visible regions' representations.
 
@@ -68,13 +68,13 @@ I-JEPA with ViT-H/14 on ImageNet:
 - **Linear probing**: 79.3% top-1 accuracy (vs MAE's 77.2%)
 - **448 resolution**: 81.1% top-1
 - **1% low-shot**: 73.3% (vs MAE's 59.8%) — this gap is enormous
-- **Full fine-tuning**: 87.1%, using only 1/5.3 the epochs of MAE
+- **Full fine-tuning**: 87.1% (300 epochs), compared to MAE's 1600 epochs at 87.8%
 
-The last point is particularly noteworthy: **I-JEPA reaches comparable performance to MAE but with over 10x better training efficiency.** This directly validates LeCun's core thesis — predicting in representation space is more efficient than predicting in pixel space.
+The last point is particularly noteworthy: at comparable final performance, I-JEPA requires approximately **5.3× fewer fine-tuning epochs**. This suggests strong training efficiency potential for the representation prediction objective, though it cannot be simply equated to 5.3× end-to-end training time savings — different methods may have different batch sizes, data augmentation, GPU utilization, and other factors.
 
 ### Why It Matters
 
-I-JEPA's significance isn't about SOTA numbers. It cleanly demonstrates one thing: **self-supervised learning that doesn't generate pixels and only predicts in representation space not only works but is more efficient than generative methods.**
+I-JEPA's significance isn't about SOTA numbers. It cleanly demonstrates one thing: **self-supervised learning that doesn't generate pixels and only predicts in representation space not only works but shows strong training efficiency in visual representation learning tasks.**
 
 This is the first cornerstone of the JEPA path.
 
@@ -102,9 +102,9 @@ V-JEPA maintains JEPA's core design philosophy:
 
 ### Key Contribution
 
-V-JEPA's core contribution is proving the JEPA framework can naturally extend to video, and the learned representations perform well on downstream tasks like action recognition and video understanding.
+V-JEPA's core contribution is proving the JEPA framework can naturally extend to video, and the learned representations perform well on downstream tasks like action recognition and video understanding. Under frozen representation evaluation, V-JEPA achieved strong results: 82.1% on Kinetics-400, 71.2% on Something-Something-v2, and 77.9% on ImageNet.
 
-But honestly, V-JEPA is more of a "feasibility proof" — it demonstrated the path works but hadn't yet shown game-changing capabilities. The real breakthrough came with V-JEPA 2.
+From the perspective of the JEPA path's evolution, V-JEPA serves as a key transition from image representation learning to video temporal modeling: it demonstrated that latent video prediction can learn powerful spatiotemporal representations. What pushed this path further into "action-conditioned prediction + planning" was V-JEPA 2.
 
 ## 4. V-JEPA 2: From Representation Learning to World Model (2025)
 
@@ -120,9 +120,9 @@ If I-JEPA and V-JEPA are basic research, V-JEPA 2 is where the JEPA path first t
 
 V-JEPA 2's architecture has major upgrades:
 
-**Encoder**: Vision Transformer, up to **1 billion parameters**. Video input is split into 2x16x16 tubelets (2 frames × 16 × 16 pixels). Positional encoding uses **3D-RoPE** (3D Rotary Position Embedding), a key design for processing spatiotemporal sequences.
+**Encoder**: Vision Transformer, available in multiple sizes — ViT-L (~300M parameters), ViT-H (~600M parameters), ViT-g (~**1B parameters**). Video input is split into 2x16x16 tubelets (2 frames × 16 × 16 pixels). Positional encoding uses **3D-RoPE** (3D Rotary Position Embedding), a key design for processing spatiotemporal sequences.
 
-**Action-conditioned variant**: This is V-JEPA 2's most important addition. A **300M parameter Transformer** using **block-causal attention**, receiving action sequences as conditional input to predict future representations.
+**Action-conditioned variant (V-JEPA 2-AC)**: This is V-JEPA 2's most important addition. A ~**300M parameter predictor Transformer** using **block-causal attention**, receiving action sequences as conditional input to predict future representations.
 
 This means: the model can not only "understand" video but also "imagine" what the world would look like if a certain action were executed. This is the core capability of a world model.
 
@@ -130,7 +130,7 @@ This means: the model can not only "understand" video but also "imagine" what th
 
 The pretraining scale is substantial:
 
-- **22 million samples**, over 1 million hours of video data
+- Uses the **VideoMix22M** data construction scheme, approximately **22 million video/image samples**; the paper describes its data sources as covering over a million hours of internet video
 - **252K iterations**
 - Progressive resolution strategy (starting from low resolution, gradually increasing)
 - Mask-denoising feature prediction objective
@@ -147,27 +147,30 @@ The pretraining scale is substantial:
 
 **Robot manipulation (this is the most exciting part)**:
 
-V-JEPA 2 was post-trained on 62 hours of unlabeled robot manipulation data, then tested for zero-shot real robot manipulation:
+V-JEPA 2-AC was post-trained on approximately **62 hours of robot trajectory data** with action-conditioned post-training on top of the pretrained V-JEPA 2, then tested for robot manipulation without task-specific training or environment adaptation. The "zero-shot" here should be understood as **task/environment-level zero-shot generalization**, not as learning robot control from scratch without any robot interaction data.
 
-- Target reaching accuracy: **less than 4 cm**
-- Cup pick-and-place: **80% success rate**
-- Planning time per action: **16 seconds**
+The specific task results reported in the paper:
 
-For comparison:
+| Task | V-JEPA 2-AC | Cosmos | Octo |
+|---|---|---|---|
+| Reach | 100% | 80% | — |
+| Grasp cup | 60% | 0% | — |
+| Grasp box | 20% | 20% | — |
+| Pick-and-place cup | 80% | 0% | — |
+| Pick-and-place box | 50% | 0% | 0% |
 
-- **Cosmos baseline**: 4 minutes to compute a single action, and fails object manipulation tasks
-- **Octo baseline**: can reach but can't grasp, 0% success on box grasp
+Target reaching accuracy is **less than 4 cm**. Under the same RTX 4090, CEM planning setup reported in the paper, Cosmos baseline requires approximately 4 minutes per action, while V-JEPA 2-AC, even using **10× more candidate samples** (800 vs 80), requires only about 16 seconds — approximately **15× faster**.
 
-This comparison is very compelling. V-JEPA 2 is not only two orders of magnitude faster than the generative approach (16 seconds vs 4 minutes) but also succeeds at manipulation tasks from zero.
+This comparison is very compelling. V-JEPA 2-AC performs comparably to Cosmos on the reach task (100% vs 80%), but shows clear advantages on object interaction tasks — Cosmos achieves 0% success on cup/box pick-and-place, while V-JEPA 2-AC reaches 80% and 50% respectively.
 
-### Why V-JEPA 2 Is the JEPA Path's Turning Point
+### Why V-JEPA 2-AC Is the JEPA Path's Turning Point
 
-V-JEPA 2 demonstrates for the first time:
+V-JEPA 2-AC demonstrates for the first time:
 
 1. The JEPA framework can scale to the billion-parameter level
 2. Action-conditioned prediction can serve real robot control
 3. Predicting in representation space is not just theoretically elegant but also more efficient in practice than pixel-level prediction
-4. Zero-shot robot manipulation — no need to retrain for each task
+4. After post-training on a small amount of robot data, the model can zero-shot generalize across multiple manipulation tasks — no need to retrain for each specific task
 
 This is exactly the blueprint LeCun drew in his 2022 paper: **using predictive representation learning to build AI systems that understand the physical world.** Three years later, V-JEPA 2 turned that blueprint into a running system.
 
@@ -175,14 +178,14 @@ This is exactly the blueprint LeCun drew in his 2022 paper: **using predictive r
 
 ### Basic Info
 
-In March 2026, Yann LeCun founded [AMI Labs](https://amilabs.xyz/) (Advanced Machine Intelligence Labs) in Paris, completing approximately **$1.03 billion** (approximately €890 million) in seed funding. This is one of the largest seed rounds in European AI foundation model history.
+In March 2026, Yann LeCun founded [AMI Labs](https://amilabs.xyz/) (Advanced Machine Intelligence Labs) in Paris, completing approximately **$1.03 billion** (approximately €890 million) in seed funding at a pre-money valuation of approximately **$3.5 billion**. This is one of the largest seed rounds in European AI foundation model history.
 
 ### Team
 
 AMI Labs' team is remarkably strong:
 
 - **Yann LeCun**: Executive Chairman
-- **Saining Xie**: Chief Science Officer — NYU professor, one of the most influential computer vision researchers alive, author of MAE
+- **Saining Xie**: Chief Science Officer — NYU professor, specializing in visual representation learning and self-supervised learning research, contributed to MAE and other visual foundation model directions
 - **Alex LeBrun**: CEO
 - **Michael Rabbat**: VP of World Models
 - **Laurent Solly**: COO
@@ -200,7 +203,7 @@ AMI Labs officially states it builds world models that understand physical envir
 
 Notably, AMI Labs explicitly emphasizes **action-conditioned world models** — enabling autonomous agents to predict action consequences and plan subsequent steps.
 
-This aligns closely with V-JEPA 2's technical direction. Given that Saining Xie (CSO) is one of the core authors of the JEPA paper series, it's reasonable to infer AMI Labs' technical path is the industrialization extension of JEPA.
+AMI's stated technical vision aligns closely with JEPA's emphasis on predictive representation, world state modeling, and action-conditioned planning; combined with the addition of core visual representation learning researchers like Saining Xie, JEPA is likely to serve as one of its important technical foundations. However, as of now, publicly available information is insufficient to prove that AMI's final architecture is a direct industrialized version of V-JEPA, so this is more appropriately described as a **technical continuity relationship** rather than a confirmed architectural inheritance.
 
 ### Target Domains
 
@@ -243,15 +246,29 @@ If I had to categorize it, I'd say **JEPA represents a fifth path: Predictive Re
 
 This is also why I said in the roundup that JEPA isn't "a complete world-model definition" — it's more of a **learning philosophy**: rather than generating all details, predict what's useful in abstraction.
 
+### When Does JEPA Become a World Model?
+
+This question deserves separate discussion because it directly affects how we understand the entire technology path.
+
+**I-JEPA** itself is better described as predictive representation learning, not a complete world model. Its goal is to learn image representations useful for downstream tasks — no temporal dynamics modeling, no concept of action.
+
+**V-JEPA** introduces temporal prediction, but its primary goal remains learning video representations — it predicts future frame representations but doesn't support action-conditioned planning.
+
+**V-JEPA 2-AC** goes further by adding action-conditioned prediction and using model-based planning to predict action consequences on robots. At this point, JEPA truly possesses the core structure we typically associate with a world model:
+
+**observation → latent state → action → predicted future state → planning.**
+
+Therefore, to be precise, I would call I-JEPA / V-JEPA "JEPA representation learning" and V-JEPA 2-AC a "JEPA-based latent world model." This distinction matters — it lets us understand more precisely which parts of the JEPA path are representation learning and which parts are world modeling.
+
 ## 8. What This Means for Practitioners
 
 ### If You're Doing Robot Control
 
-V-JEPA 2's zero-shot manipulation results deserve serious attention. 16 seconds/action vs Cosmos' 4 minutes/action — this efficiency gap is decisive in real-time control scenarios. If your system needs fast inference rather than beautiful video generation, the JEPA path may be more suitable.
+V-JEPA 2-AC's manipulation results deserve serious attention. Under the paper's setup, 16 seconds/action vs Cosmos' 4 minutes/action (approximately 15× time advantage) — this efficiency gap is decisive in real-time control scenarios. If your system needs fast inference rather than beautiful video generation, the JEPA path may be more suitable.
 
 ### If You're Doing Self-Supervised Learning
 
-I-JEPA's training efficiency advantage (over 10x faster than MAE) is already attention-worthy. The JEPA framework provides a self-supervised learning paradigm that doesn't rely on pixel reconstruction, which is particularly valuable as compute costs receive increasing scrutiny.
+I-JEPA's training efficiency performance (5.3× fewer epochs achieving comparable performance to MAE) is already attention-worthy. The JEPA framework provides a self-supervised learning paradigm that doesn't rely on pixel reconstruction, which is particularly valuable as compute costs receive increasing scrutiny.
 
 ### If You're Doing World Model Research
 
@@ -265,6 +282,8 @@ AMI Labs' team and funding scale tell us one thing: investors have strong convic
 
 Finally, a few questions the JEPA path hasn't fully answered yet:
 
+**Representation sufficiency.** This may be one of the most critical questions for JEPA's transition from representation learning to a true world model. JEPA's greatest potential strength is also its greatest risk: the model actively filters out unpredictable pixel details. But for robot control, some seemingly low-level details (precise geometry, contact states, friction, fine object states, affordances) may be precisely what determines whether an action succeeds. A representation that works very well for video classification is not necessarily a sufficiently complete state representation for control. Therefore, the real question to answer is not "are representations better than pixels" but: **does this representation retain all the information needed for downstream planning?**
+
 **Representation collapse.** JEPA uses EMA target encoder to avoid collapse, but this isn't a theoretically perfect solution. Like contrastive learning, JEPA needs careful training objective design to ensure representations don't degenerate to constants.
 
 **Long-range prediction stability.** V-JEPA 2 demonstrated short-range action prediction capability, but for tasks requiring long-range planning (like multi-step robot manipulation), will JEPA's predictions gradually diverge? Dreamer addresses this through KL balancing and imagined rollout; JEPA currently has no equivalent mechanism.
@@ -275,8 +294,10 @@ Finally, a few questions the JEPA path hasn't fully answered yet:
 
 ---
 
-The JEPA path's core insight — **predicting representations is more efficient than predicting pixels** — has been validated both theoretically and experimentally. From I-JEPA to V-JEPA 2 to AMI Labs, this path is moving from academic hypothesis to engineering practice.
+The JEPA path's core insight — that in tasks targeting visual representation learning, prediction, and planning, latent representation prediction can avoid the computational burden of pixel-level generation while achieving strong downstream performance — has been progressively validated through experiments from I-JEPA to V-JEPA 2-AC. From academic hypothesis to AMI Labs' industrialization attempt, this path is moving toward broader applications.
 
-But it's not the only answer for world models. As I concluded in my [roundup article](/en/articles/2026-09-01-world-model-h2-review/), "world model" is losing its singular meaning. JEPA answers "how to learn world representations," not "how to do world planning" or "how to generate training data." Different questions require different tools.
+But it's not the only answer for world models. As I concluded in my [roundup article](/en/articles/2026-09-01-world-model-h2-review/), "world model" is losing its singular meaning. Different questions require different tools.
+
+What truly makes JEPA worth attention is not that it proposes yet another "world model architecture," but that it redefines what world models should predict. The pixel generation path asks "what will the future look like?" JEPA asks "which state changes in the future are worth predicting?" And V-JEPA 2-AC takes a further step: "after executing this action, how will the task-relevant state of the world change?" This is the true turning point of JEPA's journey from representation learning to world modeling.
 
 *Next up, I'll discuss team configuration for starting a company in embodied AI — not a business plan, but a pragmatic analysis from an engineer's perspective.*
