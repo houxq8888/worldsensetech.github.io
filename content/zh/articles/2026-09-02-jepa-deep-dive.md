@@ -35,6 +35,8 @@ LeCun 在 2022 年的[位置论文](https://openreview.net/forum?id=BZ5a1r-kVsf)
 
 这不是说像素级预测没有价值——视频生成确实很酷。JEPA 的论点是：如果你的目标是学习对下游任务有用的世界表征，那么在表征空间做预测是更高效的学习策略。
 
+但这个策略也留下了一个贯穿全文的核心问题：**JEPA 主动过滤掉的那些"不可预测的像素细节"，会不会恰好是机器人控制所需要的信息？** 这个问题在第九节的开放讨论中会回到。
+
 ## 二、I-JEPA：在图像上证明这条路走得通（2023）
 
 ### 论文信息
@@ -86,11 +88,11 @@ I-JEPA 的意义不在于它刷了什么 SOTA，而在于它用一个干净的�
 
 ### 核心扩展
 
-如果说 I-JEPA 证明了"在表征空间预测图像 patch 可行"，V-JEPA 要回答的问题是：**能不能在表征空间预测视频的未来帧？**
+如果说 I-JEPA 证明了"在表征空间预测图像区域可行"，V-JEPA 要进一步回答的是：**能不能在表征空间预测视频中被遮蔽的时空区域，并由此学习动态相关的视觉表征？**
 
-这比图像难很多。图像中被遮蔽的区域是空间上固定的，模型只需要理解空间结构。但视频中被预测的未来帧涉及时间动态——模型需要理解运动、因果关系和时间演化。
+这比图像难很多。图像中被遮蔽的区域是空间上固定的，模型只需要理解空间结构。但视频中的时空预测涉及运动模式、时间依赖和场景演化，因此相比图像上的空间预测，需要建模更加复杂的时序结构。
 
-V-JEPA 的做法是：把 I-JEPA 的框架扩展到时空维度。Context Encoder 接收历史视频帧的时空 patch，Predictor 需要在表征空间中预测未来帧的抽象表征。
+V-JEPA 的做法是：把 I-JEPA 的框架扩展到时空维度。Context Encoder 接收历史视频帧的时空 patch，Predictor 需要在表征空间中预测被遮蔽时空区域的抽象表征。
 
 ### 技术要点
 
@@ -98,7 +100,7 @@ V-JEPA 保持了 JEPA 的核心设计哲学：
 
 - Target Encoder 仍然用 EMA 更新
 - 预测仍然在表征空间进行，不回到像素空间
-- 遮蔽策略从空间遮蔽扩展到时空遮蔽——遮蔽未来帧的部分区域
+- 遮蔽策略从空间遮蔽扩展到时空遮蔽——遮蔽部分时空区域
 
 ### 关键贡献
 
@@ -114,7 +116,7 @@ V-JEPA 的核心贡献是证明了 JEPA 框架可以自然地扩展到视频领�
 
 ### 这是最重要的一篇
 
-如果说 I-JEPA 和 V-JEPA 是基础研究，V-JEPA 2 是 JEPA 路线第一次真正展示"我能做世界模型的事"。
+如果说 I-JEPA 和 V-JEPA 是基础研究，V-JEPA 2 是 JEPA 路线第一次比较完整地展示 action-conditioned prediction 可以服务于真实机器人 planning。
 
 ### 架构升级
 
@@ -124,7 +126,7 @@ V-JEPA 2 的架构有重大升级：
 
 **Action-conditioned 变体（V-JEPA 2-AC）**：这是 V-JEPA 2 最重要的新增。一个约 **3 亿参数的 predictor Transformer**，使用 **block-causal attention**，接收动作序列作为条件输入来预测未来表征。
 
-这意味着：模型不仅能"看懂"视频，还能"想象"如果执行某个动作，世界会变成什么样。这就是世界模型的核心能力。
+这意味着：模型不仅能"看懂"视频，还能"想象"如果执行某个动作，世界会变成什么样。这是迈向世界模型能力的关键一步。
 
 ### 预训练
 
@@ -172,42 +174,45 @@ V-JEPA 2-AC 第一次展示了：
 3. 在表征空间做预测不仅理论上优雅，工程上也比像素级预测更高效
 4. 在少量机器人数据 post-training 后，即可在多个操作任务上 zero-shot 泛化——不需要为每个具体任务重新训练
 
-这正是 LeCun 在 2022 年论文里画的蓝图：**用预测性表征学习构建能理解物理世界的 AI 系统。** 三年后，V-JEPA 2 把这个蓝图变成了可运行的系统。
+这正是 LeCun 在 2022 年论文里画的蓝图：**用预测性表征学习构建能理解物理世界的 AI 系统。** 三年后，V-JEPA 2-AC 把这个蓝图变成了可运行的系统。
 
-## 五、AMI Labs：从论文到公司（2026）
+### V-JEPA 2-AC 真正解决了什么？
 
-### 基本信息
+值得把 V-JEPA 2-AC 的能力拆解成三层来看：
 
-2026 年 3 月，Yann LeCun 在巴黎创办了 [AMI Labs](https://amilabs.xyz/)（Advanced Machine Intelligence Labs），完成约 **10.3 亿美元**（约 8.9 亿欧元）的种子轮融资，pre-money 估值约 **35 亿美元**。这是近年来欧洲 AI 基础模型领域最大的种子轮。
+**第一层：representation。** 把视觉 observation 压缩成任务相关的 latent representation——过滤掉不可预测的像素细节，保留对下游有用的抽象信息。
 
-### 团队
+**第二层：prediction。** 给定 action 序列，在表征空间中预测未来 latent state——不是预测像素，而是预测"世界的任务相关状态会怎样变化"。
 
-AMI Labs 的团队阵容非常强：
+**第三层：planning。** 对多个 candidate actions 做 latent rollout，选择预期回报最高的 action——这就是 CEM planning 在论文中做的事。
 
-- **Yann LeCun**：Executive Chairman（执行主席）
-- **Saining Xie（谢赛宁）**：Chief Science Officer（首席科学官）——纽约大学教授，长期从事视觉表征学习和自监督学习研究，参与了 MAE 等视觉基础模型方向的研究
-- **Alex LeBrun**：CEO
-- **Michael Rabbat**：VP of World Models
-- **Laurent Solly**：COO
-- **Pascale Fung**：Chief Research and Innovation Officer
+把这三层连起来看：
 
-办公室分布在巴黎、纽约、蒙特利尔和新加坡。
+```
+observation
+    ↓
+representation（编码当前状态）
+    ↓
+action-conditioned dynamics（预测 action 后果）
+    ↓
+latent rollout（想象多条未来轨迹）
+    ↓
+planning（选择最优 action）
+    ↓
+action
+```
 
-### 投资人
+这其实和 Dreamer 的核心闭环已经非常接近。但起点不同：Dreamer 的 latent dynamics 从设计之初就是 model-based RL 的核心闭环；V-JEPA 2-AC 则是从大规模视觉表征模型出发，再通过机器人轨迹数据获得 action-conditioned prediction 能力。一条路是"从控制出发，学到好的表征"，另一条是"从表征出发，获得控制能力"。
 
-种子轮由 Cathay Innovation、Greycroft、Hiro Capital 和 HV Capital 联合领投。个人投资者包括 **Jeff Bezos、NVIDIA、Eric Schmidt、Mark Cuban**。
+## 五、AMI Labs：产业化观察（2026）
 
-### 技术方向
+Yann LeCun 于 2025 年底在巴黎创办了 [AMI Labs](https://amilabs.xyz/)（Advanced Machine Intelligence Labs），2026 年 3 月宣布完成约 **10.3 亿美元**（约 8.9 亿欧元）的种子轮融资，pre-money 估值约 **35 亿美元**。这是近年来欧洲 AI 基础模型领域最大的种子轮，由 Cathay Innovation、Greycroft、Hiro Capital、HV Capital 等联合领投，NVIDIA、Temasek、Samsung 等机构及 Jeff Bezos、Eric Schmidt 等个人投资者参与。
 
-AMI Labs 的官方表述是：构建能理解物理环境、保持长期信息、执行逻辑规划的世界模型。他们认为真正的智能来源于物理环境而非文本，因此专注于从多模态传感器输入中学习抽象表征，过滤掉不可预测的细节，在概念空间中预测结果。
+核心团队包括 Yann LeCun（Executive Chairman）、Alex LeBrun（CEO）、Saining Xie（Chief Science Officer）、Michael Rabbat（VP of World Models）、Pascale Fung（Chief Research and Innovation Officer）。
 
-特别值得注意的是，AMI Labs 明确强调 **action-conditioned world models**——让自主智能体能预测动作的后果并规划后续步骤。
+AMI Labs 的官方技术方向是：构建能理解物理环境、保持长期信息、执行逻辑规划的世界模型——专注于从多模态传感器输入中学习抽象表征，过滤掉不可预测的细节，在概念空间中预测结果。特别值得注意的是，AMI Labs 明确强调 **action-conditioned world models**。
 
-AMI 的公开技术愿景与 JEPA 所强调的预测性表征、世界状态建模和 action-conditioned planning 高度一致；加上 Saining Xie 等视觉表征学习领域核心研究者的加入，使得 JEPA 很可能成为其重要技术基础之一。但截至目前公开资料仍不足以证明 AMI 的最终架构就是 V-JEPA 的直接产业化版本，因此这里更适合称为**技术延续关系**而非确定的架构继承关系。
-
-### 目标领域
-
-工业过程控制、自动化、机器人、个人健康监测、医疗服务。这些都是需要高可控性和安全性的领域——恰好是生成式模型最难保证可靠性的领域。
+从公开人员背景和技术愿景来看，可以合理推测 JEPA 类 predictive representation learning 会是 AMI Labs 的重要研究方向之一；但这属于基于公开信息的推断，而不是 AMI 已经正式公布的架构结论。
 
 ## 六、JEPA vs Dreamer/RSSM：都在隐空间预测，区别在哪？
 
@@ -254,17 +259,15 @@ JEPA 不完全属于其中任何一类。它最接近 Latent Dynamics，因为�
 
 **V-JEPA** 引入了 temporal prediction，但主要目标仍然是学习视频表征——它预测未来帧的表征，但不支持 action-conditioned 的规划。
 
-**V-JEPA 2-AC** 则进一步加入了 action-conditioned prediction，并通过 model-based planning 在机器人上预测动作后果。到了这里，JEPA 才真正具备了我们通常意义上的 world model 核心结构：
+**V-JEPA 2-AC** 则进一步加入了 action-conditioned prediction，并通过 model-based planning 在机器人上预测动作后果。如果采用"世界模型需要能够预测 action 后果并支持 planning"这一较宽松的定义，那么 V-JEPA 2-AC 已经具备了 world model 的关键能力；但它与 Dreamer/RSSM 那种显式 latent state transition model 仍然存在结构上的差异。
 
-**observation → latent state → action → predicted future state → planning。**
-
-因此，如果要严格区分，我会把 I-JEPA / V-JEPA 称为"JEPA representation learning"，把 V-JEPA 2-AC 称为"JEPA-based latent world model"。这个区分很重要——它让我们更精确地理解 JEPA 路线中哪些部分是表征学习，哪些部分是世界建模。
+因此，如果要严格区分，我会把 I-JEPA / V-JEPA 称为"JEPA representation learning"，把 V-JEPA 2-AC 称为在宽松定义下的"JEPA-based latent world model"。这个区分很重要——它让我们更精确地理解 JEPA 路线中哪些部分是表征学习，哪些部分是世界建模。
 
 ## 八、对从业者的意义
 
 ### 如果你在做机器人控制
 
-V-JEPA 2-AC 的操作结果值得认真关注。在论文设置下，16 秒/action vs Cosmos 的 4 分钟/action（约 15× 时间优势），这个效率差距在实时控制场景下是决定性的。如果你的系统需要快速推理而不是生成漂亮的视频，JEPA 路线可能更适合。
+V-JEPA 2-AC 的操作结果值得认真关注。在论文给出的同一 RTX 4090 + CEM planning 设置下，V-JEPA 2-AC 的单次 planning 时间约为 16 秒，而 Cosmos baseline 约为 4 分钟。即使 V-JEPA 2-AC 使用了 10× 更多候选 samples（800 vs 80），仍然具有约 15× 的 planning latency 优势。这说明 latent prediction 在计算效率上具有明显优势，但 **16 秒/action 本身距离实时机器人控制仍有明显距离**。如果你的系统可以容忍一定的规划延迟而非生成漂亮的视频，JEPA 路线可能更适合。
 
 ### 如果你在做自监督学习
 
@@ -284,13 +287,13 @@ AMI Labs 的团队和融资规模说明了一件事：投资人对 JEPA 路线�
 
 **表征充分性（representation sufficiency）。** 这可能是 JEPA 从 representation learning 走向真正 world model 时最关键的问题之一。JEPA 最大的潜在优势也是它最大的风险：模型主动过滤不可预测的像素细节。但对于机器人控制而言，一些看似低层的细节（精确几何、接触状态、摩擦、细小物体状态、affordance）可能恰恰决定动作是否成功。一个对视频分类非常好的 representation，不一定是一个对 control 足够充分的 state representation。因此真正需要回答的问题不是"representation 是否比 pixels 更好"，而是：**这个 representation 是否保留了 downstream planning 所需要的全部信息？**
 
-**表征坍塌（representation collapse）。** JEPA 用 EMA target encoder 来避免坍塌，但这不是理论上完美的解决方案。和 contrastive learning 一样，JEPA 需要仔细设计训练目标来确保表征不会退化为常数。
+**表征退化与目标设计。** JEPA 通过 target encoder、EMA 更新以及预测目标设计来避免表征退化，但"为什么这种机制能够稳定地学习到有信息量的表征"仍然是一个值得研究的问题。尤其当 predictor、target encoder 和 masking 策略进一步扩展到长时序和 action-conditioned prediction 后，表征是否保持充分且稳定，是比单纯避免 collapse 更重要的问题。
 
-**长程预测的稳定性。** V-JEPA 2 展示了短程动作预测的能力，但对于需要长程规划的任务（比如机器人操作中的多步骤任务），JEPA 的预测会不会逐步发散？这个问题在 Dreamer 里通过 KL balancing 和 imagined rollout 来处理，JEPA 目前没有对等的机制。
+**长程预测的稳定性。** V-JEPA 2-AC 展示了 action-conditioned prediction 和 planning 能力，但其长程 rollout 能否稳定保持任务相关信息，仍需要更多实验验证。相比之下，Dreamer 等 model-based RL 方法从一开始就把 multi-step latent rollout 和 policy/value learning 放在核心训练闭环中，因此两者在长程规划问题上的技术路径并不相同。
 
 **和语言的对齐。** 当前 VLA（Vision-Language-Action）模型的核心能力之一是语言接地。JEPA 路线目前主要在视觉和动作空间工作，怎么和语言能力结合是一个重要的开放问题。
 
-**可扩展性的上限。** V-JEPA 2 到了 10 亿参数，但和 LLM 的千亿参数相比还有很大差距。JEPA 的 scaling law 是什么样的？能不能像 LLM 一样持续 scale？这些问题还没有答案。
+**可扩展性。** V-JEPA 2 已经扩展到十亿参数规模，但 JEPA 类模型是否存在稳定、可预测的 scaling law 仍缺乏充分证据。更关键的问题不是简单追求参数规模，而是随着模型规模、视频数据量和预测 horizon 增加，representation quality、action-conditioned prediction accuracy 和 downstream planning performance 是否持续提升。
 
 ---
 
