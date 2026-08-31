@@ -112,7 +112,7 @@ From the perspective of the JEPA path's evolution, V-JEPA serves as a key transi
 
 ### Paper Info
 
-*V-JEPA 2: Self-Supervised Video Models Enable Understanding, Prediction, and Planning*, Meta AI, June 2025. [Paper](https://arxiv.org/abs/2506.09985).
+*V-JEPA 2: Self-Supervised Video Models Enable Understanding, Prediction, and Planning*, Meta AI, first released June 2025, updated March 2026. [Paper](https://arxiv.org/abs/2506.09985).
 
 ### This Is the Most Important One
 
@@ -145,7 +145,7 @@ V-JEPA 2 reported results across multiple video understanding benchmarks individ
 
 **Robot manipulation (this is the most exciting part)**:
 
-V-JEPA 2-AC was post-trained on approximately **62 hours of robot trajectory data** with action-conditioned post-training on top of the pretrained V-JEPA 2, then tested for robot manipulation without task-specific training or environment adaptation. The "zero-shot" here should be understood as **task/environment-level zero-shot generalization**, not as learning robot control from scratch without any robot interaction data.
+V-JEPA 2-AC was post-trained on approximately **62 hours of robot trajectory data** with action-conditioned post-training on top of the pretrained V-JEPA 2, then tested for robot manipulation without task-specific training or environment adaptation. The "zero-shot" here should more precisely be understood as **robot-environment zero-shot / task zero-shot** — generalization to new environments, new objects, and new tasks — rather than interaction-data zero-shot (learning robot control without any robot interaction data).
 
 The specific task results reported in the paper:
 
@@ -159,7 +159,7 @@ The specific task results reported in the paper:
 
 Target reaching accuracy is **less than 4 cm**. Under the same RTX 4090, CEM planning setup reported in the paper, Cosmos baseline requires approximately 4 minutes per action, while V-JEPA 2-AC, even using **10× more candidate samples** (800 vs 80), requires only about 16 seconds — approximately **15× faster**.
 
-This comparison is very compelling. V-JEPA 2-AC performs comparably to Cosmos on the reach task (100% vs 80%), but shows clear advantages on object interaction tasks — Cosmos achieves 0% success on cup/box pick-and-place, while V-JEPA 2-AC reaches 80% and 50% respectively.
+This result shows that under the robot, planner, and task setup given in the paper, V-JEPA 2-AC's latent-space planning demonstrates clear advantages for object manipulation — V-JEPA 2-AC performs comparably to Cosmos on the reach task (100% vs 80%), and shows even larger advantages on object interaction tasks (Cosmos achieves 0% success on cup/box pick-and-place, while V-JEPA 2-AC reaches 80% and 50% respectively). However, this comparison is not yet sufficient to conclude that JEPA generally outperforms generative world models across all robot control tasks.
 
 ### Why V-JEPA 2-AC Is the JEPA Path's Turning Point
 
@@ -170,7 +170,7 @@ V-JEPA 2-AC demonstrates for the first time:
 3. Predicting in representation space is not just theoretically elegant but also more efficient in practice than pixel-level prediction
 4. After post-training on a small amount of robot data, the model can zero-shot generalize across multiple manipulation tasks — no need to retrain for each specific task
 
-This is exactly the blueprint LeCun drew in his 2022 paper: **using predictive representation learning to build AI systems that understand the physical world.** Three years later, V-JEPA 2-AC turned that blueprint into a running system.
+This is exactly the blueprint LeCun drew in his 2022 paper: **using predictive representation learning to build AI systems that understand the physical world.** Three years later, V-JEPA 2-AC has begun to demonstrate that this blueprint can be partially realized on limited-scale robot tasks — but the distance to a "complete world model" remains significant.
 
 ### What Does V-JEPA 2-AC Actually Solve?
 
@@ -204,7 +204,9 @@ This is actually very close to Dreamer's core loop. But the starting points diff
 
 In March 2026, Meta released V-JEPA 2.1. Unlike V-JEPA 2-AC's focus, V-JEPA 2.1 primarily advances dense visual representation: through dense predictive loss, deep self-supervision, and multimodal tokenizers, it makes representations more fine-grained and consistent in both spatial and temporal dimensions. The paper also reports further results on Ego4D short-term object interaction anticipation (7.71 mAP), EPIC-KITCHENS anticipation (40.8 R@5), Something-Something-v2 (77.7), navigation, depth estimation, and real robot grasping — with grasping improvement of approximately 20 percentage points over V-JEPA 2-AC.
 
-Notably, V-JEPA 2.1 and V-JEPA 2-AC are not simply "the next version of action-conditioned world model" — rather, V-JEPA 2.1 is more like the continued evolution of the JEPA representation backbone, improving representation quality and spatial granularity rather than directly advancing action-conditioned dynamics. Therefore, this article continues to use V-JEPA 2-AC as the key node for "JEPA moving toward action-conditioned world model" and does not mix V-JEPA 2.1 into this control path. The JEPA path continues to evolve, and V-JEPA 2.1 demonstrates the vitality of this framework.
+Notably, V-JEPA 2.1 and V-JEPA 2-AC are not simply "the next version of action-conditioned world model" — rather, V-JEPA 2.1 is more like the continued evolution of the JEPA representation backbone, improving representation quality and spatial granularity rather than directly advancing action-conditioned dynamics. V-JEPA 2.1's deeper significance may lie precisely in validating from another direction that "**representation quality is a bottleneck for world-model capability**": even without directly expanding the action-conditioned dynamics model, improving dense spatial-temporal representation itself can significantly improve robot task performance. This provides strong supporting evidence for this article's "representation sufficiency" core thesis.
+
+Therefore, this article continues to use V-JEPA 2-AC as the key node for "JEPA moving toward action-conditioned world model" and does not mix V-JEPA 2.1 into this control path. The JEPA path continues to evolve, and V-JEPA 2.1 demonstrates the vitality of this framework.
 
 ## 5. AMI Labs: An Industrialization Observation (2026)
 
@@ -238,7 +240,7 @@ Both recognize pixel space isn't a good prediction target. RSSM compresses obser
 
 Dreamer is "using latent dynamics models for planning"; JEPA is "using predictive representation learning for understanding." Both are clever but solve different problems.
 
-In more formal terms: Dreamer/RSSM learns an action-conditioned transition model p(z_{t+1} | z_t, a_t), with the core being latent dynamics; JEPA learns a predictor f_θ, with an optimization objective roughly L = ||f_θ(z_{≤t}, a_{≤t}, s_{≤t}) − sg(z_{t+k}^{target})|| in the robot experiments, where sg denotes stop-gradient, the prediction target is the representation output by the target encoder rather than the raw observation, and s_t is end-effector state and other robot proprioceptive state. The former is designed from the start to serve model-based RL rollout and planning; the latter's core contribution lies in "what to predict" rather than "how to rollout."
+In more formal terms: Dreamer/RSSM learns an action-conditioned transition model p(z_{t+1} | z_t, a_t), with the core being latent dynamics; JEPA learns a predictor f_θ, with an optimization objective of **L = L_TF + λ·L_rollout** in the robot experiments, where the teacher forcing loss L_TF = ||P_φ(z_t, a_t, s_t) − sg(z_{t+1}^{target})|| is the single-step representation prediction loss, and the rollout loss L_rollout feeds the predictor's own outputs back as subsequent inputs, training multi-step prediction to mitigate autoregressive error accumulation. sg denotes stop-gradient, the prediction target is the representation output by the target encoder rather than the raw observation, and s_t is end-effector state and other robot proprioceptive state. The former is designed from the start to serve model-based RL rollout and planning; the latter's core contribution lies in "what to predict" rather than "how to rollout" — though the paper has already begun addressing long-horizon stability through rollout loss design.
 
 It's also worth noting a structural difference: Dreamer/RSSM's latent state is by design s_t = (h_t, z_t) — a deterministic recurrent state plus a stochastic latent state, together forming the state variable for the dynamics model and imagination. V-JEPA's representation, by contrast, is first and foremost a high-dimensional patch-level visual representation learned for visual understanding and prediction — it is not a pre-defined Markov latent state. V-JEPA 2-AC demonstrates on top of this that these representations can further support action-conditioned dynamics, rather than assuming from the start that they are complete Markov states. This is also why V-JEPA 2-AC's predictor needs to make future representation predictions at the feature map / token level.
 
@@ -265,7 +267,7 @@ This question deserves separate discussion because it directly affects how we un
 
 **V-JEPA** introduces temporal prediction, but its primary goal remains learning video representations — it predicts future frame representations but doesn't support action-conditioned planning.
 
-**V-JEPA 2-AC** goes further by adding action-conditioned prediction and using model-based planning to predict action consequences on robots. If we adopt the looser definition that "a world model should be able to predict action consequences and support planning," then V-JEPA 2-AC already possesses key world model capabilities; however, it still differs structurally from Dreamer/RSSM's explicit latent state transition model.
+**V-JEPA 2-AC** goes further by adding action-conditioned prediction and using model-based planning to predict action consequences on robots. The paper itself refers to it as a **latent action-conditioned world model** — latent dynamics that predict action consequences in representation space. Under this definition, V-JEPA 2-AC can reasonably be viewed as a latent action-conditioned world model; however, whether it has learned a sufficiently complete, long-term stable, control-sufficient world state remains an open question.
 
 Therefore, to be precise, I would call I-JEPA / V-JEPA "JEPA representation learning" and V-JEPA 2-AC a "JEPA-based latent world model" under the looser definition. This distinction matters — it lets us understand more precisely which parts of the JEPA path are representation learning and which parts are world modeling.
 
@@ -282,11 +284,12 @@ JEPA (2022 theoretical blueprint)
 ├── V-JEPA (2024)
 │     └── Video representation prediction: from spatial to spatiotemporal
 │
-└── V-JEPA 2 (2025)
-      ├── Video understanding (88.2 avg / 6 benchmarks)
+└── V-JEPA 2 (2025.06 initial, 2026.03 updated)
+      ├── Video understanding (avg 88.2 across 6 benchmarks*)
+      │     *Note: 88.2 is the paper's average across six benchmarks, not a single dataset accuracy
       ├── Latent video prediction
       ├── Action-conditioned prediction (V-JEPA 2-AC)
-      └── Robot planning demonstration (zero-shot task evaluation)
+      └── Robot planning demonstration (robot-environment / task zero-shot)
               │
               └── Still open:
                    ├── Long-horizon rollout stability
@@ -294,16 +297,18 @@ JEPA (2022 theoretical blueprint)
                    ├── Robust control
                    └── Causal / counterfactual validity
 
-AMI Labs (founded late 2025)
+AMI Labs (officially launched March 2026)
 └── Industrial research direction
       └── Highly related to JEPA philosophy, but specific architecture not yet public
 ```
 
 Two things are worth noting about this structure. First, V-JEPA 2 is not a single achievement — it simultaneously encompasses four layers of contribution: video understanding, latent prediction, action-conditioned prediction, and robot planning. The first three are at the video/representation level; only the fourth directly involves control. Second, the relationship between AMI Labs and V-JEPA 2 is one of "technical philosophy continuity" rather than "architectural inheritance" — equating AMI Labs with simply "the company version of V-JEPA 2" is technically imprecise.
 
-### Predicting Well ≠ Complete World State
+### JEPA's Core Problem Is Not Prediction, But State Sufficiency
 
 One of the most worth-discussing questions in the JEPA path is the relationship between "predictable representations" and "complete world states."
+
+For a world model, what truly matters is not that the latent prediction error is low enough, but whether the latent state has sufficient statistical adequacy for future decision-making. In other words, the question JEPA needs to answer is not "can it predict representations" but "**does this representation retain the information needed for action-conditioned planning?**"
 
 A representation can be excellent for video understanding or action recognition without necessarily retaining all the information needed for planning. An ideal world state should at least satisfy: from current state z_t and action a_t, being able to predict future relevant states accurately enough and supporting stable multi-step rollout for planning. But JEPA's representations actively discard "unpredictable" details — the question is: **what information does the model judge as "unpredictable/irrelevant"?** If precise geometry, contact states, friction, fine object states, and affordances are discarded as nuisance information, then the representation is great for classification but potentially insufficient for control.
 
@@ -325,7 +330,7 @@ The JEPA path provides an important alternative: not all world models need to ge
 
 ### If You're Following AMI Labs
 
-AMI Labs' team and funding scale tell us one thing: investors have strong interest in the "world models + physical intelligence" direction. But stay clear-eyed — **this funding should not be directly interpreted as validation of JEPA's specific technical path.** AMI Labs' public statements focus on world models, persistent memory, reasoning, planning, and action-conditioned intelligence, not on any confirmed JEPA product architecture. The distance from papers to products remains vast, and AMI Labs hasn't yet released public products or benchmark results beyond V-JEPA 2's scope.
+AMI Labs' team and funding scale tell us one thing: investors have strong interest in the "world models + physical intelligence" direction. But stay clear-eyed — **this funding should not be directly interpreted as validation of JEPA's specific technical path.** AMI Labs' public statements focus on world models, persistent memory, reasoning, planning, and action-conditioned intelligence, not on any confirmed JEPA product architecture. The distance from papers to products remains vast — as of now, AMI Labs has not released benchmark results that can independently validate its specific world-model architecture or product capabilities.
 
 ## 9. Open Questions for the JEPA Path
 
