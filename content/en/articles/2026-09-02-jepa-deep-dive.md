@@ -84,7 +84,7 @@ This is the first cornerstone of the JEPA path.
 
 ### Paper Info
 
-*V-JEPA: Latent Video Prediction for Visual Representation Learning*, Meta AI, ICLR 2024. Authors: Quentin Garrido et al.
+V-JEPA is Meta's representative work on the video feature-prediction path. The core paper *Revisiting Feature Prediction for Learning Visual Representations from Video* systematically demonstrates this paradigm.
 
 ### Core Extension
 
@@ -132,8 +132,7 @@ This means: the model can not only "understand" video but also "imagine" what th
 
 The pretraining scale is substantial:
 
-- Uses the **VideoMix22M** data construction scheme, approximately **22 million video/image samples**; the paper describes its data sources as covering over a million hours of internet video
-- **252K iterations**
+- Pretrained on over **1 million hours** of internet video and approximately **1 million images**
 - Progressive resolution strategy (starting from low resolution, gradually increasing)
 - Mask-denoising feature prediction objective
 
@@ -141,7 +140,15 @@ The pretraining scale is substantial:
 
 **Video understanding**:
 
-V-JEPA 2 reported results across multiple video understanding benchmarks individually: 77.3% top-1 on Something-Something-v2, 90.2% on Diving48; on video QA and physical world understanding tasks, after alignment with an 8B language model, it also achieved strong results on PerceptionTest (84.0), TempCompass (76.9), and others. It surpasses InternVideo2 and DINOv2.
+V-JEPA 2 reported results across multiple video understanding benchmarks, organized by category:
+
+**Representation / Action Understanding**: Something-Something-v2 **77.3%** top-1, Diving48 **90.2%**
+
+**Anticipation**: EPIC-KITCHENS-100 **39.7** R@5
+
+**Video QA / Physical World Understanding** (after alignment with 8B language model): PerceptionTest **84.0**, TempCompass **76.9**, TemporalBench 36.7, TOMATO 40.3
+
+It surpasses InternVideo2 and DINOv2. Note that these benchmarks use different evaluation metrics and cannot be simply averaged across categories.
 
 **Robot manipulation (this is the most exciting part)**:
 
@@ -157,7 +164,7 @@ The specific task results reported in the paper:
 | Pick-and-place cup | 80% | 0% | — |
 | Pick-and-place box | 50% | 0% | 0% |
 
-Target reaching accuracy is **less than 4 cm**. Under the same RTX 4090, CEM planning setup reported in the paper, Cosmos baseline requires approximately 4 minutes per action, while V-JEPA 2-AC, even using **10× more candidate samples** (800 vs 80), requires only about 16 seconds — approximately **15× faster**.
+Target reaching accuracy is **less than 4 cm**. Under the same RTX 4090, CEM planning setup reported in the paper (horizon=1, image-goal), Cosmos baseline requires approximately 4 minutes per action (80 samples), while V-JEPA 2-AC, even using **10× more candidate samples** (800 vs 80), requires only about 16 seconds — approximately **15× faster**. Note that horizon=1 means this result reflects single-step planning latency difference, not a long-horizon rollout advantage; the paper itself acknowledges that long-horizon rollout encounters prediction degradation and search-space explosion.
 
 This result shows that under the robot, planner, and task setup given in the paper, V-JEPA 2-AC's latent-space planning demonstrates clear advantages for object manipulation — V-JEPA 2-AC performs comparably to Cosmos on the reach task (100% vs 80%), and shows even larger advantages on object interaction tasks (Cosmos achieves 0% success on cup/box pick-and-place, while V-JEPA 2-AC reaches 80% and 50% respectively). However, this comparison is not yet sufficient to conclude that JEPA generally outperforms generative world models across all robot control tasks.
 
@@ -204,7 +211,7 @@ This is actually very close to Dreamer's core loop. But the starting points diff
 
 In March 2026, Meta released V-JEPA 2.1. Unlike V-JEPA 2-AC's focus, V-JEPA 2.1 primarily advances dense visual representation: through dense predictive loss, deep self-supervision, and multimodal tokenizers, it makes representations more fine-grained and consistent in both spatial and temporal dimensions. The paper also reports further results on Ego4D short-term object interaction anticipation (7.71 mAP), EPIC-KITCHENS anticipation (40.8 R@5), Something-Something-v2 (77.7), navigation, depth estimation, and real robot grasping — with grasping improvement of approximately 20 percentage points over V-JEPA 2-AC.
 
-Notably, V-JEPA 2.1 and V-JEPA 2-AC are not simply "the next version of action-conditioned world model" — rather, V-JEPA 2.1 is more like the continued evolution of the JEPA representation backbone, improving representation quality and spatial granularity rather than directly advancing action-conditioned dynamics. V-JEPA 2.1's deeper significance may lie precisely in validating from another direction that "**representation quality is a bottleneck for world-model capability**": even without directly expanding the action-conditioned dynamics model, improving dense spatial-temporal representation itself can significantly improve robot task performance. This provides strong supporting evidence for this article's "representation sufficiency" core thesis.
+Notably, V-JEPA 2.1 and V-JEPA 2-AC are not simply "the next version of action-conditioned world model" — rather, V-JEPA 2.1 is more like the continued evolution of the JEPA representation backbone, improving representation quality and spatial granularity rather than directly advancing action-conditioned dynamics. V-JEPA 2.1's deeper significance may lie in providing empirical supporting evidence from another direction that "**representation quality is a bottleneck for world-model capability**": even without directly expanding the action-conditioned dynamics model, improving dense spatial-temporal representation itself can significantly improve robot task performance. This is at least a strong empirical signal, but these results alone cannot yet prove that representation quality is the primary bottleneck for world-model scaling — this judgment is this article's inference based on V-JEPA 2.1's results.
 
 Therefore, this article continues to use V-JEPA 2-AC as the key node for "JEPA moving toward action-conditioned world model" and does not mix V-JEPA 2.1 into this control path. The JEPA path continues to evolve, and V-JEPA 2.1 demonstrates the vitality of this framework.
 
@@ -240,7 +247,7 @@ Both recognize pixel space isn't a good prediction target. RSSM compresses obser
 
 Dreamer is "using latent dynamics models for planning"; JEPA is "using predictive representation learning for understanding." Both are clever but solve different problems.
 
-In more formal terms: Dreamer/RSSM learns an action-conditioned transition model p(z_{t+1} | z_t, a_t), with the core being latent dynamics; JEPA learns a predictor f_θ, with an optimization objective of **L = L_TF + λ·L_rollout** in the robot experiments, where the teacher forcing loss L_TF = ||P_φ(z_t, a_t, s_t) − sg(z_{t+1}^{target})|| is the single-step representation prediction loss, and the rollout loss L_rollout feeds the predictor's own outputs back as subsequent inputs, training multi-step prediction to mitigate autoregressive error accumulation. sg denotes stop-gradient, the prediction target is the representation output by the target encoder rather than the raw observation, and s_t is end-effector state and other robot proprioceptive state. The former is designed from the start to serve model-based RL rollout and planning; the latter's core contribution lies in "what to predict" rather than "how to rollout" — though the paper has already begun addressing long-horizon stability through rollout loss design.
+In more formal terms: Dreamer/RSSM's core is a latent state-space model designed for control — it explicitly maintains a deterministic recurrent state h_t and a stochastic latent state z_t, with action-conditioned transitions supporting imagined rollouts, value estimation, and policy learning. In summary, its dynamics can be expressed as h_t = f(h_{t-1}, z_{t-1}, a_{t-1}), z_t ~ p(z_t|h_t), rather than a simple p(z_{t+1}|z_t, a_t). For JEPA, V-JEPA 2-AC uses autoregressive feature prediction, predicting future video representations conditioned on past video representations, actions, and end-effector states. The paper also discusses error accumulation in multi-step autoregressive rollout and identifies long-horizon prediction stability as a direction for future work. sg denotes stop-gradient, and the prediction target is the representation output by the target encoder rather than the raw observation. The former is designed from the start to serve model-based RL rollout and planning; the latter's core contribution lies in "what to predict" rather than "how to rollout."
 
 It's also worth noting a structural difference: Dreamer/RSSM's latent state is by design s_t = (h_t, z_t) — a deterministic recurrent state plus a stochastic latent state, together forming the state variable for the dynamics model and imagination. V-JEPA's representation, by contrast, is first and foremost a high-dimensional patch-level visual representation learned for visual understanding and prediction — it is not a pre-defined Markov latent state. V-JEPA 2-AC demonstrates on top of this that these representations can further support action-conditioned dynamics, rather than assuming from the start that they are complete Markov states. This is also why V-JEPA 2-AC's predictor needs to make future representation predictions at the feature map / token level.
 
@@ -308,9 +315,11 @@ Two things are worth noting about this structure. First, V-JEPA 2 is not a singl
 
 One of the most worth-discussing questions in the JEPA path is the relationship between "predictable representations" and "complete world states."
 
-For a world model, what truly matters is not that the latent prediction error is low enough, but whether the latent state has sufficient statistical adequacy for future decision-making. In other words, the question JEPA needs to answer is not "can it predict representations" but "**does this representation retain the information needed for action-conditioned planning?**"
+For a world model, what truly matters is not that the latent prediction error is low enough, but whether the latent state has sufficient statistical adequacy for future decision-making. More formally, an ideal latent representation z_t = E(o_{≤t}) should at least satisfy: for the future that downstream control cares about, conditioning on z_t should eliminate the need to access the compressed-away raw observation information. In other words, the question JEPA needs to answer is not "can it predict representations" but "**does this representation retain the information needed for action-conditioned planning?**"
 
-A representation can be excellent for video understanding or action recognition without necessarily retaining all the information needed for planning. An ideal world state should at least satisfy: from current state z_t and action a_t, being able to predict future relevant states accurately enough and supporting stable multi-step rollout for planning. But JEPA's representations actively discard "unpredictable" details — the question is: **what information does the model judge as "unpredictable/irrelevant"?** If precise geometry, contact states, friction, fine object states, and affordances are discarded as nuisance information, then the representation is great for classification but potentially insufficient for control.
+**This is precisely the watershed between representation learning and world modeling.**
+
+A representation can be excellent for video understanding or action recognition without necessarily retaining all the information needed for planning. An ideal world state should at least satisfy: from current state z_t and action a_t, being able to predict future relevant states accurately enough and supporting stable multi-step rollout for planning. But JEPA's representations actively discard details that are **unpredictable with respect to the prediction target** — the question is: **what information does the model judge as "unpredictable/irrelevant"?** For control, some information that is unpredictable for observation prediction (micro-contact states, friction, deformable object state, occluded object state, tiny geometric differences) may be precisely the key variables for action outcome. If this information is discarded as nuisance information, then the representation is great for classification but potentially insufficient for control.
 
 This is actually a deeper layer of the "representation sufficiency" question above: **good representation ≠ complete state.** A representation that is excellent for video prediction is not necessarily a state representation sufficiently complete for downstream decision-making. How to ensure that while filtering unpredictable details, we don't simultaneously discard information that future decisions truly need — this is the core design problem for predictive world models.
 
@@ -345,6 +354,8 @@ Finally, a few questions the JEPA path hasn't fully answered yet:
 **Language alignment.** A core capability of current VLA (Vision-Language-Action) models is language grounding. The JEPA path currently works primarily in visual and action space — how to integrate with language capabilities is an important open question.
 
 **Scalability.** V-JEPA 2 has scaled to the billion-parameter level, but whether JEPA-style models have a stable, predictable scaling law still lacks sufficient evidence. The more critical question is not simply pursuing parameter scale, but whether representation quality, action-conditioned prediction accuracy, and downstream planning performance continue to improve as model scale, video data volume, and prediction horizon increase.
+
+**2026 New Development: WA-JEPA.** The state sufficiency question has begun to be directly challenged in subsequent work. WA-JEPA (August 2026, *Rethinking the Video JEPA Paradigm for World-Action Modeling in Autonomous Driving*) re-examines V-JEPA's applicability to autonomous-driving planning, arguing that random spatiotemporal masking and deterministic latent regression are not naturally suited for future-directed action modeling, and introduces future-masked prediction, latent flow matching, and joint future-action prediction. This shows JEPA is further differentiating from "predicting representations" toward "predicting actionably future states" — the gap between V-JEPA's original representation-learning objective and true world-action modeling objective is being directly confronted by researchers.
 
 ---
 
