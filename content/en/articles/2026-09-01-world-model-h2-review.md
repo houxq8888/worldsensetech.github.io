@@ -30,7 +30,7 @@ But before diving into specific projects, there's something important that needs
 
 The term "world model" is being used too loosely now — video generation models call themselves world models, game engines call themselves world models, even simple prediction models claim the title. But the projects discussed below, while all called "world models," are not the same thing.
 
-After reading [A Definition and Roadmap for World Models (arxiv 2607.06401)](https://arxiv.org/html/2607.06401v1), and combining the paper's classification framework with my own engineering experience, I categorize current world models into four types:
+Drawing on the definitions discussed in [A Definition and Roadmap for World Models (arxiv 2607.06401)](https://arxiv.org/html/2607.06401v1), recent surveys, and my own engineering experience, I find it most useful to think of current world models as **four technology paths**. They are not strictly mutually exclusive categories, but rather a way to quickly locate the technical focus of different work:
 
 **A. Latent Dynamics World Model**
 
@@ -62,7 +62,9 @@ Examples: World Labs Marble, etc.
 
 Focus: persistent scene, geometry, spatial consistency, navigability, 3D representation.
 
-With this taxonomy in place, we won't conflate different things when discussing specific projects below.
+With this framework in place, we won't conflate different things when discussing specific projects below.
+
+It's worth noting that these paths are not concepts on the same axis. "Generative Video" describes the model's generative paradigm, "Interactive" describes whether it supports action-conditioned interaction, while World Labs's 2026 taxonomy of "Renderer / Simulator / Planner" describes the functional role of world models within a system. Different classification systems (such as the Functionality / Temporal Modeling / Spatial Representation three-axis framework from the 2025 Embodied AI survey) approach from different angles, each with merit. Real systems often fall on multiple dimensions simultaneously — understanding this is more valuable than debating "who is the real world model."
 
 The biggest change in "world models" in 2026 is not the emergence of a unified World Model, but rather **the divergence of different world-model paradigms** — each heading toward different application scenarios and evaluation criteria.
 
@@ -72,7 +74,7 @@ Let's look at each category in turn.
 
 ### More Than Just "Video Generation"
 
-NVIDIA first unveiled the [Cosmos World Foundation Model Platform](https://www.nvidia.com/en-us/ai/cosmos/) at CES 2025, and by early 2026 it had surpassed 2 million downloads.
+NVIDIA first unveiled the [Cosmos World Foundation Model Platform](https://www.nvidia.com/en-us/ai/cosmos/) at CES 2025. By August 2025, [NVIDIA had announced that Cosmos World Foundation Models had been downloaded over 2 million times](https://investor.nvidia.com/news/press-release-details/2025/NVIDIA-Opens-Portals-to-World-of-Robotics-With-New-Omniverse-Libraries-Cosmos-Physical-AI-Models-and-AI-Computing-Infrastructure/default.aspx).
 
 An important distinction: Cosmos is not simply a "video generation model." It's a development platform for Physical AI, covering video generation, world state understanding, data processing, and synthetic data generation. Reducing it to "video generation" underestimates its technical ambition.
 
@@ -104,7 +106,9 @@ Fei-Fei Li's [World Labs](https://www.worldlabs.ai/) released Marble in November
 
 Marble and Cosmos both involve world modeling, but their product goals and technical focuses differ significantly. Cosmos leans more toward Physical AI / simulation / synthetic data / robotics, while Marble leans more toward 3D world generation / spatial intelligence / world reconstruction / content creation. Both are advancing toward "generable, interactive, spatially consistent world representations," but in different directions.
 
-This is an important signal of world models moving toward commercialization — the spatial intelligence path is closer to content creation and AR/VR applications. But it's worth noting that World Labs has also been expanding into robotics simulation in 2026, with its Marble technology being used to generate 3D scene data for robot training. This means the boundary between Spatial/3D world models and Physical AI is blurring.
+This is an important signal of world models moving toward commercialization — the spatial intelligence path is closer to content creation and AR/VR applications.
+
+What's even more noteworthy is that World Labs in 2026 has moved well beyond using Marble for spatial content creation. Through [acquiring SceniX and launching Real-to-Sim-to-Real (R2S2R)](https://www.worldlabs.ai/blog/real-to-sim-to-real), they are actively pushing Spatial World Models toward robot training and evaluation. They demonstrated a complete closed loop from real-to-sim to sim-to-real, including policy training, policy evaluation, zero-real-data training, and simulation ranking vs hardware ranking comparisons. In other words, Spatial World Models are moving from "generating a world that looks real" to "generating a world where robots can learn and be evaluated."
 
 ## 5. Predictive Representation Learning: AMI Labs and JEPA
 
@@ -118,7 +122,21 @@ This shares some common ground with the Dreamer series — as I discussed in the
 
 JEPA's core argument is not that "pixel reconstruction is wrong." More precisely: **for learning high-level semantics and world state representations, requiring the model to precisely predict all pixels is not an ideal learning objective** — because pixel space contains a large amount of task-irrelevant details and randomness.
 
-Why pay attention? LeCun is one of the founding figures of deep learning, and his judgment on technical directions carries significant weight. His decision to go all-in on a JEPA-based world model approach at least indicates that investors and the founding team have a very strong conviction about the future industrial value of this technology path. Of course, whether it produces results depends on execution.
+Why pay attention? LeCun is one of the founding figures of deep learning, and his judgment on technical directions carries significant weight. AMI's research direction continues LeCun's long-advocated JEPA / predictive representation approach, aiming to build world models that can learn the laws of the real world. This at least indicates that investors and the founding team have a very strong conviction about the future industrial value of this technology path. Of course, whether it produces results depends on execution.
+
+### World Labs vs AMI Labs: A Comparison of Two Paths
+
+World Labs and AMI Labs form the most interesting contrast in this article — they represent two extreme directions of world model divergence:
+
+| | World Labs | AMI Labs |
+|---|---|---|
+| Core question | How to build an interactive spatial world | How to learn abstract patterns of the real world |
+| Primary representation | spatial / 3D | predictive latent representation |
+| Focus | simulation | representation + dynamics |
+| Downstream | robotics / spatial intelligence | general intelligence / world understanding |
+| Path | world → simulator | representation → world model |
+
+These two paths are not in conflict, but they answer completely different questions.
 
 ## 6. Key Survey Papers: Building a Global Perspective
 
@@ -126,7 +144,7 @@ If you want to read a few papers to build a comprehensive understanding of world
 
 ### "A Definition and Roadmap for World Models"
 
-This [arxiv paper (2607.06401)](https://arxiv.org/html/2607.06401v1) does something very valuable: it provides a formal definition of world models and draws a technology roadmap. The four-category taxonomy above draws primarily from this paper.
+This [preprint (2607.06401)](https://arxiv.org/html/2607.06401v1) does something very valuable: it provides a formal definition of world models and draws a technology roadmap. The four technology paths above draw primarily from this paper.
 
 ### "World Model for Robot Learning: A Comprehensive Survey"
 
@@ -134,19 +152,19 @@ This [paper](https://huggingface.co/papers/2605.00080) focuses specifically on w
 
 ### "A Comprehensive Survey on World Models for Embodied AI"
 
-This [paper](https://arxiv.org/abs/2510.16732) analyzes world models from the embodied AI perspective. [A maintained paper list is available on GitHub](https://github.com/Li-Zn-H/AwesomeWorldModels) for extended reading.
+This [paper](https://arxiv.org/abs/2510.16732) analyzes world models from the embodied AI perspective. The survey was first published in October 2025 and has been updated to v3 as of June 2026. [A maintained paper list is available on GitHub](https://github.com/Li-Zn-H/AwesomeWorldModels) for extended reading.
 
 ## 7. A Comparison Table
 
-Placing the projects discussed above side by side:
+Placing the representative work discussed above side by side:
 
-| Project | Core Paradigm | What It Predicts | How to Verify Usefulness | Current Maturity | Primary Applications |
+| Representative Work / Path | Core Paradigm | What It Predicts | How to Verify Usefulness | Current Maturity | Primary Applications |
 |---|---|---|---|---|---|
-| Cosmos | Generative World Model | Future video frames / world states | Synthetic data improvement on downstream perception/control | Open-source available | Autonomous driving / robot training data |
+| Cosmos | Generative World Model | Future visual observations / video | Synthetic data improvement on downstream perception/control | Open-source available | Autonomous driving / robot training data |
 | Genie 3 | Interactive World Model | Action-conditioned future visuals | Interaction consistency and long-horizon stability | Research preview | Simulation / prototype validation |
-| Marble | 3D World Generation | Persistent spatial geometry representations | 3D reconstruction accuracy and spatial consistency | Commercial product | Spatial intelligence / robot simulation |
-| Dreamer | Latent Dynamics | Next state in latent space | RL task scores and sample efficiency | Academically mature | Robot control / RL |
-| JEPA series | Predictive Representation | Abstract representations (non-pixel) | Downstream task representation quality | Early research | Representation learning / world understanding |
+| Marble / World Labs | 3D World Generation | Persistent spatial geometry representations | 3D reconstruction accuracy and spatial consistency | Commercial product | Spatial intelligence / robot simulation |
+| Dreamer / RSSM | Latent Dynamics | Next state in latent space | RL task scores and sample efficiency | Academically mature | Robot control / RL |
+| JEPA series | Predictive Representation | Abstract representations (non-pixel) | Downstream task representation quality | Early industrialization for world models | Representation learning / world understanding |
 
 This table is more valuable than paragraphs of adjectives. When you encounter a new "world model," place it in this framework first to quickly understand its relationship to other work.
 
@@ -156,7 +174,7 @@ After discussing all these projects and technologies, there's a question we can'
 
 This is the weakest link in the current world model field, and the dimension I pay closest attention to when reading papers. Multiple surveys from 2025-2026 have listed benchmarks, metrics, physical consistency, computational efficiency, and long-horizon consistency as core open problems.
 
-I believe world model evaluation can be organized as a ladder:
+I believe world model evaluation can be organized as a ladder. The following is not a recognized standard benchmark hierarchy, but rather an evaluation framework I use when reading related work — "from surface capabilities to actual value":
 
 ```
 Generation quality
@@ -174,7 +192,7 @@ Long-horizon stability
 Downstream task improvement
 ```
 
-The further down you go, the closer you get to a truly useful world model.
+The further down you go, the closer evaluation gets to the world model's ultimate value in real systems.
 
 Most current work remains at the upper layers — video generation models are impressive at generation quality, but can they achieve physical consistency? Can they be precisely controlled by actions? Do they actually help downstream tasks? These questions often go unanswered.
 
@@ -188,17 +206,19 @@ I discussed in my [VLA vs World Models article](/en/articles/vla-vs-world-model/
 
 You can't simply label a robot system as "VLA + world model" just because it has prediction or planning capabilities. You need to specify: which module is the world model? Is it an explicit dynamics model, or latent prediction within the policy? Is it training-time simulation, or inference-time planning?
 
+Looking at the 2026 robot learning survey, the most interesting roles for world models within VLA frameworks are not about "stitching together" two systems, but rather world models beginning to take on three specific functions: **simulator** (generating training experience in imagination), **evaluator** (assessing policies without real interaction), and **data generator** (providing synthetic data for VLA post-training). This division of labor is more technically valuable than vaguely saying "VLA + world model."
+
 If this convergence is truly achieved — with world model latent state representations directly serving as conditional inputs for the VLA, and the VLA's language grounding ability guiding the world model's imagination direction — it would be a very powerful architecture. But most current work is still in the exploration phase and requires more specific technical validation.
 
 ## 10. Technology Trends: Three Important Shifts
 
-### Trend 1: Transformers Entering World Models
+### Trend 1: From Latent Dynamics to Foundation-Scale World Models
 
-I discussed this topic in [a previous article](/en/articles/world-model-transformer/). The 2026 trend is clear: Transformers have demonstrated clear scaling advantages in large-scale sequence modeling and generative world models, and are gradually entering positions previously held by traditional RSSM/GRU world models.
+The most visible technical evolution direction for world models in 2026 is from single-task small-scale latent dynamics models toward foundation-scale world models. This shift manifests across multiple dimensions: RNN/GRU → Transformer, small latent state → tokenized/spatial representation, single-task dynamics → general-purpose foundation model, short horizon → long horizon, offline prediction → controllable simulation.
 
-However, it's important to note that world models contain multiple distinct modules — observation encoder, latent dynamics, action-conditioned transition, video generation, planner, policy, value model — and Transformers play completely different roles in each. We can't simply say "world models are becoming Transformers."
+I discussed the role of Transformers in world models in [a previous article](/en/articles/world-model-transformer/). But the more fundamental change is not "Transformers replaced GRUs" — it's that world models themselves are evolving from "a dynamic predictor for small environments" into "a foundation model that can generalize to multiple environments." Both Cosmos and Genie 3 are products of this direction.
 
-### Trend 2: Evaluation Criteria Are Changing
+### Trend 2: Evaluation Criteria Moving from Visual Quality to Downstream Utility
 
 In 2024-2025, the primary question for world models was "can it work?" — can it learn environment dynamics, can it generate useful data through imagination?
 
@@ -208,11 +228,11 @@ In other words, **the evaluation criteria for world models are shifting from "do
 
 This is why industrial platforms like Cosmos are emerging, and why DreamerV3 training engineering practices (which I covered in detail in [this article](/en/articles/2026-08-28-dreamerv3-training-tips/)) have become as important as the algorithms themselves.
 
-### Trend 3: Different Paradigms Heading Toward Different Applications
+### Trend 3: World Models Evolving from "Predictors" to "Simulators"
 
-As the taxonomy in Section 1 shows, world models in 2026 are not a single unified path but multiple paradigms each finding their own application scenarios: Latent Dynamics heading toward RL and control, Generative Video toward synthetic data, Interactive World toward simulation environments, and Spatial/3D toward spatial intelligence and content creation.
+This theme recurs throughout the article, but it deserves to be called out explicitly. World Labs's own technical framework explicitly identifies the Simulator as the key role connecting world → agent → action → learning → evaluation. The robot world model survey similarly places learned simulator, policy learning, evaluation, and data generation at the core.
 
-This divergence is healthy. It means world models are no longer a vague concept but are forming concrete technology stacks and product forms.
+When Cosmos generates synthetic data, it is essentially a simulator. World Labs's R2S2R is essentially a simulator. Genie 3's interactive world is essentially still a simulator. World models are evolving from "predictors that forecast the future given history" into "simulators where agents can learn, train, and be evaluated." This is the most noteworthy trend of 2026.
 
 ## 11. Reading Recommendations
 
@@ -243,6 +263,8 @@ Cosmos's open-source toolchain is priority one. Then look at the Sim-to-Real cha
 
 ---
 
-The biggest change in world models in 2026 is not any single breakthrough, but **divergence** — different paradigms heading toward different scenarios, evaluation criteria shifting from "can it generate?" to "is it useful?" Understanding this divergence matters more than chasing any single project.
+The most noteworthy thing in the world model space in 2026 is not which world model won, but that **the term "world model" itself is losing its singular meaning.**
+
+Some models focus on generation, some on simulation, some on prediction, some on planning, and some on building spatial representations. The truly important question has shifted from "who is the real world model" to "what role does this model play in the world → state → action → consequence loop?" Understanding this divergence matters more than chasing any single project.
 
 *In the next article, I'll discuss what kind of team you need to start a company in embodied AI — not a generic business plan, but a pragmatic analysis from an engineer's perspective. Stay tuned.*

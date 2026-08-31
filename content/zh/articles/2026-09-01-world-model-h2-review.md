@@ -30,7 +30,7 @@ related_articles:
 
 现在"世界模型"这个概念被用得太滥了——视频生成模型叫世界模型，游戏引擎叫世界模型，甚至一些简单的预测模型也自称世界模型。但上面这些项目，虽然都被称为"world model"，其实不是同一种东西。
 
-我在阅读[《A Definition and Roadmap for World Models》（arxiv 2607.06401）](https://arxiv.org/html/2607.06401v1)这篇论文后，结合论文的分类框架和我自己的工程经验，把当前的世界模型分成四类：
+结合[《A Definition and Roadmap for World Models》（arxiv 2607.06401）](https://arxiv.org/html/2607.06401v1)讨论的定义、近期综述，以及我自己的工程经验，我更倾向于把当前常见的世界模型理解成**四条技术路线**。它们并不是严格互斥的分类，而是帮助我们快速定位不同工作的技术侧重点：
 
 **A. 隐状态动力学世界模型（Latent Dynamics World Model）**
 
@@ -62,7 +62,9 @@ related_articles:
 
 重点：persistent scene、geometry、spatial consistency、navigability、3D representation。
 
-有了这个分类，后面讨论具体项目时就不会把它们混为一谈。
+有了这个框架，后面讨论具体项目时就不会把它们混为一谈。
+
+值得注意的是，这些路线并不是同一个维度的概念。比如"Generative Video"描述的是模型的生成范式，"Interactive"描述的是是否支持动作条件交互，而 World Labs 在 2026 年提出的"Renderer / Simulator / Planner"描述的是世界模型在系统中的功能角色。不同的分类体系（如 2025 年 Embodied AI 综述采用的 Functionality / Temporal Modeling / Spatial Representation 三轴框架）从不同角度切入，各有道理。实际系统往往同时落在多个维度上——理解这一点，比争论"谁才是世界模型"更有价值。
 
 2026 年"世界模型"最大的变化，并不是出现了一个统一的 World Model，而是**不同 world-model paradigms 开始分化**——各自走向不同的应用场景和评价标准。
 
@@ -72,7 +74,7 @@ related_articles:
 
 ### 不只是"视频生成"
 
-NVIDIA 在 CES 2025 上首次发布了 [Cosmos 世界基础模型平台](https://www.nvidia.com/en-us/ai/cosmos/)，到 2026 年初下载量已突破 200 万。
+NVIDIA 在 CES 2025 上首次发布了 [Cosmos 世界基础模型平台](https://www.nvidia.com/en-us/ai/cosmos/)。到 2025 年 8 月，[NVIDIA 已宣布 Cosmos World Foundation Models 的下载量超过 200 万](https://investor.nvidia.com/news/press-release-details/2025/NVIDIA-Opens-Portals-to-World-of-Robotics-With-New-Omniverse-Libraries-Cosmos-Physical-AI-Models-and-AI-Computing-Infrastructure/default.aspx)。
 
 这里需要做一个重要的区分：Cosmos 不是单纯的"视频生成模型"。它是一个面向 Physical AI 的开发平台，覆盖视频生成、世界状态理解、数据处理和合成数据生成等多种能力。把它简化成"视频生成"会低估它的技术野心。
 
@@ -104,7 +106,9 @@ Genie 系列是 Google DeepMind 在世界模型方向的重要布局。[Genie 3]
 
 Marble 和 Cosmos 虽然都涉及世界建模，但产品目标和技术侧重点并不相同。Cosmos 更偏 Physical AI / simulation / synthetic data / robotics，而 Marble 更偏 3D world generation / spatial intelligence / world reconstruction / content creation。两者都在向"可生成、可交互、具有空间一致性的世界表示"推进，但方向不同。
 
-这是世界模型走向商业化的一个重要信号——空间智能这条路线离内容创作和 AR/VR 应用更近。但值得注意的是，World Labs 在 2026 年也在向机器人仿真方向拓展，其 Marble 技术正在被用于生成机器人训练所需的 3D 场景数据。这意味着 Spatial/3D 世界模型和 Physical AI 之间的边界正在模糊。
+这是世界模型走向商业化的一个重要信号——空间智能这条路线离内容创作和 AR/VR 应用更近。
+
+更值得关注的是，World Labs 在 2026 年已经不只是把 Marble 用于空间内容生成，而是通过[收购 SceniX、推出 Real-to-Sim-to-Real（R2S2R）](https://www.worldlabs.ai/blog/real-to-sim-to-real)，主动把 Spatial World Model 推向机器人训练和评估。他们展示了从 real-to-sim 到 sim-to-real 的完整闭环，包括 policy training、policy evaluation、zero-real-data training、以及 simulation ranking vs hardware ranking 的对比。换句话说，Spatial World Model 正在从"生成一个看起来真实的世界"走向"生成一个机器人可以在其中学习和被评估的世界"。
 
 ## 五、预测性表征学习：AMI Labs 与 JEPA
 
@@ -118,7 +122,21 @@ AMI Labs 的技术路线基于 LeCun 多年来一直推崇的 [JEPA（Joint Embe
 
 JEPA 的核心论点不是"像素重建是错的"，更准确的说法是：**对于学习高层语义和世界状态表示而言，要求模型精确预测所有像素并不是理想的学习目标**——因为像素空间包含大量与任务无关的细节和随机性。
 
-为什么值得关注？LeCun 是深度学习的奠基人之一，他对技术方向的判断有很强的参考价值。他选择 all-in 基于 JEPA 的世界模型路线，至少说明投资人和创始团队对这一技术路线未来几年的产业价值具有非常强的判断。当然，能不能做出东西，还要看执行。
+为什么值得关注？LeCun 是深度学习的奠基人之一，他对技术方向的判断有很强的参考价值。AMI 的研究方向延续了 LeCun 长期倡导的 JEPA / predictive representation 思路，并试图以此构建能够学习现实世界规律的世界模型。这至少说明投资人和创始团队对这一技术路线未来几年的产业价值具有非常强的判断。当然，能不能做出东西，还要看执行。
+
+### World Labs vs AMI Labs：两条路线的对照
+
+World Labs 和 AMI Labs 是全文最有意思的一组对照——它们代表了世界模型分化的两个极端方向：
+
+| | World Labs | AMI Labs |
+|---|---|---|
+| 核心问题 | 如何构建可交互的空间世界 | 如何学习现实世界的抽象规律 |
+| 主要表示 | spatial / 3D | predictive latent representation |
+| 重点 | simulation | representation + dynamics |
+| 下游 | robotics / spatial intelligence | general intelligence / world understanding |
+| 路线 | world → simulator | representation → world model |
+
+这两条路线并不冲突，但它们回答的问题完全不同。
 
 ## 六、重要综述论文：建立全局视野
 
@@ -126,7 +144,7 @@ JEPA 的核心论点不是"像素重建是错的"，更准确的说法是：**�
 
 ### 《A Definition and Roadmap for World Models》
 
-这篇 [arxiv 论文（2607.06401）](https://arxiv.org/html/2607.06401v1) 做了一件很有价值的事：给世界模型一个正式的定义，并画出了一张技术路线图。上面的四类分类法就主要参考了这篇论文。
+这篇[预印本（2607.06401）](https://arxiv.org/html/2607.06401v1)做了一件很有价值的事：给世界模型一个正式的定义，并画出了一张技术路线图。上面的四条技术路线就主要参考了这篇论文。
 
 ### 《World Model for Robot Learning: A Comprehensive Survey》
 
@@ -134,19 +152,19 @@ JEPA 的核心论点不是"像素重建是错的"，更准确的说法是：**�
 
 ### 《A Comprehensive Survey on World Models for Embodied AI》
 
-这篇[论文](https://arxiv.org/abs/2510.16732)从具身智能的角度综述世界模型，把世界模型放在了具身智能的大框架里来分析。[GitHub 上有配套的论文列表](https://github.com/Li-Zn-H/AwesomeWorldModels)可以作为延伸阅读。
+这篇[论文](https://arxiv.org/abs/2510.16732)从具身智能的角度综述世界模型，把世界模型放在了具身智能的大框架里来分析。该综述最初发表于 2025 年 10 月，截至 2026 年 6 月已更新至 v3。[GitHub 上有配套的论文列表](https://github.com/Li-Zn-H/AwesomeWorldModels)可以作为延伸阅读。
 
 ## 七、一张表看清技术路线
 
-把上面讨论的项目放在一起对比：
+把上面讨论的代表工作放在一起对比：
 
-| 项目 | 核心范式 | 预测什么 | 怎么验证有用 | 当前成熟度 | 主要应用场景 |
+| 代表工作 / 路线 | 核心范式 | 预测什么 | 怎么验证有用 | 当前成熟度 | 主要应用场景 |
 |---|---|---|---|---|---|
-| Cosmos | 生成式世界模型 | 未来视频帧 / 世界状态 | 合成数据对下游感知/控制的提升幅度 | 开源可用 | 自动驾驶 / 机器人训练数据 |
+| Cosmos | 生成式世界模型 | 未来视觉观测 / 视频 | 合成数据对下游感知/控制的提升幅度 | 开源可用 | 自动驾驶 / 机器人训练数据 |
 | Genie 3 | 交互式世界模型 | 动作条件下的未来视觉 | 交互一致性与长程稳定性 | 研究预览 | 仿真环境 / 原型验证 |
-| Marble | 3D 世界生成 | 持久的空间几何表示 | 3D 重建精度与空间一致性 | 商业产品 | 空间智能 / 机器人仿真 |
-| Dreamer | 隐状态动力学 | 隐空间中的下一步状态 | RL 任务得分与样本效率 | 学术成熟 | 机器人控制 / RL |
-| JEPA 系列 | 预测性表征学习 | 抽象表征（非像素） | 下游任务表征质量 | 早期研究 | 表征学习 / 世界理解 |
+| Marble / World Labs | 3D 世界生成 | 持久的空间几何表示 | 3D 重建精度与空间一致性 | 商业产品 | 空间智能 / 机器人仿真 |
+| Dreamer / RSSM | 隐状态动力学 | 隐空间中的下一步状态 | RL 任务得分与样本效率 | 学术成熟 | 机器人控制 / RL |
+| JEPA 系列 | 预测性表征学习 | 抽象表征（非像素） | 下游任务表征质量 | 世界模型产业化早期 | 表征学习 / 世界理解 |
 
 这张表比大量形容词更有价值。当你看到一个新的"世界模型"时，先把它放进这个框架里，就能快速判断它和其他工作的关系。
 
@@ -156,7 +174,7 @@ JEPA 的核心论点不是"像素重建是错的"，更准确的说法是：**�
 
 这是当前世界模型领域最薄弱的环节，也是我在阅读论文时最关注的维度。2025-2026 年的多篇综述已经把 benchmark、metrics、physical consistency、computational efficiency、long-horizon consistency 列为核心开放问题。
 
-我认为世界模型的评价可以分成这样一个阶梯：
+我认为世界模型的评价可以分成这样一个阶梯。下面不是一个公认的标准 benchmark hierarchy，而是我自己在阅读相关工作时使用的一套"从表面能力到实际价值"的评价框架：
 
 ```
 Generation quality（生成质量）
@@ -174,7 +192,7 @@ Long-horizon stability（长程稳定性）
 Downstream task improvement（下游任务收益）
 ```
 
-越往下，越接近一个真正有用的世界模型。
+越往下，评价越接近世界模型在真实系统中的最终价值。
 
 目前大多数工作还停留在上面几层——视频生成模型在 generation quality 上表现惊艳，但能不能做到物理一致？能不能被动作精确控制？对下游任务到底有没有帮助？这些问题往往没有答案。
 
@@ -188,17 +206,19 @@ Downstream task improvement（下游任务收益）
 
 不能因为一个机器人系统具有预测或规划能力，就直接把它定义成"VLA + world model"。需要具体指出：哪个模块是 world model？是显式的 dynamics model，还是 policy 内部的 latent prediction？是 training-time simulation，还是 inference-time planning？
 
+从 2026 年的机器人学习综述来看，world model 在 VLA 框架中最值得关注的角色其实不是"拼接"，而是开始承担三个具体功能：**simulator**（在想象中生成训练经验）、**evaluator**（评估 policy 而无需真实交互）、**data generator**（为 VLA 的 post-training 提供合成数据）。这种分工比笼统地说"VLA + world model"更有技术价值。
+
 这种融合如果真的实现——比如世界模型的隐状态表征直接作为 VLA 的条件输入，VLA 的语言接地能力指导世界模型的想象方向——那会是一个非常强的架构。但目前大多数工作还在探索阶段，需要更具体的技术验证。
 
 ## 十、技术趋势：三个真正重要的变化
 
-### 趋势一：Transformer 正在进入世界模型
+### 趋势一：从 latent dynamics 到 foundation-scale world models
 
-我在[之前的文章](/zh/articles/world-model-transformer/)里详细讨论过这个话题。2026 年的趋势是：Transformer 在大规模序列建模和生成式世界模型中展现出了明显的 scaling 优势，因此正在逐渐进入传统 RSSM/GRU 世界模型过去占据的部分位置。
+2026 年世界模型最明显的技术演化方向，是从单任务的小规模 latent dynamics 模型，走向 foundation-scale 的世界模型。这个转变体现在多个维度：RNN/GRU → Transformer，small latent state → tokenized/spatial representation，single-task dynamics → general-purpose foundation model，short horizon → long horizon，offline prediction → controllable simulation。
 
-但需要注意的是，世界模型内部有多个不同模块——observation encoder、latent dynamics、action-conditioned transition、video generation、planner、policy、value model——Transformer 在这些模块里的角色完全不同。不能简单地说"世界模型正在变成 Transformer"。
+我在[之前的文章](/zh/articles/world-model-transformer/)里讨论过 Transformer 在世界模型中的角色。但更本质的变化不是"Transformer 替代了 GRU"，而是世界模型本身正在从"一个小环境的动态预测器"变成"一个可以泛化到多种环境的基础模型"。Cosmos 和 Genie 3 都是这个方向的产物。
 
-### 趋势二：评价标准正在改变
+### 趋势二：评价标准从视觉质量走向 downstream utility
 
 2024-2025 年，世界模型的主要问题是"能不能 work"——能不能学会环境动态，能不能在想象中生成有用的数据。
 
@@ -208,11 +228,11 @@ Downstream task improvement（下游任务收益）
 
 这也是为什么 Cosmos 这样的工业级平台会出现，为什么 DreamerV3 的训练工程实践（我在[这篇文章](/zh/articles/2026-08-28-dreamerv3-training-tips/)里详细写过）变得和算法本身一样重要。
 
-### 趋势三：不同范式走向不同应用场景
+### 趋势三：World model 从"预测器"变成"Simulator"
 
-正如第一节的分类所示，2026 年的世界模型不是一条统一的路线，而是多个范式各自找到了自己的应用场景：Latent Dynamics 走向 RL 和控制，Generative Video 走向合成数据，Interactive World 走向仿真环境，Spatial/3D 走向空间智能和内容创作。
+这一点在全文中反复出现，但值得单独提出来。World Labs 在自己的技术框架中明确把 Simulator 称为连接 world → agent → action → learning → evaluation 的关键角色。机器人世界模型综述同样把 learned simulator、policy learning、evaluation、data generation 放在核心位置。
 
-这种分化是健康的。它说明世界模型不再是一个笼统的概念，而是正在形成具体的技术栈和产品形态。
+Cosmos 在做合成数据生成时，本质上就是一个 simulator。World Labs 的 R2S2R 本质上也是一个 simulator。Genie 3 的交互式世界，本质上还是一个 simulator。世界模型正在从"给定历史预测未来"的预测器，演化为"智能体可以在其中学习、训练和被评估"的模拟器。这是 2026 年最值得关注的趋势。
 
 ## 十一、论文阅读建议
 
@@ -243,6 +263,8 @@ Cosmos 的开源工具链是第一优先级。然后看 World Model for Robot Le
 
 ---
 
-世界模型这个方向，2026 年最大的变化不是某个单一突破，而是**分化**——不同范式走向不同场景，评价标准从"能不能生成"转向"有没有用"。理解这个分化，比追任何一个具体项目都重要。
+世界模型这个方向，2026 年最值得关注的，不是哪一个 world model 赢了，而是**"world model"这个词正在失去单一含义**。
+
+有的模型负责生成，有的负责模拟，有的负责预测，有的负责规划，有的负责建立空间表示。真正重要的问题已经从"谁才是世界模型"变成"这个模型在 world → state → action → consequence 这条闭环里承担什么角色"。理解这个分化，比追任何一个具体项目都重要。
 
 *下一篇文章，我打算聊聊具身智能方向创业需要什么样的团队配置——不是那种大而全的商业计划书，而是一个工程师视角的务实分析。敬请期待。*
