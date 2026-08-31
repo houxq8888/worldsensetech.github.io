@@ -1,5 +1,5 @@
 ---
-title: "世界模型 2026：下半年值得关注的论文、项目与技术趋势"
+title: "世界模型 2026 中期盘点：从 Cosmos、Genie 到 JEPA 的路线分化"
 slug: "2026-09-01-world-model-h2-review"
 date: 2026-09-01
 draft: false
@@ -20,7 +20,9 @@ related_articles:
 
 上半年我写了不少基础性的文章——从 RSSM 的数学原理到 DreamerV3 的训练实战，从 VLA vs 世界模型的路线对比到 Sim-to-Real 的工程踩坑。有读者问我：现在想跟踪世界模型的最新进展，应该看什么？
 
-今天这篇文章，我把截至 2026 年 8 月底值得关注的论文和项目做一个盘点。不是大而全的综述列表，而是我作为一个在这个方向工作的工程师，从"这些东西对我有什么用"的角度来筛选和点评。
+今天这篇文章，我把截至 2026 年 8 月底值得关注的论文和项目做一个盘点。这里"值得关注"并不意味着这些项目都在下半年首次发布——有些（如 Cosmos、Genie）最早发布于 2025 年，但在 2026 年持续发展并产生了重要影响。我更关心的是：截至现在，它们仍然代表着接下来半年值得持续跟踪的技术路线。
+
+这不是大而全的综述列表，而是我作为一个在这个方向工作的工程师，从"这些东西对我有什么用"的角度来筛选和点评。
 
 但在进入具体项目之前，有一件事必须先说清楚。
 
@@ -28,7 +30,7 @@ related_articles:
 
 现在"世界模型"这个概念被用得太滥了——视频生成模型叫世界模型，游戏引擎叫世界模型，甚至一些简单的预测模型也自称世界模型。但上面这些项目，虽然都被称为"world model"，其实不是同一种东西。
 
-我在阅读[《A Definition and Roadmap for World Models》（arxiv 2607.06401）](https://arxiv.org/html/2607.06401v1)这篇论文后，觉得它提出的分类框架很有参考价值。结合我自己的理解，我把当前的世界模型分成四类：
+我在阅读[《A Definition and Roadmap for World Models》（arxiv 2607.06401）](https://arxiv.org/html/2607.06401v1)这篇论文后，结合论文的分类框架和我自己的工程经验，把当前的世界模型分成四类：
 
 **A. 隐状态动力学世界模型（Latent Dynamics World Model）**
 
@@ -102,13 +104,13 @@ Genie 系列是 Google DeepMind 在世界模型方向的重要布局。[Genie 3]
 
 Marble 和 Cosmos 虽然都涉及世界建模，但产品目标和技术侧重点并不相同。Cosmos 更偏 Physical AI / simulation / synthetic data / robotics，而 Marble 更偏 3D world generation / spatial intelligence / world reconstruction / content creation。两者都在向"可生成、可交互、具有空间一致性的世界表示"推进，但方向不同。
 
-这是世界模型走向商业化的一个重要信号——空间智能这条路线离内容创作和 AR/VR 应用更近。
+这是世界模型走向商业化的一个重要信号——空间智能这条路线离内容创作和 AR/VR 应用更近。但值得注意的是，World Labs 在 2026 年也在向机器人仿真方向拓展，其 Marble 技术正在被用于生成机器人训练所需的 3D 场景数据。这意味着 Spatial/3D 世界模型和 Physical AI 之间的边界正在模糊。
 
 ## 五、预测性表征学习：AMI Labs 与 JEPA
 
 ### LeCun 的路线选择
 
-Yann LeCun 在巴黎创办了 [AMI Labs](https://amigroup.ai/)（Advanced Machine Intelligence Labs），获得了大规模资金支持，使其成为近年来欧洲 AI 基础模型领域最受关注的新公司之一。
+Yann LeCun 在巴黎创办了 [AMI Labs](https://amigroup.ai/)（Advanced Machine Intelligence Labs），于 2026 年 3 月完成约 10.3 亿美元（约 8.9 亿欧元）融资，使其成为近年来欧洲 AI 基础模型领域最受关注的新公司之一。
 
 AMI Labs 的技术路线基于 LeCun 多年来一直推崇的 [JEPA（Joint Embedding Predictive Architecture）](https://openreview.net/pdf?id=BZ5a1r-kVsf)。JEPA 的核心思想是：**predict representations rather than raw observations**——在抽象表征空间做预测，而不是在像素空间做预测。
 
@@ -138,17 +140,49 @@ JEPA 的核心论点不是"像素重建是错的"，更准确的说法是：**�
 
 把上面讨论的项目放在一起对比：
 
-| 项目 | 核心范式 | 输入 | 输出 | Action-conditioned? | 主要用途 |
+| 项目 | 核心范式 | 预测什么 | 怎么验证有用 | 当前成熟度 | 主要应用场景 |
 |---|---|---|---|---|---|
-| Cosmos | Generative World Model | video/text/conditions | video/world states | 部分 | synthetic data |
-| Genie 3 | Interactive World Model | image/text/action | interactive visual world | 是 | simulation |
-| Marble | 3D World Generation | image/video/text | persistent 3D world | 视具体能力 | spatial intelligence |
-| Dreamer | Latent Dynamics | observation/action | latent states | 是 | RL/control |
-| JEPA 系列 | Predictive Representation | observations | representations | 视具体实现 | representation learning |
+| Cosmos | 生成式世界模型 | 未来视频帧 / 世界状态 | 合成数据对下游感知/控制的提升幅度 | 开源可用 | 自动驾驶 / 机器人训练数据 |
+| Genie 3 | 交互式世界模型 | 动作条件下的未来视觉 | 交互一致性与长程稳定性 | 研究预览 | 仿真环境 / 原型验证 |
+| Marble | 3D 世界生成 | 持久的空间几何表示 | 3D 重建精度与空间一致性 | 商业产品 | 空间智能 / 机器人仿真 |
+| Dreamer | 隐状态动力学 | 隐空间中的下一步状态 | RL 任务得分与样本效率 | 学术成熟 | 机器人控制 / RL |
+| JEPA 系列 | 预测性表征学习 | 抽象表征（非像素） | 下游任务表征质量 | 早期研究 | 表征学习 / 世界理解 |
 
 这张表比大量形容词更有价值。当你看到一个新的"世界模型"时，先把它放进这个框架里，就能快速判断它和其他工作的关系。
 
-## 八、关于 VLA + 世界模型的融合
+## 八、世界模型最大的短板：评价体系
+
+讲了这么多项目和技术，有一个问题始终绕不开：**我们到底怎么证明一个世界模型是"好"的？**
+
+这是当前世界模型领域最薄弱的环节，也是我在阅读论文时最关注的维度。2025-2026 年的多篇综述已经把 benchmark、metrics、physical consistency、computational efficiency、long-horizon consistency 列为核心开放问题。
+
+我认为世界模型的评价可以分成这样一个阶梯：
+
+```
+Generation quality（生成质量）
+       ↓
+Temporal consistency（时间一致性）
+       ↓
+Physical consistency（物理一致性）
+       ↓
+Action controllability（动作可控性）
+       ↓
+Counterfactual accuracy（反事实准确性）
+       ↓
+Long-horizon stability（长程稳定性）
+       ↓
+Downstream task improvement（下游任务收益）
+```
+
+越往下，越接近一个真正有用的世界模型。
+
+目前大多数工作还停留在上面几层——视频生成模型在 generation quality 上表现惊艳，但能不能做到物理一致？能不能被动作精确控制？对下游任务到底有没有帮助？这些问题往往没有答案。
+
+这也是为什么我在前面反复强调"实时生成 ≠ 可用于控制"、"不能因为一个系统有预测能力就称之为 VLA + world model"。**评价标准正在从"生成得像不像"转向"预测准不准、能不能被 action 控制、对下游任务到底有没有用"**——而大多数项目还停留在用上面几层的指标来证明自己。
+
+真正值得关注的，是那些能走到阶梯底部、用下游任务收益来证明世界模型价值的工作。
+
+## 九、关于 VLA + 世界模型的融合
 
 我在 [VLA vs 世界模型](/zh/articles/vla-vs-world-model/)那篇文章里讨论过，VLA 和世界模型不是竞争关系，而是互补关系。2026 年确实出现了越来越多将两者结合的工作，但这里需要特别谨慎。
 
@@ -156,7 +190,7 @@ JEPA 的核心论点不是"像素重建是错的"，更准确的说法是：**�
 
 这种融合如果真的实现——比如世界模型的隐状态表征直接作为 VLA 的条件输入，VLA 的语言接地能力指导世界模型的想象方向——那会是一个非常强的架构。但目前大多数工作还在探索阶段，需要更具体的技术验证。
 
-## 九、技术趋势：三个真正重要的变化
+## 十、技术趋势：三个真正重要的变化
 
 ### 趋势一：Transformer 正在进入世界模型
 
@@ -180,7 +214,7 @@ JEPA 的核心论点不是"像素重建是错的"，更准确的说法是：**�
 
 这种分化是健康的。它说明世界模型不再是一个笼统的概念，而是正在形成具体的技术栈和产品形态。
 
-## 十、论文阅读建议
+## 十一、论文阅读建议
 
 最后给一个实用的阅读框架。
 
