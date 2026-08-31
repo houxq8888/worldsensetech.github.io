@@ -5,7 +5,7 @@ date: 2026-09-02
 draft: false
 categories: ["World Models", "Paper Analysis"]
 tags: ["JEPA", "I-JEPA", "V-JEPA", "V-JEPA 2", "V-JEPA 2-AC", "AMI Labs", "LeCun", "Predictive Representation Learning", "Self-Supervised Learning", "World Models", "Embodied AI"]
-description: "From the 2022 theoretical blueprint to I-JEPA in 2023, V-JEPA in 2024, V-JEPA 2 and V-JEPA 2-AC in 2025, and AMI Labs' $1.03B funding in 2026 — LeCun's JEPA path took four years to go from 'predicting representations beats predicting pixels' to 'action-conditioned robot manipulation.' This article breaks down the core ideas, key experiments, and open questions across the entire JEPA series."
+description: "From the 2022 theoretical blueprint to I-JEPA and V-JEPA, then to V-JEPA 2's video prediction, action-conditioned prediction, and robot planning demonstration — LeCun's JEPA path has progressively moved from predictive representation learning toward world model research. This article breaks down the entire JEPA technology path and discusses the real differences with Dreamer/RSSM and generative world models."
 toc: true
 related_articles:
   - 2026-09-01-world-model-h2-review
@@ -17,7 +17,7 @@ related_articles:
 
 In my [previous world model roundup](/en/articles/2026-09-01-world-model-h2-review/), I covered Cosmos, Genie 3, and Marble in detail but only sketched JEPA.
 
-Not because JEPA isn't important. Quite the opposite — **JEPA may be the most theoretically deep path in the current world model landscape.** It's backed by Yann LeCun, has a complete technical evolution from I-JEPA to V-JEPA 2, has been validated by AMI Labs' $1.03 billion funding round, and represents a fundamentally different technical philosophy from today's dominant generative world models.
+Not because JEPA isn't important. Quite the opposite — **JEPA may be the most theoretically deep path in the current world model landscape.** It's backed by Yann LeCun, has a complete technical evolution from I-JEPA to V-JEPA 2-AC, has been validated by AMI Labs' $1.03 billion funding round, and represents a fundamentally different technical approach from world models whose primary training objective is pixel generation.
 
 This article provides a complete technical breakdown of the JEPA series from the first paper to the latest.
 
@@ -25,7 +25,7 @@ This article provides a complete technical breakdown of the JEPA series from the
 
 **Don't predict pixels — predict representations.**
 
-This sounds simple, but it directly opposes the fundamental assumption of most current world models (including Cosmos and the Genie series).
+This sounds simple, but it forms a sharp contrast with a class of world models that use pixel or observation generation as their primary training objective. JEPA does not claim that generating pixels has no value; rather, it argues: if the goal is to learn abstract world representations useful for prediction, understanding, and decision-making, then requiring the model to reconstruct all observation details may not be the optimal learning objective.
 
 Generative world models work like this: given historical observations, predict future pixels. JEPA works like this: given historical observations, predict **abstract representations** of future observations — make predictions in representation space, not pixel space.
 
@@ -206,7 +206,7 @@ This is actually very close to Dreamer's core loop. But the starting points diff
 
 ## 5. AMI Labs: An Industrialization Observation (2026)
 
-Yann LeCun founded [AMI Labs](https://amilabs.xyz/) (Advanced Machine Intelligence Labs) in Paris in late 2025. In March 2026, AMI Labs announced approximately **$1.03 billion** (approximately €890 million) in seed funding at a pre-money valuation of approximately **$3.5 billion** — one of the largest seed rounds in European AI foundation model history. The round was co-led by Cathay Innovation, Greycroft, Hiro Capital, HV Capital, and others, with participation from NVIDIA, Temasek, Samsung and other institutional investors, as well as individual investors including Jeff Bezos and Eric Schmidt.
+Yann LeCun founded [AMI Labs](https://amilabs.xyz/) (Advanced Machine Intelligence Labs) in Paris in late 2025. In March 2026, AMI Labs announced approximately **$1.03 billion** (approximately €890 million) in seed funding at a pre-money valuation of approximately **$3.5 billion** (according to company announcement and reports from TechCrunch, Reuters, and others) — one of the largest seed rounds in European AI foundation model history. The round was co-led by Cathay Innovation, Greycroft, Hiro Capital, HV Capital, and others, with participation from NVIDIA, Temasek, Samsung and other institutional investors, as well as individual investors including Jeff Bezos and Eric Schmidt.
 
 The core team includes Yann LeCun (Executive Chairman), Alex LeBrun (CEO), Saining Xie (Chief Science Officer), Michael Rabbat (VP of World Models), and Pascale Fung (Chief Research and Innovation Officer).
 
@@ -236,6 +236,8 @@ Both recognize pixel space isn't a good prediction target. RSSM compresses obser
 
 Dreamer is "using latent dynamics models for planning"; JEPA is "using predictive representation learning for understanding." Both are clever but solve different problems.
 
+In more formal terms: Dreamer/RSSM learns an action-conditioned transition model p(z_{t+1} | z_t, a_t), with the core being latent dynamics; JEPA learns a predictor f_θ, with an optimization objective roughly L = ||f_θ(z_{≤t}, a_{t:t+k}) − sg(z_{t+k}^{target})||, where sg denotes stop-gradient and the prediction target is the representation output by the target encoder rather than the raw observation. The former is designed from the start to serve model-based RL rollout and planning; the latter's core contribution lies in "what to predict" rather than "how to rollout."
+
 ## 7. JEPA's Position in the World Model Landscape
 
 Going back to the four technology paths from my [roundup article](/en/articles/2026-09-01-world-model-h2-review/):
@@ -247,9 +249,9 @@ Going back to the four technology paths from my [roundup article](/en/articles/2
 
 JEPA doesn't cleanly fit into any of these. It's closest to Latent Dynamics since it also predicts in latent space. But unlike Dreamer, it doesn't have an explicit state transition structure, nor is RL and planning its primary goal.
 
-If I had to categorize it, I'd say **JEPA represents a fifth path: Predictive Representation Learning.** Its core contribution isn't "how to model world dynamics" but "what objective function to use for learning world representations."
+If I had to categorize it, I'd say **JEPA represents a fifth path: Predictive Representation Learning** (this "fifth path" classification is proposed in this article for analytical convenience, not a taxonomy uniformly adopted in existing literature). Its core contribution isn't "how to model world dynamics" but "what objective function to use for learning world representations."
 
-This is also why I said in the roundup that JEPA isn't "a complete world-model definition" — it's more of a **learning philosophy**: rather than generating all details, predict what's useful in abstraction.
+More precisely, JEPA is a class of predictive representation learning architecture / objective family, not just a specific world-model architecture. From a higher-level perspective, it embodies a modeling philosophy of "first learn predictable, decision-useful abstract states, rather than reconstructing all observation details."
 
 ### When Does JEPA Become a World Model?
 
@@ -262,6 +264,46 @@ This question deserves separate discussion because it directly affects how we un
 **V-JEPA 2-AC** goes further by adding action-conditioned prediction and using model-based planning to predict action consequences on robots. If we adopt the looser definition that "a world model should be able to predict action consequences and support planning," then V-JEPA 2-AC already possesses key world model capabilities; however, it still differs structurally from Dreamer/RSSM's explicit latent state transition model.
 
 Therefore, to be precise, I would call I-JEPA / V-JEPA "JEPA representation learning" and V-JEPA 2-AC a "JEPA-based latent world model" under the looser definition. This distinction matters — it lets us understand more precisely which parts of the JEPA path are representation learning and which parts are world modeling.
+
+### JEPA Path Technical Overview
+
+Pulling together the previous sections, the JEPA path's evolution is not a simple linear chain "LeCun → JEPA → I-JEPA → V-JEPA → V-JEPA 2 → robots → AMI Labs." A more accurate structure is a progressively branching tree:
+
+```
+JEPA (2022 theoretical blueprint)
+│
+├── I-JEPA (2023)
+│     └── Image representation prediction: proving "predicting representations ≠ pixel reconstruction" works
+│
+├── V-JEPA (2024)
+│     └── Video representation prediction: from spatial to spatiotemporal
+│
+└── V-JEPA 2 (2025)
+      ├── Video understanding (88.2 avg / 6 benchmarks)
+      ├── Latent video prediction
+      ├── Action-conditioned prediction (V-JEPA 2-AC)
+      └── Robot planning demonstration (zero-shot task evaluation)
+              │
+              └── Still open:
+                   ├── Long-horizon rollout stability
+                   ├── Representation sufficiency (state sufficiency)
+                   ├── Robust control
+                   └── Causal / counterfactual validity
+
+AMI Labs (founded late 2025)
+└── Industrial research direction
+      └── Highly related to JEPA philosophy, but specific architecture not yet public
+```
+
+Two things are worth noting about this structure. First, V-JEPA 2 is not a single achievement — it simultaneously encompasses four layers of contribution: video understanding, latent prediction, action-conditioned prediction, and robot planning. The first three are at the video/representation level; only the fourth directly involves control. Second, the relationship between AMI Labs and V-JEPA 2 is one of "technical philosophy continuity" rather than "architectural inheritance" — equating AMI Labs with simply "the company version of V-JEPA 2" is technically imprecise.
+
+### Predicting Well ≠ Complete World State
+
+One of the most worth-discussing questions in the JEPA path is the relationship between "predictable representations" and "complete world states."
+
+A representation can be excellent for video understanding or action recognition without necessarily retaining all the information needed for planning. An ideal world state should at least satisfy: from current state z_t and action a_t, being able to predict future relevant states accurately enough and supporting stable multi-step rollout for planning. But JEPA's representations actively discard "unpredictable" details — the question is: **what information does the model judge as "unpredictable/irrelevant"?** If precise geometry, contact states, friction, fine object states, and affordances are discarded as nuisance information, then the representation is great for classification but potentially insufficient for control.
+
+This is actually a deeper layer of the "representation sufficiency" question above: **good representation ≠ complete state.** A representation that is excellent for video prediction is not necessarily a state representation sufficiently complete for downstream decision-making. How to ensure that while filtering unpredictable details, we don't simultaneously discard information that future decisions truly need — this is the core design problem for predictive world models.
 
 ## 8. What This Means for Practitioners
 

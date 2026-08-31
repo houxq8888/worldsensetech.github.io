@@ -5,7 +5,7 @@ date: 2026-09-02
 draft: false
 categories: ["世界模型", "论文解读"]
 tags: ["JEPA", "I-JEPA", "V-JEPA", "V-JEPA 2", "V-JEPA 2-AC", "AMI Labs", "LeCun", "预测性表征学习", "自监督学习", "世界模型", "具身智能"]
-description: "从 2022 年的理论蓝图到 2023 年的 I-JEPA，从 2024 年的 V-JEPA 到 2025 年的 V-JEPA 2 与 V-JEPA 2-AC，再到 2026 年 AMI Labs 的 10.3 亿美元融资——LeCun 的 JEPA 路线用四年时间走完了从'预测像素不如预测表征'到'action-conditioned 机器人操作'的全过程。这篇逐篇拆解这条技术路线的核心思路、关键实验和开放问题。"
+description: "从 2022 年的理论蓝图到 I-JEPA、V-JEPA，再到 V-JEPA 2 的视频预测、动作条件预测与机器人规划演示，LeCun 的 JEPA 路线逐步从预测性表征学习走向世界模型研究。这篇文章逐篇拆解这条技术路线，并讨论它与 Dreamer/RSSM、生成式世界模型之间的真正区别。"
 toc: true
 related_articles:
   - 2026-09-01-world-model-h2-review
@@ -17,7 +17,7 @@ related_articles:
 
 在[上一篇世界模型盘点](/zh/articles/2026-09-01-world-model-h2-review/)里，我花了大量篇幅讨论 Cosmos、Genie 3、Marble 这些项目，但有一个方向我只做了概述——JEPA。
 
-这不是因为 JEPA 不重要。恰恰相反，**JEPA 可能是当前世界模型方向最有理论深度的一条路线**。它背后站着 Yann LeCun，有从 I-JEPA 到 V-JEPA 2 的完整技术演进，有 AMI Labs 10.3 亿美元的融资验证，而且它代表了一种和当前主流的生成式世界模型完全不同的技术哲学。
+这不是因为 JEPA 不重要。恰恰相反，**JEPA 可能是当前世界模型方向最有理论深度的一条路线**。它背后站着 Yann LeCun，有从 I-JEPA 到 V-JEPA 2-AC 的完整技术演进，有 AMI Labs 10.3 亿美元的融资验证，而且它代表了一种和以像素生成为主要训练目标的世界模型截然不同的技术思路。
 
 这篇文章把 JEPA 系列从第一篇到最新一篇做一个完整的技术拆解。
 
@@ -25,7 +25,7 @@ related_articles:
 
 **不要预测像素，预测表征。**
 
-这句话听起来简单，但它和当前绝大多数世界模型（包括 Cosmos、Genie 系列）的基本假设直接对立。
+这句话与以像素或视觉观测生成为主要训练目标的一类世界模型形成了鲜明对比。JEPA 并不是认为生成像素没有价值，而是认为：如果目标是学习可用于预测、理解和决策的抽象世界表征，那么要求模型重建所有观测细节未必是最优的学习目标。
 
 生成式世界模型的逻辑是：给定历史观测，预测未来像素。JEPA 的逻辑是：给定历史观测，预测未来观测的**抽象表征**——在表征空间做预测，而不是在像素空间做预测。
 
@@ -206,7 +206,7 @@ action
 
 ## 五、AMI Labs：产业化观察（2026）
 
-Yann LeCun 于 2025 年底在巴黎创办了 [AMI Labs](https://amilabs.xyz/)（Advanced Machine Intelligence Labs），2026 年 3 月宣布完成约 **10.3 亿美元**（约 8.9 亿欧元）的种子轮融资，pre-money 估值约 **35 亿美元**。这是近年来欧洲 AI 基础模型领域最大的种子轮，由 Cathay Innovation、Greycroft、Hiro Capital、HV Capital 等联合领投，NVIDIA、Temasek、Samsung 等机构及 Jeff Bezos、Eric Schmidt 等个人投资者参与。
+Yann LeCun 于 2025 年底在巴黎创办了 [AMI Labs](https://amilabs.xyz/)（Advanced Machine Intelligence Labs），2026 年 3 月宣布完成约 **10.3 亿美元**（约 8.9 亿欧元）的种子轮融资，pre-money 估值约 **35 亿美元**（据公司官方公告及 TechCrunch、Reuters 等报道）。这是近年来欧洲 AI 基础模型领域最大的种子轮，由 Cathay Innovation、Greycroft、Hiro Capital、HV Capital 等联合领投，NVIDIA、Temasek、Samsung 等机构及 Jeff Bezos、Eric Schmidt 等个人投资者参与。
 
 核心团队包括 Yann LeCun（Executive Chairman）、Alex LeBrun（CEO）、Saining Xie（Chief Science Officer）、Michael Rabbat（VP of World Models）、Pascale Fung（Chief Research and Innovation Officer）。
 
@@ -236,6 +236,8 @@ AMI Labs 的官方技术方向是：构建能理解物理环境、保持长期�
 
 Dreamer 是"用隐状态动力学模型做 planning"，JEPA 是"用预测性表征学习做理解"。两者都聪明，但解决的是不同的问题。
 
+用更形式化的方式看：Dreamer/RSSM 学习的是 action-conditioned transition model p(z_{t+1} | z_t, a_t)，核心是隐状态动力学；JEPA 学习的是预测器 f_θ，优化目标大致为 L = ||f_θ(z_{≤t}, a_{t:t+k}) − sg(z_{t+k}^{target})||，其中 sg 表示 stop-gradient，prediction target 是 target encoder 输出的表征而不是原始观测。前者从设计之初就服务于 model-based RL 的 rollout 和 planning；后者的核心贡献在于"预测什么"而不是"怎么 rollout"。
+
 ## 七、JEPA 在世界模型图谱中的位置
 
 回到我在[盘点文章](/zh/articles/2026-09-01-world-model-h2-review/)里的四条技术路线：
@@ -247,9 +249,9 @@ Dreamer 是"用隐状态动力学模型做 planning"，JEPA 是"用预测性表�
 
 JEPA 不完全属于其中任何一类。它最接近 Latent Dynamics，因为它也在隐空间做预测。但它不像 Dreamer 那样有显式的 state transition 结构，也不以 RL 和 planning 为主要目标。
 
-如果非要归类，我会说 **JEPA 代表的是第五条路线：Predictive Representation Learning**。它的核心贡献不是"怎么建模世界动态"，而是"用什么目标函数来学习世界表征"。
+如果非要归类，我会说 **JEPA 代表的是第五条路线：Predictive Representation Learning**（这里的"第五条路线"是本文为了分析方便提出的分类，而不是现有文献统一采用的 taxonomy）。它的核心贡献不是"怎么建模世界动态"，而是"用什么目标函数来学习世界表征"。
 
-这也是为什么我在盘点文章里说 JEPA 不是"一个完整的 world-model 定义"——它更像是一种**学习哲学**：与其生成所有细节，不如预测有用的抽象。
+更准确地说，JEPA 是一类 predictive representation learning architecture / objective family，而不仅仅是一种具体的 world-model architecture。从更高层的视角看，它体现了一种"先学习可预测、可决策的抽象状态，而不是重建全部观测细节"的建模思路。
 
 ### 什么时候 JEPA 才算世界模型？
 
@@ -262,6 +264,46 @@ JEPA 不完全属于其中任何一类。它最接近 Latent Dynamics，因为�
 **V-JEPA 2-AC** 则进一步加入了 action-conditioned prediction，并通过 model-based planning 在机器人上预测动作后果。如果采用"世界模型需要能够预测 action 后果并支持 planning"这一较宽松的定义，那么 V-JEPA 2-AC 已经具备了 world model 的关键能力；但它与 Dreamer/RSSM 那种显式 latent state transition model 仍然存在结构上的差异。
 
 因此，如果要严格区分，我会把 I-JEPA / V-JEPA 称为"JEPA representation learning"，把 V-JEPA 2-AC 称为在宽松定义下的"JEPA-based latent world model"。这个区分很重要——它让我们更精确地理解 JEPA 路线中哪些部分是表征学习，哪些部分是世界建模。
+
+### JEPA 路线技术总览
+
+把上面几节的内容拉到一起看，JEPA 路线的演进并不是一个简单的线性链条"LeCun → JEPA → I-JEPA → V-JEPA → V-JEPA 2 → 机器人 → AMI Labs"。更准确的结构是一棵逐步分叉的树：
+
+```
+JEPA（2022 理论蓝图）
+│
+├── I-JEPA（2023）
+│     └── 图像表征预测：证明"预测表征 ≠ 像素重建"可行
+│
+├── V-JEPA（2024）
+│     └── 视频表征预测：从空间走向时空
+│
+└── V-JEPA 2（2025）
+      ├── 视频理解（88.2 avg / 6 benchmarks）
+      ├── latent video prediction
+      ├── action-conditioned prediction（V-JEPA 2-AC）
+      └── 机器人规划演示（zero-shot task evaluation）
+              │
+              └── 仍然开放：
+                   ├── 长程 rollout 稳定性
+                   ├── 表征充分性（state sufficiency）
+                   ├── 鲁棒控制
+                   └── 因果/反事实有效性
+
+AMI Labs（2025 年底创办）
+└── 产业化研究方向
+      └── 与 JEPA 理念高度相关，但具体架构尚未公开
+```
+
+这个结构有两个值得注意的地方。第一，V-JEPA 2 并不是一个单一成果——它同时包含视频理解、latent prediction、action-conditioned prediction 和机器人规划四个层面的贡献，前三个是视频/表征层面的，只有第四个直接涉及控制。第二，AMI Labs 和 V-JEPA 2 之间是"技术理念连续"而非"架构继承"——把 AMI Labs 简单等同于"V-JEPA 2 的公司化版本"在技术上不严谨。
+
+### 预测得好 ≠ 世界状态完整
+
+JEPA 路线最值得讨论的问题之一，是"可预测表征"与"完整世界状态"之间到底是什么关系。
+
+一个表征可以非常适合视频理解或动作识别，却未必保留规划所需的全部信息。理想的 world state 至少应该满足：从当前状态 z_t 和动作 a_t 出发，能够足够准确地预测未来相关状态，并支持稳定的多步 rollout 用于 planning。但 JEPA 的表征主动丢弃了"不可预测"的细节——问题在于，**什么信息被模型判定为"不可预测/无关"？** 如果精确几何、接触状态、摩擦、细小物体状态、affordance 被当作 nuisance information 丢掉，那么表征对分类很好，却可能对 control 不够充分。
+
+这其实是上面"表征充分性"问题的更深一层：**representation 很好 ≠ state 很完整。** 一个对视频预测非常好的表征，不一定是一个对 downstream decision 足够充分的 state representation。如何保证在过滤不可预测细节的同时，不会丢掉未来决策真正需要的信息，是 predictive world model 的核心设计问题。
 
 ## 八、对从业者的意义
 
