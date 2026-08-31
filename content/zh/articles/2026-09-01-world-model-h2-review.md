@@ -1,5 +1,5 @@
 ---
-title: "世界模型 2026 中期盘点：从 Cosmos、Genie 到 JEPA 的路线分化"
+title: "世界模型 2026：从 Cosmos、Genie 到 JEPA 的路线分化"
 slug: "2026-09-01-world-model-h2-review"
 date: 2026-09-01
 draft: false
@@ -70,13 +70,13 @@ related_articles:
 
 下面按类别逐一来看。
 
-## 二、生成式视频世界模型：NVIDIA Cosmos
+## 二、Physical AI 世界基础模型平台：NVIDIA Cosmos
 
-### 不只是"视频生成"
+### 不是一个模型，是一个平台
 
-NVIDIA 在 CES 2025 上首次发布了 [Cosmos 世界基础模型平台](https://www.nvidia.com/en-us/ai/cosmos/)。到 2025 年 8 月，[NVIDIA 已宣布 Cosmos World Foundation Models 的下载量超过 200 万](https://investor.nvidia.com/news/press-release-details/2025/NVIDIA-Opens-Portals-to-World-of-Robotics-With-New-Omniverse-Libraries-Cosmos-Physical-AI-Models-and-AI-Computing-Infrastructure/default.aspx)。
+NVIDIA 在 CES 2025 上首次发布了 [Cosmos](https://www.nvidia.com/en-us/ai/cosmos/)。更准确地说，Cosmos 是一个面向 Physical AI 的 world foundation model platform，而不是一个单一的视频预测模型。到 2025 年 8 月，[NVIDIA 已宣布 Cosmos World Foundation Models 的下载量超过 200 万](https://investor.nvidia.com/news/press-release-details/2025/NVIDIA-Opens-Portals-to-World-of-Robotics-With-New-Omniverse-Libraries-Cosmos-Physical-AI-Models-and-AI-Computing-Infrastructure/default.aspx)。
 
-这里需要做一个重要的区分：Cosmos 不是单纯的"视频生成模型"。它是一个面向 Physical AI 的开发平台，覆盖视频生成、世界状态理解、数据处理和合成数据生成等多种能力。把它简化成"视频生成"会低估它的技术野心。
+它覆盖视频生成、世界状态理解、数据处理和合成数据生成等多种能力。把它简化成"视频生成"会低估它的技术野心。
 
 为什么重要？因为我在[之前那篇合成数据的文章](/zh/articles/world-model-synthetic-data-for-vla/)里详细分析过，真实机器人数据的采集成本高、覆盖面窄，是世界模型落地的核心瓶颈。Cosmos 的思路是：用物理感知的生成模型来大规模产生合成训练数据，用于自动驾驶和机器人的感知与控制。
 
@@ -98,6 +98,8 @@ Genie 系列是 Google DeepMind 在世界模型方向的重要布局。[Genie 3]
 
 这个区分很关键，也是当前交互式世界模型面临的核心挑战之一。
 
+这里可以提炼出全文的一个核心判断：**世界模型真正的技术门槛，不是"能不能生成未来"，而是"能不能在给定 action 后可靠地预测未来"。** 这个判断会贯穿后面的评价体系和趋势讨论——它连接了 action controllability、counterfactual prediction、long-horizon stability 和 downstream control。
+
 ## 四、空间/3D 世界模型：World Labs Marble
 
 ### 空间智能的商业化路径
@@ -117,6 +119,8 @@ Marble 和 Cosmos 虽然都涉及世界建模，但产品目标和技术侧重�
 Yann LeCun 在巴黎创办了 [AMI Labs](https://amigroup.ai/)（Advanced Machine Intelligence Labs），于 2026 年 3 月完成约 10.3 亿美元（约 8.9 亿欧元）融资，使其成为近年来欧洲 AI 基础模型领域最受关注的新公司之一。
 
 AMI Labs 的技术路线基于 LeCun 多年来一直推崇的 [JEPA（Joint Embedding Predictive Architecture）](https://openreview.net/pdf?id=BZ5a1r-kVsf)。JEPA 的核心思想是：**predict representations rather than raw observations**——在抽象表征空间做预测，而不是在像素空间做预测。
+
+需要特别指出的是，JEPA 更准确地说是一类预测性表征学习的架构与思想，而不是一个完整的 world-model 定义。AMI 的路线，是试图以这类 predictive representation 为基础，学习能够捕捉现实世界规律的模型。从 JEPA 到 latent prediction 到 world model 到 AGI，中间每一步其实都还存在大量研究问题。
 
 这和 Dreamer 系列的思路有相通之处——我在 [RSSM 详解](/zh/articles/rssm-deep-dive/)里讲过，RSSM 也是在隐空间做动态预测，而不是直接预测下一帧图像。但两者并不是同一级别的东西：RSSM 是一个 latent dynamics model，目标是支持规划和控制；JEPA 是一个 predictive representation architecture，目标是学习对任务有用的世界状态表征。
 
@@ -234,7 +238,17 @@ Downstream task improvement（下游任务收益）
 
 Cosmos 在做合成数据生成时，本质上就是一个 simulator。World Labs 的 R2S2R 本质上也是一个 simulator。Genie 3 的交互式世界，本质上还是一个 simulator。世界模型正在从"给定历史预测未来"的预测器，演化为"智能体可以在其中学习、训练和被评估"的模拟器。这是 2026 年最值得关注的趋势。
 
-## 十一、论文阅读建议
+## 十一、World Model 最终会变成 Simulator 吗？
+
+不一定。
+
+上面说了很多关于 simulator 的趋势，但这里需要做一个重要的区分：simulator 是 world model 最重要的应用形态之一，但不是 world model 的唯一形态。
+
+具体来看：Dreamer 的 world model 主要服务于 planning；JEPA 主要服务于 representation learning；Cosmos 主要服务于 data generation；Genie 主要服务于 interactive simulation；Marble 正在把 spatial representation 推向 simulator。每条路线的终极形态并不相同。
+
+所以更准确的结论是：**simulator 是世界模型走向 downstream utility 的最重要路径之一，但不同路线的 world model 会以不同方式证明自己的价值。** 这恰好呼应了全文的核心判断——"world model"正在失去单一含义，它的价值实现方式同样不是单一的。
+
+## 十二、论文阅读建议
 
 最后给一个实用的阅读框架。
 

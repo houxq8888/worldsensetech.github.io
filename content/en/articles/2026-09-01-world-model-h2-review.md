@@ -1,5 +1,5 @@
 ---
-title: "World Models 2026 Mid-Year Review: From Cosmos, Genie to JEPA — The Divergence of Routes"
+title: "World Models 2026: From Cosmos, Genie to JEPA — The Divergence of Routes"
 slug: "2026-09-01-world-model-h2-review"
 date: 2026-09-01
 draft: false
@@ -70,13 +70,13 @@ The biggest change in "world models" in 2026 is not the emergence of a unified W
 
 Let's look at each category in turn.
 
-## 2. Generative Video World Model: NVIDIA Cosmos
+## 2. Physical AI World Foundation Model Platform: NVIDIA Cosmos
 
-### More Than Just "Video Generation"
+### Not a Model, but a Platform
 
-NVIDIA first unveiled the [Cosmos World Foundation Model Platform](https://www.nvidia.com/en-us/ai/cosmos/) at CES 2025. By August 2025, [NVIDIA had announced that Cosmos World Foundation Models had been downloaded over 2 million times](https://investor.nvidia.com/news/press-release-details/2025/NVIDIA-Opens-Portals-to-World-of-Robotics-With-New-Omniverse-Libraries-Cosmos-Physical-AI-Models-and-AI-Computing-Infrastructure/default.aspx).
+NVIDIA first unveiled [Cosmos](https://www.nvidia.com/en-us/ai/cosmos/) at CES 2025. More precisely, Cosmos is a world foundation model platform for Physical AI, not a single video prediction model. By August 2025, [NVIDIA had announced that Cosmos World Foundation Models had been downloaded over 2 million times](https://investor.nvidia.com/news/press-release-details/2025/NVIDIA-Opens-Portals-to-World-of-Robotics-With-New-Omniverse-Libraries-Cosmos-Physical-AI-Models-and-AI-Computing-Infrastructure/default.aspx).
 
-An important distinction: Cosmos is not simply a "video generation model." It's a development platform for Physical AI, covering video generation, world state understanding, data processing, and synthetic data generation. Reducing it to "video generation" underestimates its technical ambition.
+It covers video generation, world state understanding, data processing, and synthetic data generation. Reducing it to "video generation" underestimates its technical ambition.
 
 Why does this matter? I analyzed this in detail in my [earlier article on synthetic data](/en/articles/world-model-synthetic-data-for-vla/) — real robot data collection is expensive and narrow in coverage, which is the core bottleneck for world model deployment. Cosmos's approach is: use physics-aware generative models to produce large-scale synthetic training data for autonomous driving and robotics.
 
@@ -98,6 +98,8 @@ But there's an important technical issue worth highlighting here: **real-time ge
 
 This distinction is critical and represents one of the core challenges facing interactive world models today.
 
+From this, we can extract a core thesis for the entire article: **the real technical barrier for world models is not "can they generate the future," but "can they reliably predict the future given actions."** This thesis will run through the evaluation framework and trend discussions that follow — it connects action controllability, counterfactual prediction, long-horizon stability, and downstream control.
+
 ## 4. Spatial / 3D World Model: World Labs Marble
 
 ### A Commercial Path for Spatial Intelligence
@@ -117,6 +119,8 @@ What's even more noteworthy is that World Labs in 2026 has moved well beyond usi
 Yann LeCun founded [AMI Labs](https://amigroup.ai/) (Advanced Machine Intelligence Labs) in Paris, completing approximately $1.03 billion (approximately €890 million) in funding in March 2026, making it one of the most watched new companies in European AI foundation models in recent years.
 
 AMI Labs's technical approach is based on the [JEPA (Joint Embedding Predictive Architecture)](https://openreview.net/pdf?id=BZ5a1r-kVsf) that LeCun has championed for years. JEPA's core idea is: **predict representations rather than raw observations** — make predictions in abstract representation space, not pixel space.
+
+It's important to be precise here: JEPA is more accurately a family of predictive representation learning architectures and ideas, not a complete world-model definition. AMI's approach is to use this kind of predictive representation as a foundation to learn models that can capture the laws of the real world. The path from JEPA to latent prediction to world model to AGI still contains substantial open research questions at every step.
 
 This shares some common ground with the Dreamer series — as I discussed in the [RSSM deep dive](/en/articles/rssm-deep-dive/), RSSM also makes dynamic predictions in latent space rather than directly predicting the next image frame. But the two are not at the same level: RSSM is a latent dynamics model aimed at supporting planning and control; JEPA is a predictive representation architecture aimed at learning world state representations useful for tasks.
 
@@ -234,7 +238,17 @@ This theme recurs throughout the article, but it deserves to be called out expli
 
 When Cosmos generates synthetic data, it is essentially a simulator. World Labs's R2S2R is essentially a simulator. Genie 3's interactive world is essentially still a simulator. World models are evolving from "predictors that forecast the future given history" into "simulators where agents can learn, train, and be evaluated." This is the most noteworthy trend of 2026.
 
-## 11. Reading Recommendations
+## 11. Will World Models Ultimately Become Simulators?
+
+Not necessarily.
+
+I've made a strong case for simulators above, but an important distinction is needed: the simulator is one of the most important forms of world model application, but not the only form.
+
+Specifically: Dreamer's world model primarily serves planning; JEPA primarily serves representation learning; Cosmos primarily serves data generation; Genie primarily serves interactive simulation; Marble is pushing spatial representation toward simulator. The ultimate form of each path is not the same.
+
+So a more precise conclusion is: **the simulator is one of the most important paths for world models to reach downstream utility, but different world model paths will demonstrate their value in different ways.** This echoes the article's core thesis — "world model" is losing its singular meaning, and the ways it proves its value are equally not singular.
+
+## 12. Reading Recommendations
 
 Finally, a practical reading framework.
 
