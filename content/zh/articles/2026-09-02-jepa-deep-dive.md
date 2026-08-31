@@ -104,7 +104,7 @@ V-JEPA 保持了 JEPA 的核心设计哲学：
 
 ### 关键贡献
 
-V-JEPA 的核心贡献是证明了 JEPA 框架可以自然地扩展到视频领域，而且学到的表征在动作识别、视频理解等下游任务上表现良好。在 frozen representation 评估下，V-JEPA 取得了相当强的结果：Kinetics-400 上 82.1%，Something-Something-v2 上 71.2%，ImageNet 上 77.9%。
+V-JEPA 的核心贡献是证明了 JEPA 框架可以自然地扩展到视频领域，而且学到的表征在动作识别、视频理解等下游任务上表现良好。在 frozen representation 评估下，V-JEPA 的 ViT-H/16 模型在 Kinetics-400、Something-Something-v2 和 ImageNet-1K 上分别取得 **81.9%、72.2% 和 77.9%**。
 
 从路线演进来看，V-JEPA 更像是 JEPA 从图像表征学习走向视频动态建模的关键过渡：它证明了 latent video prediction 可以学习强大的时空表征。真正把这条路线进一步推进到"action-conditioned prediction + planning"的，则是 V-JEPA 2。
 
@@ -124,7 +124,7 @@ V-JEPA 2 的架构有重大升级：
 
 **编码器**：Vision Transformer，提供多种规模——ViT-L（约 3 亿参数）、ViT-H（约 6 亿参数）、ViT-g（约 **10 亿参数**）。视频输入被切分为 2x16x16 的 tubelets（2 帧 × 16 × 16 像素）。位置编码使用 **3D-RoPE**（三维旋转位置编码），这是处理时空序列的关键设计。
 
-**Action-conditioned 变体（V-JEPA 2-AC）**：这是 V-JEPA 2 最重要的新增。一个约 **3 亿参数的 predictor Transformer**，使用 **block-causal attention**，接收动作序列作为条件输入来预测未来表征。
+**Action-conditioned 变体（V-JEPA 2-AC）**：这是 V-JEPA 2 最重要的新增。一个约 **3 亿参数的 predictor Transformer**，使用 **block-causal attention**，接收动作序列作为条件输入来预测未来表征。需要注意的是，**预测器的输入不只是 video representation 和 action——在机器人实验中还包括 end-effector state（机器人末端执行器状态）**。论文原文明确写的是"conditioned on past video frames, actions, and end-effector states"。因此 V-JEPA 2-AC 的实际预测形式更接近 z_{t+1} = f_θ(z_{≤t}, a_{≤t}, s_{≤t})，其中 s_t 是机器人末端状态，而不是一个简单的 Markov p(z_{t+1}|z_t, a_t)。从抽象层面看，它可以被理解为 action-conditioned latent transition model；但具体实现是一个带历史上下文、动作和末端状态的 autoregressive predictor。
 
 这意味着：模型不仅能"看懂"视频，还能"想象"如果执行某个动作，世界会变成什么样。这是迈向世界模型能力的关键一步。
 
@@ -141,11 +141,7 @@ V-JEPA 2 的架构有重大升级：
 
 **视频理解**：
 
-- 6 个 benchmark 平均 **88.2 分**
-- 运动理解 **77.3%** top-1
-- 动作预测 recall@5 **39.7**
-- Video QA（PerceptionTest）**84.0**
-- 超过 InternVideo2 和 DINOv2
+V-JEPA 2 在多个视频理解 benchmark 上分别报告了结果：Something-Something-v2 上 77.3% top-1，Diving48 上 90.2%；在视频 QA 和物理世界理解任务上，经与 8B 语言模型对齐后，在 PerceptionTest（84.0）、TempCompass（76.9）等 benchmark 上也取得很强结果。超过 InternVideo2 和 DINOv2。
 
 **机器人操作（这是最让我兴奋的部分）**：
 
@@ -204,9 +200,15 @@ action
 
 这其实和 Dreamer 的核心闭环已经非常接近。但起点不同：Dreamer 的 latent dynamics 从设计之初就是 model-based RL 的核心闭环；V-JEPA 2-AC 则是从大规模视觉表征模型出发，再通过机器人轨迹数据获得 action-conditioned prediction 能力。一条路是"从控制出发，学到好的表征"，另一条是"从表征出发，获得控制能力"。
 
+### 旁支：V-JEPA 2.1（2026）
+
+2026 年 3 月，Meta 又发布了 V-JEPA 2.1。与 V-JEPA 2-AC 的重点不同，V-JEPA 2.1 主要推进的是 dense visual representation：通过 dense predictive loss、deep self-supervision 和 multimodal tokenizers，使表征在空间和时间维度上更加细粒度和一致。论文同时报告了 Ego4D short-term object interaction anticipation（7.71 mAP）、EPIC-KITCHENS anticipation（40.8 R@5）、Something-Something-v2（77.7）、导航、深度估计以及真实机器人抓取上的进一步结果——机器人抓取相比 V-JEPA 2-AC 提升约 20 个百分点。
+
+值得注意的是，V-JEPA 2.1 与 V-JEPA 2-AC 并不是简单的"下一版 action-conditioned world model"，而更像是 JEPA representation backbone 的继续演进——在表征质量和空间细粒度上做文章，而不是直接推进 action-conditioned dynamics。因此，本文仍以 V-JEPA 2-AC 作为"JEPA 走向 action-conditioned world model"的关键节点来讨论，不把 V-JEPA 2.1 混入这条控制路线。JEPA 路线仍在继续演进，V-JEPA 2.1 证明了这个框架的生命力。
+
 ## 五、AMI Labs：产业化观察（2026）
 
-Yann LeCun 于 2025 年底在巴黎创办了 [AMI Labs](https://amilabs.xyz/)（Advanced Machine Intelligence Labs），2026 年 3 月宣布完成约 **10.3 亿美元**（约 8.9 亿欧元）的种子轮融资，pre-money 估值约 **35 亿美元**（据公司官方公告及 TechCrunch、Reuters 等报道）。这是近年来欧洲 AI 基础模型领域最大的种子轮，由 Cathay Innovation、Greycroft、Hiro Capital、HV Capital 等联合领投，NVIDIA、Temasek、Samsung 等机构及 Jeff Bezos、Eric Schmidt 等个人投资者参与。
+[AMI Labs](https://amilabs.xyz/)（Advanced Machine Intelligence Labs）于 2026 年 3 月正式公开亮相，宣布完成约 **10.3 亿美元**（约 8.9 亿欧元）的种子轮融资，pre-money 估值约 **35 亿美元**（据公司官方公告及 TechCrunch、Reuters 等报道）。这是近年来欧洲 AI 基础模型领域最大的种子轮，由 Cathay Innovation、Greycroft、Hiro Capital、HV Capital 等联合领投，NVIDIA、Temasek、Samsung 等机构及 Jeff Bezos、Eric Schmidt 等个人投资者参与。
 
 核心团队包括 Yann LeCun（Executive Chairman）、Alex LeBrun（CEO）、Saining Xie（Chief Science Officer）、Michael Rabbat（VP of World Models）、Pascale Fung（Chief Research and Innovation Officer）。
 
@@ -236,7 +238,9 @@ AMI Labs 的官方技术方向是：构建能理解物理环境、保持长期�
 
 Dreamer 是"用隐状态动力学模型做 planning"，JEPA 是"用预测性表征学习做理解"。两者都聪明，但解决的是不同的问题。
 
-用更形式化的方式看：Dreamer/RSSM 学习的是 action-conditioned transition model p(z_{t+1} | z_t, a_t)，核心是隐状态动力学；JEPA 学习的是预测器 f_θ，优化目标大致为 L = ||f_θ(z_{≤t}, a_{t:t+k}) − sg(z_{t+k}^{target})||，其中 sg 表示 stop-gradient，prediction target 是 target encoder 输出的表征而不是原始观测。前者从设计之初就服务于 model-based RL 的 rollout 和 planning；后者的核心贡献在于"预测什么"而不是"怎么 rollout"。
+用更形式化的方式看：Dreamer/RSSM 学习的是 action-conditioned transition model p(z_{t+1} | z_t, a_t)，核心是隐状态动力学；JEPA 学习的是预测器 f_θ，在机器人实验中优化目标大致为 L = ||f_θ(z_{≤t}, a_{≤t}, s_{≤t}) − sg(z_{t+k}^{target})||，其中 sg 表示 stop-gradient，prediction target 是 target encoder 输出的表征而不是原始观测，s_t 为 end-effector state 等机器人本体状态。前者从设计之初就服务于 model-based RL 的 rollout 和 planning；后者的核心贡献在于"预测什么"而不是"怎么 rollout"。
+
+还需要注意一个结构性的差异：Dreamer/RSSM 的 latent state 从设计上就是 s_t = (h_t, z_t)——deterministic recurrent state 加 stochastic latent state，共同构成 dynamics model 和 imagination 的状态变量。而 V-JEPA 的 representation 首先是为视觉理解和预测学习得到的高维 patch-level visual representation，它不是天然定义好的 Markov latent state。V-JEPA 2-AC 是在此基础上证明这些 representation 可以进一步承载 action-conditioned dynamics，而不是一开始就假设它们是完整的 Markov state。这也是为什么 V-JEPA 2-AC 的 predictor 需要在 feature map / token level 上做未来表征预测。
 
 ## 七、JEPA 在世界模型图谱中的位置
 
@@ -249,7 +253,7 @@ Dreamer 是"用隐状态动力学模型做 planning"，JEPA 是"用预测性表�
 
 JEPA 不完全属于其中任何一类。它最接近 Latent Dynamics，因为它也在隐空间做预测。但它不像 Dreamer 那样有显式的 state transition 结构，也不以 RL 和 planning 为主要目标。
 
-如果非要归类，我会说 **JEPA 代表的是第五条路线：Predictive Representation Learning**（这里的"第五条路线"是本文为了分析方便提出的分类，而不是现有文献统一采用的 taxonomy）。它的核心贡献不是"怎么建模世界动态"，而是"用什么目标函数来学习世界表征"。
+如果非要归类，我会说 **JEPA 代表的是第五条路线：Predictive Representation Learning**（这里的"第五条路线"是本文为了分析方便提出的分类，而不是现有文献统一采用的 taxonomy）。它的核心贡献不是"怎么建模世界动态"，而是"用什么目标函数来学习世界表征"。不过更准确地说，这五个维度并不是严格互斥的类别——未来完全可以出现 JEPA representation + RSSM dynamics + language conditioning + 3D spatial memory 的组合。因此 JEPA 更像是一个与 world-model architecture **正交**的 representation/prediction paradigm，而不仅仅是第五种 world model。
 
 更准确地说，JEPA 是一类 predictive representation learning architecture / objective family，而不仅仅是一种具体的 world-model architecture。从更高层的视角看，它体现了一种"先学习可预测、可决策的抽象状态，而不是重建全部观测细节"的建模思路。
 
@@ -309,7 +313,7 @@ JEPA 路线最值得讨论的问题之一，是"可预测表征"与"完整世界
 
 ### 如果你在做机器人控制
 
-V-JEPA 2-AC 的操作结果值得认真关注。在论文给出的同一 RTX 4090 + CEM planning 设置下，V-JEPA 2-AC 的单次 planning 时间约为 16 秒，而 Cosmos baseline 约为 4 分钟。即使 V-JEPA 2-AC 使用了 10× 更多候选 samples（800 vs 80），仍然具有约 15× 的 planning latency 优势。这说明 latent prediction 在计算效率上具有明显优势，但 **16 秒/action 本身距离实时机器人控制仍有明显距离**。如果你的系统可以容忍一定的规划延迟而非生成漂亮的视频，JEPA 路线可能更适合。
+V-JEPA 2-AC 的操作结果值得认真关注。在论文给出的同一 RTX 4090 + CEM planning 实验设置中，V-JEPA 2-AC 的规划耗时约 16 秒，而 Cosmos baseline 约 4 分钟；即使 V-JEPA 2-AC 使用 10× 更多 candidate trajectories（800 vs 80），仍保持约 15× 的 planning latency 优势。这个结果说明 latent-space planning **在该实验设置下**具有显著的计算优势，但不能直接外推为"所有 JEPA 系统都比生成式 world model 快 15×"——不同的 planning horizon、candidate 数量和 hardware 配置都会影响实际延迟。此外，**16 秒/action 本身距离实时机器人控制仍有明显距离**。如果你的系统可以容忍一定的规划延迟而非生成漂亮的视频，JEPA 路线可能更适合。
 
 ### 如果你在做自监督学习
 
@@ -321,7 +325,7 @@ JEPA 路线提供了一个重要的 alternative：不是所有世界模型都需
 
 ### 如果你在关注 AMI Labs
 
-AMI Labs 的团队和融资规模说明了一件事：投资人对 JEPA 路线的产业价值有很强的信心。但也要清醒——从论文到产品的距离仍然很远。AMI Labs 目前还没有公开的产品或 benchmark 结果超出 V-JEPA 2 的范围。
+AMI Labs 的团队和融资规模说明了一件事：投资人对"world models + physical intelligence"这一大方向具有很强的兴趣。但也要清醒——**这笔融资不能直接解读为对 JEPA 具体技术路线有效性的验证**。AMI Labs 公开表述的是 world models、persistent memory、reasoning、planning 和 action-conditioned intelligence，而不是某个已经确定的 JEPA 产品架构。从论文到产品的距离仍然很远，AMI Labs 目前还没有公开的产品或 benchmark 结果超出 V-JEPA 2 的范围。
 
 ## 九、JEPA 路线的开放问题
 
@@ -331,7 +335,7 @@ AMI Labs 的团队和融资规模说明了一件事：投资人对 JEPA 路线�
 
 **表征退化与目标设计。** JEPA 通过 target encoder、EMA 更新以及预测目标设计来避免表征退化，但"为什么这种机制能够稳定地学习到有信息量的表征"仍然是一个值得研究的问题。尤其当 predictor、target encoder 和 masking 策略进一步扩展到长时序和 action-conditioned prediction 后，表征是否保持充分且稳定，是比单纯避免 collapse 更重要的问题。
 
-**长程预测的稳定性。** V-JEPA 2-AC 展示了 action-conditioned prediction 和 planning 能力，但其长程 rollout 能否稳定保持任务相关信息，仍需要更多实验验证。相比之下，Dreamer 等 model-based RL 方法从一开始就把 multi-step latent rollout 和 policy/value learning 放在核心训练闭环中，因此两者在长程规划问题上的技术路径并不相同。
+**长程预测的稳定性。** V-JEPA 2-AC 展示了 action-conditioned prediction 和 planning 能力。值得注意的是，作者已经通过 rollout loss 显式训练多步预测，以降低 autoregressive error accumulation——论文中 predictor 的输出会反馈回来做多步预测。但目前机器人实验所展示的规划 horizon 和任务复杂度仍不足以证明其具备长期、复杂任务上的稳定 world-model rollout 能力。相比之下，Dreamer 等 model-based RL 方法从一开始就把 multi-step latent rollout 和 policy/value learning 放在核心训练闭环中，因此两者在长程规划问题上的技术路径并不相同。
 
 **和语言的对齐。** 当前 VLA（Vision-Language-Action）模型的核心能力之一是语言接地。JEPA 路线目前主要在视觉和动作空间工作，怎么和语言能力结合是一个重要的开放问题。
 
@@ -343,6 +347,8 @@ JEPA 路线的核心洞察——在以视觉表征学习、预测和规划为目
 
 但它不是世界模型的唯一答案。正如我在[盘点文章](/zh/articles/2026-09-01-world-model-h2-review/)的结论里说的，"world model"正在失去单一含义。不同的问题需要不同的工具。
 
-JEPA 真正值得关注的地方，不是它提出了另一个"世界模型架构"，而是它重新定义了世界模型应该预测什么。像素生成路线问的是"未来看起来是什么"，JEPA 问的是"未来哪些状态变化值得被预测"，而 V-JEPA 2-AC 又往前走了一步："执行这个动作之后，世界的任务相关状态会怎样变化"。这才是 JEPA 从 representation learning 走向 world modeling 的真正转折点。
+JEPA 真正值得关注的地方，不是它提出了另一个"世界模型架构"，而是它重新定义了世界模型应该预测什么。像素生成路线通常通过预测未来观测来学习世界动态；JEPA 则把预测目标直接放在学习到的表征空间中。前者需要解释并生成大量观测细节，后者主动把预测重点放在表征中更可预测、对任务更有用的因素上。而 V-JEPA 2-AC 又往前走了一步："执行这个动作之后，世界的任务相关状态会怎样变化"。
+
+但更深层的问题是：**一个用于预测和决策的内部状态，究竟需要包含多少观测信息？** 这才是 JEPA 路线真正挑战的核心问题——不是"pixels bad, latent good"，而是"what information is sufficient for prediction and control"。I-JEPA/V-JEPA 证明的是 predictive representation learning 的有效性；V-JEPA 2-AC 才开始验证 representation 是否能够承载 action-conditioned dynamics。但"representation learning 有效"与"representation 是控制充分状态"之间仍然存在一道尚未完全解决的鸿沟。这才是 JEPA 从 representation learning 走向 world modeling 的真正转折点，也是这条路线最值得持续关注的地方。
 
 *下一篇，我打算聊具身智能方向创业的团队配置——不是商业计划书，而是一个工程师视角的务实分析。*
