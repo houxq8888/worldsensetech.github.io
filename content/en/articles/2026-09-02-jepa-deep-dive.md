@@ -8,6 +8,7 @@ tags: ["JEPA", "I-JEPA", "V-JEPA", "V-JEPA 2", "V-JEPA 2-AC", "AMI Labs", "LeCun
 description: "From the 2022 theoretical blueprint to I-JEPA and V-JEPA, then to V-JEPA 2's video prediction, action-conditioned prediction, and robot planning demonstration — LeCun's JEPA path has progressively moved from predictive representation learning toward world model research. This article breaks down the entire JEPA technology path and discusses the real differences with Dreamer/RSSM and generative world models."
 toc: true
 related_articles:
+  - 2026-09-03-vla-deep-dive
   - 2026-09-01-world-model-h2-review
   - rssm-deep-dive
   - world-model-intro
@@ -367,4 +368,4 @@ What truly makes JEPA worth attention is not that it proposes yet another "world
 
 But the deeper question is: **how much observation information does an internal state for prediction and decision-making actually need to contain?** This is the core question that the JEPA path truly challenges — not "pixels bad, latent good," but "what information is sufficient for prediction and control." I-JEPA/V-JEPA demonstrate the effectiveness of predictive representation learning; V-JEPA 2-AC is only beginning to validate whether representations can support action-conditioned dynamics. But there remains a gap not yet fully bridged between "representation learning works" and "representation is a control-sufficient state." This is the true turning point of JEPA's journey from representation learning to world modeling, and the aspect most worth continued attention.
 
-*Next up, I'll discuss team configuration for starting a company in embodied AI — not a business plan, but a pragmatic analysis from an engineer's perspective.*
+*Next up, I'll break down VLA (Vision-Language-Action) — from RT-2 to OpenVLA to π₀, how this path end-to-end connects language understanding, visual perception, and robot actions, and where it fundamentally differs from the world model approach.*

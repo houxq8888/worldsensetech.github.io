@@ -8,6 +8,7 @@ tags: ["JEPA", "I-JEPA", "V-JEPA", "V-JEPA 2", "V-JEPA 2-AC", "AMI Labs", "LeCun
 description: "从 2022 年的理论蓝图到 I-JEPA、V-JEPA，再到 V-JEPA 2 的视频预测、动作条件预测与机器人规划演示，LeCun 的 JEPA 路线逐步从预测性表征学习走向世界模型研究。这篇文章逐篇拆解这条技术路线，并讨论它与 Dreamer/RSSM、生成式世界模型之间的真正区别。"
 toc: true
 related_articles:
+  - 2026-09-03-vla-deep-dive
   - 2026-09-01-world-model-h2-review
   - rssm-deep-dive
   - world-model-intro
@@ -367,4 +368,4 @@ JEPA 真正值得关注的地方，不是它提出了另一个"世界模型架�
 
 但更深层的问题是：**一个用于预测和决策的内部状态，究竟需要包含多少观测信息？** 这才是 JEPA 路线真正挑战的核心问题——不是"pixels bad, latent good"，而是"what information is sufficient for prediction and control"。I-JEPA/V-JEPA 证明的是 predictive representation learning 的有效性；V-JEPA 2-AC 才开始验证 representation 是否能够承载 action-conditioned dynamics。但"representation learning 有效"与"representation 是控制充分状态"之间仍然存在一道尚未完全解决的鸿沟。这才是 JEPA 从 representation learning 走向 world modeling 的真正转折点，也是这条路线最值得持续关注的地方。
 
-*下一篇，我打算聊具身智能方向创业的团队配置——不是商业计划书，而是一个工程师视角的务实分析。*
+*下一篇，我打算拆解 VLA（Vision-Language-Action）——从 RT-2 到 OpenVLA 再到 π₀，这条路线是怎么把语言理解、视觉感知和机器人动作端到端串起来的，以及它和世界模型路线的本质区别。*

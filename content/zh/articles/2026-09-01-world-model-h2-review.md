@@ -8,6 +8,8 @@ tags: ["世界模型", "2026盘点", "NVIDIA Cosmos", "Genie 3", "AMI Labs", "JE
 description: "截至 2026 年 8 月底，世界模型方向正在经历一次深层分化。从 NVIDIA Cosmos 到 Google Genie 3，从 LeCun 的 AMI Labs 到 Fei-Fei Li 的 World Labs，不同技术路线开始走向不同的应用场景。本文尝试理清这些项目和论文之间的关系。"
 toc: true
 related_articles:
+  - 2026-09-03-vla-deep-dive
+  - 2026-09-02-jepa-deep-dive
   - world-model-2026-trend
   - vla-vs-world-model
   - world-model-intro

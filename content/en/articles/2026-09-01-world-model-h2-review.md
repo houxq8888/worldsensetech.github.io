@@ -8,6 +8,8 @@ tags: ["World Models", "2026 Review", "NVIDIA Cosmos", "Genie 3", "AMI Labs", "J
 description: "As of late August 2026, the world model field is undergoing a deep divergence. From NVIDIA Cosmos to Google Genie 3, from LeCun's AMI Labs to Fei-Fei Li's World Labs, different technology paths are heading toward different applications. This article attempts to clarify the relationships between these projects and papers."
 toc: true
 related_articles:
+  - 2026-09-03-vla-deep-dive
+  - 2026-09-02-jepa-deep-dive
   - world-model-2026-trend
   - vla-vs-world-model
   - world-model-intro
