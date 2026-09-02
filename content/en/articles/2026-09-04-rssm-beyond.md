@@ -5,7 +5,7 @@ date: 2026-09-04
 draft: false
 categories: ["World Models", "Paper Analysis"]
 tags: ["RSSM", "State-Space Model", "TD-MPC", "Mamba", "DreamerV3", "World Model", "Latent Dynamics"]
-description: "RSSM is the core engine of the Dreamer family of world models, but the landscape of state-space modeling has changed significantly in recent years. This article places RSSM within the broader evolution of state-space modeling -- distinguishing between latent dynamics and sequence backbone layers, discussing TD-MPC2's planning + value fusion approach, and exploring possible future directions for world model engines."
+description: "RSSM is the core engine of the Dreamer family of world models, but the landscape of state-space modeling has changed significantly in recent years. This article places RSSM within the broader evolution of state-space modeling -- distinguishing between latent dynamics and sequence backbone layers, discussing TD-MPC2's decoder-free latent world model approach and planning + value fusion, and exploring the paradigm shift from 'generating the world' to 'providing predictive interfaces' for world model engines."
 toc: true
 related_articles:
   - rssm-deep-dive
@@ -40,11 +40,11 @@ The **deterministic path h_t** is recursively updated by h_t = f(h_{t-1}, z_{t-1
 
 This design has several noteworthy characteristics:
 
-**First, RSSM is more accurately described as a belief-state model.** The classical state-space model takes the form z_{t+1} = f(z_t, a_t), o_t = g(z_t). RSSM is closer to a **partially observable** latent variable model. From a POMDP perspective, RSSM's recurrent state (h_t, z_t) can be understood as a parameterization of the belief state formed from historical observations and actions -- it does not directly recover the environment's "true physical state," but rather learns a latent belief sufficient to support prediction and control.
+**First, RSSM is more accurately described as a belief-state model.** The classical state-space model takes the form z_{t+1} = f(z_t, a_t), o_t = g(z_t). RSSM is closer to a **partially observable** latent variable model. From a POMDP perspective, RSSM's recurrent state (h_t, z_t) can be understood as a parameterization of the belief state formed from historical observations and actions -- it does not directly recover the environment's "true physical state," but rather learns a latent belief representation sufficient to support prediction and control.
 
-**Second, the categorical latent is an engineering-driven choice.** An engineering advantage of the categorical latent is that both prior and posterior are explicit discrete distributions, so KL divergence can be computed analytically; at the same time, it provides a more flexible discrete stochastic representation than a single continuous Gaussian latent. DreamerV2/V3 further combined this latent with a straight-through estimator. This is a pragmatic design decision, not a theoretically optimal solution.
+**Second, the categorical latent is an engineering-driven choice.** An engineering advantage of the categorical latent is that both prior and posterior are explicit discrete distributions, so KL divergence can be computed analytically; at the same time, it provides a discrete stochastic representation, allowing prior/posterior to perform KL computation directly on categorical distributions. DreamerV2/V3 further combined this latent with a straight-through estimator. This is a pragmatic design decision, not a theoretically optimal solution.
 
-**Third, one of Dreamer's key contributions is combining learned latent dynamics with actor-critic learning, enabling policy/value to be trained primarily on imagined latent trajectories.** The concept of imagination / model rollout in model-based RL predates Dreamer. Dreamer's innovation lies in: RSSM is not only used to fit historical data, but also to "imagine" future trajectories in latent space -- starting from the current posterior, using the prior to rollout multiple future paths, and then training the actor and critic on these imagined trajectories. This has kept the Dreamer family consistently ahead in sample efficiency.
+**Third, Dreamer's core training mechanism is combining learned latent dynamics with actor-critic learning, enabling policy/value to be trained primarily on imagined latent trajectories.** The concept of imagination / model rollout in model-based RL predates Dreamer. Dreamer's innovation lies in: RSSM is not only used to fit historical data, but also to "imagine" future trajectories in latent space -- starting from the current posterior, using the prior to rollout multiple future paths, and then training the actor and critic on these imagined trajectories. This has kept the Dreamer family consistently ahead in sample efficiency.
 
 These design choices were progressively validated through the evolution from DreamerV1 → V2 → V3. But are they the only possible path?
 
@@ -52,34 +52,36 @@ These design choices were progressively validated through the evolution from Dre
 
 During the same period as RSSM's development, a parallel line of state-space models emerged in the NLP and sequence modeling domains. **It is important to emphasize: S4/Mamba are first and foremost sequence models, not world models.** They address efficient sequence processing, not action-conditioned environment dynamics.
 
-**S4 (Structured State Space for Sequences, 2022)** introduced a structured-parameterized continuous-time state-space model. Its core formulation is the classical linear SSM:
+**S4 (Structured State Spaces, 2021/2022)** introduced a structured-parameterized continuous-time state-space model. Its core formulation is the classical linear SSM:
 
 ```
 h'(t) = A h(t) + B x(t)
 y(t) = C h(t) + D x(t)
 ```
 
-The key to S4 is not simply "doing a diagonalization," but rather a **structured parameterization** of the classical SSM's state matrix A -- combining HiPPO initialization, low-rank correction, and normalized/diagonal parameterization, implemented through efficient Cauchy kernel computation -- making long-range memory both expressive and computationally efficient. S4 demonstrated Transformer-level performance on long-sequence benchmarks, but with higher computational efficiency.
+The key to S4 lies in structured parameterization of the state matrix A, combined with HiPPO initialization and low-rank correction, enabling stable and efficient computation of long-range convolutions. S4 demonstrated Transformer-level performance on long-sequence benchmarks, but with higher computational efficiency.
 
-**Mamba (2024)** built upon S4 by introducing **selectivity** -- making the SSM's key parameters (B_t, C_t, Δ_t) input-dependent, thereby obtaining a **selective state space**. This means that state transition / information retention can vary based on the current token content, enabling the model to selectively remember or forget information. Mamba achieved near-Transformer performance on language modeling, while exhibiting linear scaling in sequence length and efficient hardware execution through selective scan.
+**Mamba (2023/2024)** built upon S4 by introducing **selectivity** -- making the SSM's key parameters (B_t, C_t, Δ_t) input-dependent, thereby obtaining a **selective state space**. This means that state transition / information retention can vary based on the current token content, enabling the model to selectively remember or forget information. Mamba demonstrated competitive performance with same-scale Transformers on the language modeling experiments reported in its paper, while exhibiting linear scaling in sequence length and efficient hardware execution through selective scan.
+
+### RSSM vs S4/Mamba: Not "Representing the World vs Representing Context"
 
 What is the relationship between these two lines and RSSM?
 
-**Formally similar, but with different goals.** Both RSSM and S4/Mamba use a "latent state + state transition" framework, but RSSM's latent state is a **task-relevant latent belief about environment history** -- sufficient to support observation prediction, reward prediction, and control; whereas S4/Mamba's latent state is a **contextual compression of input sequence history** -- serving sequence prediction.
+**Formally similar, but with different goals and training interfaces.** Both RSSM and S4/Mamba use a "latent state + state transition" framework, but RSSM explicitly defines action-conditioned latent transitions and prediction models related to observation/reward, so its latent state is trained to support environment prediction and control. S4/Mamba, on the other hand, are first and foremost a general-purpose sequence architecture; their hidden states do not inherently possess fixed semantics of "context" or "world state" -- rather, this is determined by the specific training objective.
 
-In other words:
+Therefore, a more accurate distinction is not "RSSM represents the world, Mamba represents context," but rather:
 
 ```
 RSSM:
-  latent state ≈ task-relevant latent belief about environment history
-               → sufficient for observation / reward / control prediction
+  latent state + action-conditioned transition
+  → environment prediction / imagination / control
 
 S4/Mamba:
-  latent state ≈ contextual compression of input sequence history
-               → serving sequence prediction
+  recurrent/SSM hidden state
+  → sequence processing
 ```
 
-This distinction is crucial. RSSM's latent state is designed to answer "what state is the world in now, and how will it change next?"; S4/Mamba's latent state is designed to answer "what is the context of this sequence, and what should the next token be?"
+If Mamba is trained as an action-conditioned latent dynamics model, it too can become a world-model engine; conversely, RSSM's recurrent state can also be understood as a special kind of sequence state representation. **The architecture itself does not determine semantics; the training interface does.**
 
 ## TD-MPC2: An Alternative Latent Dynamics Approach
 
@@ -97,44 +99,75 @@ Policy:      π(a_t | z_t)                    → policy prior
 
 **No deterministic/stochastic dual track, no categorical latent, no KL balancing.** It uses a more direct approach: the encoder maps observations to latent space, performs dynamics prediction in latent space, and then combines short-horizon MPC with long-term Q-value estimation to select actions.
 
-The core of TD-MPC2 is not a complex latent-state decomposition, but rather the combination of **concise latent dynamics, task-conditioned representation, short-horizon MPC, and long-horizon Q-value estimation.** Its three key innovations:
+### Decoder-free: From "Generating the World" to "Serving Control"
 
-**First, the combination of latent-space MPC and Q-function ensemble.** TD-MPC2 performs short-horizon rollouts on latent dynamics and uses a Q-function ensemble (defaulting to 5 Q-functions, with TD target using the minimum of a randomly subsampled Q-function) to provide long-term value estimation, thereby bridging short-horizon MPC planning with long-horizon TD bootstrapping. This is what makes TD-MPC2 truly elegant.
+A very important divergence emerges here.
 
-**Second, task-conditioned cross-task / cross-embodiment scaling.** TD-MPC2 demonstrated scalability across 139 tasks and multiple robot morphologies. This is not "one dynamics model automatically understanding all embodiments," but rather using **task embeddings / task-conditioned components** to adapt the same network to different tasks/morphologies -- the encoder, dynamics, reward, policy prior, and Q components are all linked to task embeddings.
+The RSSM / Dreamer approach is:
+
+```
+observation → latent → dynamics → reconstruct observation
+                                        ↓
+                                   imagination
+```
+
+The TD-MPC2 approach is:
+
+```
+observation → encoder → z_t → latent dynamics → ẑ_{t+1}
+                                │                    ↕
+                          ┌──────┼──────        consistency
+                          ↓      ↓      ↓         loss
+                        reward   Q    policy    ↕
+                                          encoder(o_{t+1})
+```
+
+**Unlike Dreamer/RSSM's observation reconstruction approach, TD-MPC2 is a decoder-free latent world model: it does not require the latent to reconstruct pixels, but instead uses latent consistency, reward prediction, and value prediction to directly make representations serve control objectives.**
+
+This suggests that the goal of world models may be shifting from "generating the world" to "providing predictive interfaces sufficient to support decision-making." This is not to say that generative world models lack value -- rather, **a world model does not necessarily need to become a more powerful "video generator." The more critical question is: what kind of action-conditioned predictive interface does it need to provide to support planning, value estimation, or policy learning at the lowest computational and data cost?**
+
+### TD-MPC2's Design Priorities
+
+The core of TD-MPC2 is not a complex latent-state decomposition, but rather the combination of **concise latent dynamics, task-conditioned representation, short-horizon MPC, and long-horizon Q-value estimation.** The design priorities of TD-MPC2 can be summarized in three aspects:
+
+**First, the combination of latent-space MPC and Q-function ensemble.** TD-MPC2's explicit MPC planning horizon is very short (default 3 steps), so it does not complete long-term planning through extended rollouts; instead, it lets the learned Q-function provide long-term value bootstrap at the planning boundary. Specifically, TD-MPC2 performs short-horizon rollouts on latent dynamics and uses a Q-function ensemble (defaulting to 5 Q-functions, with TD target using the minimum of a randomly subsampled Q-function) to provide long-term value estimation, thereby bridging short-horizon MPC planning with long-horizon TD bootstrapping. This is what makes TD-MPC2 truly elegant.
+
+**Second, task-conditioned cross-task / cross-embodiment scaling.** TD-MPC2 demonstrated cross-task training capability across a large number of continuous control tasks, handling different tasks and embodiments through task embeddings. This is not "one dynamics model automatically understanding all embodiments," but rather using **task embeddings / task-conditioned components** to adapt the same set of models to different tasks -- the encoder, dynamics, reward, policy prior, and Q components are all linked to task embeddings.
 
 **Third, stabilization of latent representations.** TD-MPC2 uses SimNorm to normalize latent states, and jointly trains the encoder, dynamics, reward, policy prior, and Q-functions, so that the latent representation serves both prediction and control -- without requiring the stochastic prior/posterior KL constraints of RSSM.
 
 From RSSM to TD-MPC2, a clear trend emerges: **TD-MPC2 demonstrates an alternative path: instead of relying on complex stochastic recurrent states, it combines dynamics prediction, short-horizon MPC, and long-horizon value estimation within a compact latent space.**
 
-## Four-Layer Architecture: Not Just "Three Approaches"
+## Four Levels: From Sequence Backbone to Control
 
-Placing the models discussed above together reveals that they do not operate at the same level. A more accurate understanding is a four-layer architecture:
+Placing the models discussed above together reveals that they do not operate at the same level. A more accurate understanding involves four levels:
 
 ```
-                    Sequence / State Modeling
-                              │
-              ┌───────────────┴───────────────┐
-              ↓                               ↓
-      Sequence Backbone                 Latent Dynamics
-      S4 / Mamba / Transformer          RSSM / MLP / Transformer
-              │                               │
-              │                               ↓
-              │                     Action-conditioned prediction
-              │                               │
-              └───────────────┬───────────────┘
-                              ↓
-                         World Model
-                              │
-                    ┌─────────┴─────────┐
-                    ↓                   ↓
-                 Imagination            MPC + Value
-                 Dreamer             TD-MPC2
-                    ↓                   ↓
-                    └─────────┬─────────┘
-                              ↓
-                           Policy
+             Representation / Sequence Backbone
+                         │
+              ┌──────────┴──────────┐
+              ↓                     ↓
+       Latent Dynamics        Sequence Modeling
+        RSSM / MLP /           S4 / Mamba /
+        Transformer            Transformer
+              │
+              ↓
+      Action-conditioned
+        Prediction
+              │
+       ┌──────┴───────┐
+       ↓              ↓
+   Imagination        MPC
+    Dreamer         TD-MPC2
+       │              │
+       ↓              ↓
+   Actor-Critic    Q / Value
+       └──────┬───────┘
+              ↓
+            Policy
 ```
+
+Therefore, "world model" is better understood as a functional interface rather than a fixed network structure: it needs to provide at least some queryable predictive capability regarding future states, observations, rewards, or values, and be usable for decision-making, planning, or policy learning. From this perspective, RSSM, TD-MPC2, Transformer world models, and even certain JEPA-style predictive models can all belong to the world-model family, but the prediction interfaces they provide are not the same.
 
 This layering matters:
 
@@ -147,14 +180,16 @@ The relationship between them is not "three parallel approaches," but rather **c
 
 ### Comparison Table
 
-| Dimension | RSSM / Dreamer | S4 / Mamba | TD-MPC2 |
-|------|---------------|------------|---------|
-| **Core Formulation** | Dual-track latent state (deterministic + stochastic) | Continuous/discrete linear SSM | Encoder + MLP dynamics + Q ensemble |
-| **Latent State Meaning** | Task-relevant latent belief about environment history | Sequence context compression | Task-conditioned latent |
-| **Primary Training Mechanism** | observation/reward/continuation prediction + KL regularization; actor-critic trained on imagined trajectories | sequence modeling objective | latent dynamics/reward + TD/Q learning + MPC |
-| **Inference Method** | imagination → actor-critic | sequence forward pass | latent-space MPC + Q-value bootstrapping |
-| **Strengths** | sample efficiency, long-horizon imagination | long-sequence efficiency, scalability | planning + value fusion, task-conditioned cross-task scaling |
-| **Limitations** | complex tuning, limited categorical precision | does not directly model dynamics | planning relies on limited-horizon latent MPC; long-term decisions depend on learned Q-function bootstrapping |
+| Dimension | RSSM-based Dreamer | S4 / Mamba | TD-MPC2 |
+|------|-------------------|------------|---------|
+| **Positioning** | stochastic latent dynamics + imagination RL | general sequence architecture | latent dynamics + MPC + TD learning |
+| **State Structure** | deterministic + stochastic latent | SSM hidden state | continuous task-conditioned latent |
+| **Action-conditioned** | Yes | Not by default | Yes |
+| **Observation Decoder** | typically yes | not needed | not needed (decoder-free) |
+| **Core Prediction Interface** | latent transition + observation/reward | sequence transformation | latent transition + reward/value |
+| **Control Method** | imagined actor-critic | not a control algorithm itself | latent MPC + Q bootstrap |
+| **Key Strengths** | imagination / sample efficiency | long sequence efficiency | planning + value + multitask scaling |
+| **Key Limitations** | stochastic latent / training complexity | does not naturally provide dynamics semantics | short MPC horizon + Q bootstrap |
 
 ## Directions of Convergence: What Kind of Sequence Architecture Do World Models Need?
 
@@ -164,7 +199,9 @@ Looking at recent work, there are several convergence trends worth noting.
 
 ### Trend 1: VLAs Are Borrowing SSM Architectures
 
-Some new VLA work has begun exploring the use of Mamba-style architectures to replace Transformer backbones for processing vision-language-action sequences. The motivation is straightforward: under standard global self-attention, Transformer computational/memory costs grow quadratically with sequence length; for robot policies that need to process long observation histories, this is computationally expensive. Practical world models often mitigate this through token compression, local attention, or other structural choices.
+The VLA domain has already seen work directly adopting Mamba/SSM backbones. For example, RoboMamba (NeurIPS 2024) combines visual encoding with Mamba for vision-language-action reasoning, validating its efficiency in both simulation and real robot experiments; recent work has also begun further exploring the use of selective SSMs for VLA action experts.
+
+The motivation is straightforward: under standard full self-attention, the attention computation during training scales as O(L²) with context length; while autoregressive inference can avoid recomputing the entire attention at each step through KV cache, the KV cache memory still grows with context length. For robot policies that need to continuously process long observation histories, this creates significant computational and memory pressure.
 
 But there is a conceptual tension here: **Mamba's latent state is sequence context compression, not an environment dynamics representation.** Using Mamba as a VLA backbone can make the model more efficient at processing long sequences, but it will not automatically gain RSSM's ability to "simulate physical dynamics in latent space."
 
@@ -172,9 +209,9 @@ From a modeling perspective, this connects precisely to the problem discussed in
 
 ### Trend 2: World Models Are Adopting Transformer Architectures
 
-Conversely, some world model work has begun using Transformers to replace RSSM's GRU + categorical latent structure. For example, IRIS (*Transformers are Sample-Efficient World Models*) uses a discrete image tokenizer + autoregressive Transformer to build a world model, turning image dynamics into token sequence modeling.
+Conversely, some world model work has begun using Transformers to replace RSSM's GRU + categorical latent structure. For example, IRIS (*Transformers are Sample-Efficient World Models*) uses a discrete image tokenizer + autoregressive Transformer to build a world model, turning image dynamics into token sequence modeling. IRIS was primarily validated on Atari environments, so it serves better as a representative of the "Transformer world model" architectural line rather than a direct robot world-model benchmark.
 
-The advantage of this direction is that Transformer attention mechanisms naturally support "attending to key past time steps," without needing to compress all historical information through h_t as in RSSM. Under standard global self-attention, computational/memory costs grow quadratically with sequence length; but practical world models often mitigate this through token compression, local attention, or other structural choices.
+The advantage of this direction is that Transformer's explicit attention provides direct interaction capability across temporal positions, allowing the model to dynamically utilize information from different historical positions based on the current prediction target, without needing to compress history into a single recurrent state of fixed dimension as in RSSM. Under standard global self-attention, attention computation during training scales as O(L²) with context length; but practical world models often mitigate this through token compression, local attention, or other structural choices.
 
 ### Trend 3: Hybrid Architectures of Latent Dynamics + Foundation Models
 
@@ -200,13 +237,13 @@ Returning to the original question: where does RSSM stand in the evolution of st
 
 I think RSSM's contributions can be summarized at three levels.
 
-**First, it demonstrated the practicality of latent imagination for behavior learning.** The Dreamer series, through the complete engineering implementation of RSSM + imagination, proved that the combination of learned latent dynamics with actor-critic learning is viable and even sample-efficient on real robot tasks.
+**First, it demonstrated the practicality of latent imagination for behavior learning.** The Dreamer series, through the complete engineering implementation of RSSM + imagination, proved that the combination of learned latent dynamics with actor-critic learning can achieve high sample efficiency across a variety of visual control and reinforcement learning tasks.
 
 **Second, it provided a reference architecture.** RSSM's dual-track design (deterministic + stochastic) was not an accidental choice, but reflects a deep design principle: **world models need to simultaneously capture predictable dynamics and unpredictable uncertainty.** This principle will not become outdated, even if the specific implementation (GRU, categorical latent) may be superseded.
 
 **Third, it represented and systematized an important design space of "latent dynamics + imagination-based control."** RSSM proved that "performing dynamics prediction in latent space + training policies in imagination" is a viable path. Subsequent work can either replace the dynamics engine within this space (as TD-MPC2 does with MLP dynamics replacing RSSM), or adopt entirely different predictive representations (such as JEPA's latent prediction, video generative models, or diffusion world models).
 
-If one were to make a somewhat metaphorical analogy, RSSM's position in latent-dynamics world models is somewhat analogous to LSTM's position in classical sequence modeling: it may not be the final destination, but it proved that an important structure can work at scale.
+If one were to make a somewhat metaphorical analogy, RSSM is more like a **canonical reference architecture** in latent-dynamics world models: it may not be the final form, but it concretized the entire paradigm of "stochastic latent + recurrent state + learned dynamics + imagination" and proved its engineering feasibility.
 
 ## Open Questions
 
@@ -218,7 +255,7 @@ There are several questions that I think do not yet have clear answers.
 
 **Will scaling change architectural choices?** A hypothesis worth testing is: in regimes where data is limited, observations are complex, or environments are highly stochastic, explicit stochastic latent structure may provide valuable inductive bias; while after data and task scales expand, whether more concise and unified latent dynamics architectures scale more easily requires systematic experimental validation.
 
-**What are the limits of imagination?** RSSM's imagination in DreamerV3 can already rollout very long trajectories. But the quality of imagination degrades with rollout length -- is this a fundamental limitation, or can it be resolved through better architectures?
+**What are the limits of imagination?** DreamerV3 does not solve long-horizon decision-making through a single infinitely extended latent rollout; its default imagination horizon is 15 steps, with long-term returns primarily propagated through value bootstrap. Therefore, a more accurate question is: **to what extent can finite-horizon imagination + value bootstrap reliably solve long-horizon tasks? If the rollout horizon is further increased, at what rate does model error accumulate?**
 
 ---
 
