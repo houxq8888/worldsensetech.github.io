@@ -72,7 +72,7 @@ Rather than only comparing parameters and data sizes, it is more revealing to lo
 | OpenVLA-OFT | Can a discrete AR action decoder become a high-throughput policy? |
 | pi0 | Can continuous action generation scale to a generalist robot policy? |
 | pi0.5 | Can heterogeneous data and hierarchical semantics handle long-horizon tasks? |
-| pi0.7 | Can strategy conditioning achieve a steerable generalist policy? |
+| pi0.7 | Can context-rich policy steering achieve a steerable generalist policy? |
 
 This table reveals the internal logic of technical evolution better than a pure parameter comparison.
 
@@ -154,7 +154,7 @@ RT-2's core numbers need to be distinguished across different evaluation protoco
 
 - **Performance on the original task distribution**: similar to RT-1 (approximately 91-93%), indicating that co-finetuning did not sacrifice existing capabilities
 - **On generalization evaluation with novel objects, novel scenes, etc.**: RT-2 achieves approximately **62%**, significantly higher than RT-1's approximately **32%** -- nearly a 2x improvement
-- **Emergent semantic capabilities** (capabilities completely absent from robot training):
+- **Emergent semantic capabilities** (capabilities completely absent from robot training scope):
   - Symbol understanding 82% (identifying and manipulating abstract symbols -- numbers, shapes, logos)
   - Person recognition 53% ("move the object to Taylor Swift")
   - Logical reasoning 46% ("place the object on top of 2+1")
@@ -205,12 +205,12 @@ OpenVLA is a 7B parameter model based on the Prismatic VLM architecture:
 
 **Visual Side -- Dual Encoder:**
 - SigLIP (1152-dimensional features) + DINOv2 (1024-dimensional features), two visual encoders providing complementary visual features
-- 224x224 images processed through a patch size 14 visual encoder yield 16x16 = 256 patch embeddings
+- Each visual encoder produces 256 spatial patch tokens at 224x224 input with 14x14 patch configuration
 - Features from both encoders are concatenated along the channel dimension, yielding a 2176-dimensional representation
 
-**Projection Layer:** A 3-layer MLP (GELU activation) maps the 2176-dimensional visual features to the LLM's 4096-dimensional embedding space. OpenVLA's VLA training does not simply freeze the visual side -- it adapts visual representations using robot data -- this is one of the more counterintuitive design choices in the paper.
+**Projection Layer:** A 3-layer MLP (GELU activation) maps the 2176-dimensional visual features to the LLM's 4096-dimensional embedding space. OpenVLA's VLA training does not simply freeze the visual side -- it adapts visual representations for robot data -- this is one of the more counterintuitive design choices in the paper.
 
-**Language Backbone:** Llama-2 7B (32-layer Transformer decoder), with an input sequence of approximately 280 tokens (BOS + visual patches + language instruction + action tokens).
+**Language Backbone:** Llama-2 7B (32-layer Transformer decoder), with visual patch tokens, language instruction tokens, and action tokens forming the input sequence together.
 
 **Action Output:** Following RT-2's approach -- **overwriting the 256 lowest-frequency tokens in the Llama tokenizer** as action bin IDs (the Llama tokenizer has only about 100 reserved special tokens, which is insufficient), with each action dimension autoregressively generating one token. Outputs 7-DoF actions for the WidowX robot.
 
@@ -231,7 +231,7 @@ On the **29 tasks across multiple robot embodiments** reported in the paper (ave
 | OpenVLA vs Diffusion Policy | -- | +20.4% |
 | OpenVLA vs RT-1-X / Octo | -- | Surpasses both |
 
-**On difficult semantic generalization tasks (requiring internet-scale knowledge to understand the concepts), RT-2-X remains stronger.** OpenVLA's Open X-Embodiment training data does not include internet-scale image-text pretraining, so in "understanding completely unseen semantic concepts," it falls short of RT-2.
+**On difficult semantic generalization tasks, RT-2-X remains stronger.** RT-2 directly inherits backbones like PaLI-X / PaLM-E that underwent large-scale internet multimodal pretraining, while OpenVLA's training focus is robot data, so on zero-shot evaluations that rely on web-scale semantic knowledge, RT-2 has a clear advantage.
 
 ### Limitations
 
@@ -242,7 +242,7 @@ On the **29 tasks across multiple robot embodiments** reported in the paper (ave
 
 ## 5. OpenVLA-OFT: The Real Bottleneck May Be the Action Interface
 
-OpenVLA-OFT (2025, arXiv:2502.19645) should not be viewed merely as an optimization of OpenVLA. From a technical evolution perspective, it answers a critical question:
+OpenVLA-OFT (2025, arXiv:2502.19645) should not be viewed merely as an optimization of OpenVLA in the article's technical timeline. From a technical evolution perspective, it answers a critical question:
 
 > **"Is the performance bottleneck of VLA the foundation model itself, or the action decoding?"**
 
@@ -261,9 +261,9 @@ Results:
 | Inference throughput | 4.2 Hz | **109.7 Hz** |
 | Speed improvement | -- | **26x** |
 
-The significance of OFT lies in demonstrating an important conclusion: **the scaling of the model backbone is not the only bottleneck for real-time robot control performance -- the action interface itself is equally important.** Changing the action decoding from token-by-token autoregressive to parallel decoding + action chunking + continuous action head -- modifying only the action interface -- yielded a 26x speed improvement and a substantial success rate increase.
+The significance of OFT lies in demonstrating an important conclusion: **the scaling of the model backbone is not the only bottleneck for real-time robot control performance -- the action interface itself is a first-class citizen.** Primarily by restructuring the action interface -- from token-by-token autoregressive to parallel decoding + action chunking + continuous action head -- OFT achieved a dramatic speed improvement and success rate increase.
 
-This aligns closely with the main thread we will see later: "discrete handles unification, continuous handles control."
+This aligns closely with the main thread we will see later: "Discrete handles unification; continuous handles control."
 
 There is a point of confusion that needs clarification here: **"continuous action" and "flow matching" are not the same concept.** "Discrete tokens -> continuous action" is an evolution along one dimension (action representation), while "regression / diffusion / flow matching" is a choice along another dimension (the specific generation mechanism for continuous actions). OpenVLA-OFT takes the continuous regression path, while pi0 takes the flow matching path -- both belong to "continuous action" but with different generation mechanisms.
 
@@ -275,7 +275,7 @@ There is a point of confusion that needs clarification here: **"continuous actio
 
 ### Physical Intelligence Background
 
-Physical Intelligence (also known as pi) was founded in 2023 in San Francisco, with the mission of "building general-purpose robot brains." The five co-founders include Karol Hausman (CEO, former Google DeepMind, core member of SayCan / RT-2), Chelsea Finn (Stanford, inventor of MAML), Sergey Levine (UC Berkeley, co-author of SAC), Brian Ichter, and Jasmine Hsu (both from Google Brain). As of 2026, Physical Intelligence has raised approximately $2.1 billion in total funding, with the most recent round corresponding to a valuation of approximately $11 billion.
+Physical Intelligence is a San Francisco-headquartered company focused on general-purpose robot foundation models. Its pi series represents one of the important technical trajectories for continuous-action VLA today.
 
 ### Core Architecture
 
@@ -295,38 +295,30 @@ The inputs include image tokens, language tokens, and proprioception, which pass
 
 ### Three Mechanisms for Continuous Action Generation
 
-There are three main mechanisms for continuous action generation, which need to be clearly distinguished. They are not a sequence of replacements, but rather **two parallel lines under generative action modeling**:
+There are three main mechanisms for continuous action generation, which need to be clearly distinguished. They are **not a sequence of replacements, but three parallel continuous action modeling approaches**:
 
 ```
-              Generative Action Modeling
+             Continuous Action Modeling
                         |
-                   +----+----+
-              Diffusion   Flow Matching
-                   |             |
-             score/noise   vector field
-                   |             |
-             iterative     ODE integration
-             denoising     / transport
-                   |             |
-                   +----+--------+
-                        |
-                  Regression
-                        |
-                  direct prediction
-                  (no sampling)
+          +-------------+-------------+
+          |             |             |
+     Regression      Diffusion    Flow Matching
+          |             |             |
+    direct output   denoising      vector field
+                    sampling       + ODE
 ```
 
-Flow matching trains a vector field / velocity field over a probability path, enabling the model to transport from a simple prior distribution to the target data distribution through ODE integration. What it does is:
+Flow matching trains a vector field / velocity field over a probability path, enabling the model to transport from a simple prior distribution to the target action distribution through ODE integration. What it does is:
 
-- Define a probability path from a pure noise distribution to a target action distribution (linear-Gaussian probability path)
+- Define a probability path from a simple prior distribution to a target action distribution (linear-Gaussian probability path)
 - Train a network to predict the velocity field along this path
-- During inference, start from noise and integrate along the learned vector field to obtain continuous actions
+- During inference, start from the prior and integrate along the learned vector field to obtain continuous actions
 
-The key difference from diffusion is that their training objectives and inference forms differ. In pi0's specific implementation, flow matching combined with fewer Euler integration steps forms a continuous policy suitable for real-time action chunk generation.
+The key difference from diffusion is that their training objectives and inference forms differ. pi0 adopts flow matching, and in the specific implementation uses a small number of Euler integration steps for action generation, keeping the continuous generation process within a computational budget suitable for real-time robot execution.
 
 ### Action Chunks, Temporal Abstraction, and Planning: Three Easily Confused Concepts
 
-pi0 generates an action chunk containing **50 future actions** each time; at a maximum **50 Hz system control frequency**, this corresponds to approximately 1 second of future trajectory. The paper reports that its system can achieve up to 50 Hz system control frequency on dexterous tasks.
+pi0 each time predicts an action chunk of length **50 steps**, with each step corresponding to the current embodiment's action vector (up to 18 DoF). At a 50 Hz control frequency, a 50-step chunk corresponds to approximately 1 second of time span. The paper reports that its system can achieve up to 50 Hz system control frequency on dexterous tasks.
 
 It is important to note that flow matching inference itself still requires multi-step integration. The 50 Hz figure is the system-level control frequency including action chunk execution, not the speed of a single flow matching inference call.
 
@@ -374,7 +366,7 @@ Under the zero-shot real-world evaluation protocol reported in the paper, pi0 de
 | Desk clearing | Reports 97.1% success |
 | Comparison with discrete VLAs | Clearly stronger on these specific zero-shot protocols |
 
-Note that these observations are highly dependent on the specific task protocol (number of trials, robot embodiment, task definition, the exact meaning of "zero-shot," etc.), and therefore should not be interpreted as a universal cross-model performance ranking. However, they clearly show that tasks like cloth folding and desk clearing -- which require long-horizon, high-precision continuous manipulation -- are precisely the weakness of discrete token approaches.
+Note that these observations are highly dependent on the specific task protocol (number of trials, robot embodiment, task definition, the exact meaning of "zero-shot," etc.), and therefore should not be interpreted as a universal cross-model performance ranking. However, they clearly show that these tasks expose the potential limitations of discrete action representation in high-precision continuous control.
 
 ### Understanding pi0's Performance Gains
 
@@ -422,7 +414,13 @@ One notable data point: in pi0.5's first-stage training data, approximately **97
 
 pi0.5 therefore demonstrates that "discrete vs continuous" is not a simple substitution relationship. Its actual trajectory is not "discrete -> continuous" but rather **discrete for scalable multimodal pretraining + continuous for fine-grained control**.
 
-pi0.5 is already capable of executing 10-15 minute long-horizon tasks in household environments not seen during training, but its success rate remains notably lower than for short tasks in controlled environments. This shows that error accumulation during long-horizon tasks remains a major bottleneck for VLA generalization.
+From the design of pi0.5 and pi0-FAST, an increasingly clear engineering division of labor is: **discrete representation is better suited for foundation-model pretraining and multimodal sequence modeling, while continuous generation is better suited for final high-precision control.** If compressed into one sentence, it can be summarized as:
+
+> **Discrete handles unification; continuous handles control.**
+
+This is this article's summarizing interpretation of the pi0 / pi0.5 / pi0-FAST technical evolution, not a universal design principle already proven by any single paper.
+
+pi0.5 demonstrated minute-scale long-horizon household manipulation, and discussed 10-15 minute long-task capability in the paper; its specific tasks in the quantitative real-home evaluation lasted approximately 2-5 minutes. Error accumulation in long-horizon tasks remains the main bottleneck for VLA generalization.
 
 ### pi0-FAST: Why Discrete Tokens Have Not Disappeared?
 
@@ -439,18 +437,16 @@ Here it is worth making an explicit comparison of the respective advantages of d
 - Unified data format
 
 **Advantages of continuous action (a in R^D):**
-- Preserves spatial precision, avoiding 256-bin quantization loss
-- Can model multi-modal action distributions
-- Generates continuous action chunks
-- Suitable for high-frequency fine control
+- Avoids 256-bin quantization error
+- Compatible with continuous distribution modeling methods such as diffusion / flow matching
+- Can directly generate continuous action chunks
+- More suitable for high-precision control
 
-So the conclusion is not "discrete -> continuous" but rather **tokenization and continuous generation may serve different stages / different levels.** The core thesis of this entire article can be compressed into one sentence:
+So the conclusion is not "discrete -> continuous" but rather **tokenization and continuous generation may serve different stages / different levels.**
 
-> **Discrete handles unification; continuous handles control.**
+### pi0.7: From Task Conditioning to Context-Rich Policy Steering
 
-### pi0.7: From Task Conditioning to Strategy Conditioning
-
-pi0.7 (April 2026, arXiv:2604.15483) further explores VLA's "steerability."
+pi0.7 (April 2026, arXiv:2604.15483) further explores VLA's "steerable generalization."
 
 From RT-2 to pi0.7, the policy's inputs underwent a qualitative change:
 
@@ -461,19 +457,23 @@ pi0.5:  language + observation -> semantic subtask -> action chunk
 pi0.7:  language + episode metadata + strategy + subgoal image + history -> policy -> action chunk
 ```
 
-pi0.7's true advance is not simply "more inputs," but rather: **the prompt changed from "describing what to do" to "describing how to do it."** That is, a shift from **task conditioning** toward **strategy conditioning / policy steering**. This is precisely why pi0.7's title uses "Steerable Generalist."
+pi0.7's true advance is not simply "more inputs," but rather: **the prompt changed from "describing what to do" to "describing how to do it."** That is, a gradual shift from **task conditioning** toward **context-rich policy steering**. This is precisely why pi0.7's title uses "Steerable Generalist."
 
 The model no longer conditions only on language instructions, but unifies language, episode metadata, execution strategy information, visual subgoals, and observation history as multimodal context inputs to the policy.
 
+**A core problem pi0.7 solves is the "conditional conflict" of heterogeneous data.** Different demos for the same task may exhibit completely different behavioral patterns -- fast but rough, slow but high-quality, containing errors, different strategies, different robots. If the training data only has (task, observation) -> action, then these behavioral patterns may be **mutually conflicting supervision** for the policy. pi0.7's solution is to add conditioning variables (subtask, strategy/metadata, quality, speed, subgoal image, control mode, etc.) -- **not simply adding more data, but adding conditioning variables that explain "why the data differs," making the originally mutually conflicting action supervision conditionally consistent.** This is a very elegant foundation-model insight.
+
 pi0.7's model scale is approximately 5B, consisting of an approximately 4B VLM backbone, a video history encoding module (MEM-style video history encoder), and an 860M parameter action expert. It still follows the flow matching continuous action generation approach.
 
-Notably, **pi0.7 itself is not an action-conditioned world model; however, its inference system can use subgoal images produced by an external lightweight visual generative model as future visual targets, so the combination of policy and predictive/generative model has begun to emerge.**
+It is worth noting that **pi0.7's core VLA itself is not an action-conditioned world model**. But compared to predecessor models, its complete inference system has explicitly introduced predictive/generative components: the high-level policy produces semantic subtasks, a lightweight world model for generating visual subgoals produces future visual targets based on current observations and subtasks, and then these are provided as conditioning inputs to the low-level VLA.
 
-Results reported by pi0.7: achieving 85.6% task progress and 80% success rate on unseen robot embodiments, approaching the human teleoperator's 90.9% / 80.6%.
+Therefore, a more accurate positioning of pi0.7 is not "VLA has become a world model," but rather: **VLA has begun to use future goals produced by predictive models as policy conditioning signals.** This means the interface between policy and prediction has begun to emerge, but the two still bear different responsibilities: the world model is responsible for generating the visual target of "what the future should look like," and the VLA is responsible for learning "how to act in the current state to achieve this goal." It is not yet a unified, queryable action-conditioned dynamics model.
 
-### Visual Subgoal is Not a World Model
+pi0.7 reported results: achieving 85.6% task progress and 80% success rate on unseen robot embodiments, approaching the human teleoperator's 90.9% / 80.6%.
 
-With pi0.7 introducing visual subgoals, the boundary between VLA and world models begins to blur. However, it is important to note that **"using future visual subgoals" is not automatically equivalent to "having an explicit world model."** A true world model typically needs to learn action-conditioned transition dynamics and be able to perform future state prediction or rollout internally. A more accurate description of pi0.7 is that it introduces future visual goals as a conditioning signal in the policy.
+### Visual Subgoal Is Not a World Model
+
+With pi0.7 introducing visual subgoals, the boundary between VLA and world models begins to blur. However, it is important to note that **"using future visual subgoals" is not automatically equivalent to "having an explicit world model."** If what is being discussed is a world model for robot planning, then the key capability is typically action-conditioned prediction: given the current state and candidate actions, predict the future state or latent state. A more accurate description of pi0.7 is that it introduces future visual goals as a conditioning signal in the policy.
 
 This distinction matters: a model "seeing a future goal" and a model "being able to predict how the world will change after executing actions" are two different capabilities.
 
@@ -492,7 +492,7 @@ Specifically:
 - **VLA learns the action distribution**: pi(a_t | o_{<=t}, l) -- only needs to answer "what action should I take now?"
 - **World model learns the future distribution**: p(z_{t+1:t+H} | z_t, a_{t:t+H-1}) -- answers "if I execute these actions, what will the future look like?"
 
-With the latter, one can naturally form:
+With the latter, one can naturally form a typical form of planning:
 
 ```
 Candidate action a(1) -> predicted future o^(1) -> evaluate J(a(1))
@@ -501,7 +501,7 @@ Candidate action a(2) -> predicted future o^(2) -> evaluate J(a(2))
 Select the action sequence with the highest J
 ```
 
-This is the key to planning -- **generating multiple candidate futures internally, comparing them, and then selecting.** VLA's end-to-end policy does not have this queryable interface.
+**This is a typical form of planning: using a predictive model to evaluate the consequences of candidate actions or trajectories, then selecting or optimizing.** Planning can also be achieved through trajectory optimization, MPC, gradient-based optimization, tree search, latent-space optimization, goal-conditioned planning, and other approaches -- it does not necessarily require explicitly generating multiple discrete candidate trajectories. VLA's end-to-end policy does not have this queryable action-conditioned prediction interface.
 
 Note: a typical imitation-learning VLA does not explicitly learn a queryable action-conditioned dynamics model -- but the policy itself can implicitly encode dynamic priors. This is very different from "having no internal representation of the physical world at all."
 
@@ -510,16 +510,15 @@ Note: a typical imitation-learning VLA does not explicitly learn a queryable act
 | Dimension | VLA / Policy | Action-conditioned World Model |
 |-----------|-------------|-------------------------------|
 | **Core Question** | What should I do now? | What will happen after I do it? |
-| **Learning Objective** | pi(a \| o, l) | p(o_{t+1:t+H} \| o_t, a_{t:t+H}) |
-| **Output** | Action commands | Predicted future states / representations |
-| **Strengths** | Direct control, reaction speed | Prediction, comparing candidate futures |
-| **Excels at** | execution | planning |
-| **Weaknesses** | error accumulation | model bias / compute |
-| **Requires action labels?** | Policy needs them | Action-conditioned version needs them |
-| **Naturally requires search?** | No | Typically combines with search / MPC / optimization |
-| **Ultimate role** | actor | predictor / planner |
+| **Learning Objective** | pi(a \| o, l) | p(z_future \| z, a) |
+| **Data Relationship** | observation -> action | observation + action -> future |
+| **Output** | Action commands | Predicted future state / latent |
+| **Typical Use** | execution | prediction / planning |
+| **Main Risk** | policy error / distribution shift | model bias / compounding prediction error |
+| **Requires Search?** | No | Can combine with search / MPC / optimization |
+| **Typical Role** | leans toward execution | leans toward prediction / planning |
 
-Simply put: a VLA answers "what action should I take?"; a world model answers "what will the world look like after executing this action?"
+Simply put: a VLA answers "what action should I take?"; a world model answers "what will the world look like after executing this action?" In terms of typical role, VLA leans more toward execution, world model leans more toward prediction/planning -- but VLA can also do implicit planning, hierarchical policy, chain-of-thought, and world models can also directly support policy learning.
 
 ### Passive World Models vs Action-conditioned World Models
 
@@ -545,7 +544,7 @@ This is more precise than simply saying "VLA + world model" -- it defines a join
 
 ### The Two Lines Are Converging
 
-A common misconception needs correction: the world model line is not "without language" or "unable to do actions." V-JEPA 2 has already demonstrated the complete technology stack of web-scale video pretraining + action-conditioned world model + V-JEPA 2-AC, including zero-shot robot deployment and image-goal planning. World models themselves can also acquire semantic capabilities through language alignment.
+A common misconception needs correction: the world model line is not "without language" or "unable to do actions." V-JEPA 2 has already demonstrated the complete technology stack from web-scale video pretraining to action-conditioned latent prediction to robot planning/control, including zero-shot robot deployment and image-goal planning. World models themselves can also acquire semantic capabilities through language alignment.
 
 Planning in the JEPA line is also not necessarily "generate multiple trajectories and select." It can be latent prediction -> goal-conditioned planning, implemented via search, optimization, or policy guidance.
 
@@ -593,17 +592,17 @@ So a natural idea is: **use the world model for physical prediction, and the VLA
 
 ## 9. Open Questions
 
-**Data bottleneck -- from "hours" to "data value."** A more meaningful question may not be "how to obtain a million hours of robot data," but rather: **should robot data really continue to be measured in "hours"?** One hour of a human continuously folding 300 garments successfully, and one hour of a robot encountering 50 failures, 20 recoveries, 10 different strategies, and 5 embodiments -- the information content is completely different. The value function for future data scaling may look more like:
+**Data bottleneck -- from "hours" to "effective data."** A more meaningful question may not be "how to obtain a million hours of robot data," but rather: **should robot data really continue to be measured in "hours"?** One hour of a human continuously folding 300 garments successfully, and one hour of a robot encountering 50 failures, 20 recoveries, 10 different strategies, and 5 embodiments -- the information content is completely different. The value function for future data scaling may look more like:
 
 Data Value = f(diversity, failure, recovery, embodiment, task coverage)
 
-rather than simply Data Value proportional to hours. This connects directly to pi0.7's exploration of heterogeneous / suboptimal data. Many mainstream VLA datasets consist primarily of successful demonstrations, with failure / recovery data being relatively scarce. **How do we move from "successful demo datasets" to experience datasets that include failures, recoveries, and policy variations?** is the more critical question.
+rather than simply Data Value proportional to hours. This connects directly to pi0.7's exploration of heterogeneous / suboptimal data. Many mainstream VLA datasets consist primarily of successful demonstrations, with failure / recovery data being relatively scarce. **How do we move from "successful demo datasets" to experience datasets that include failures, recoveries, and policy variations?** is the more critical question. The next stage is not simply scaling hours, but scaling useful experience.
 
 **Long-horizon tasks -- error propagation, not step count.** The real problem with long-horizon tasks is not H > 5 or H > 50, but the probabilistic effect of error accumulation:
 
-P(success over T) approximately equals the product of P(correct_t)
+P(success over T) = product of P(correct_t)
 
-Even if single-step success rate is P = 0.98, after 100 critical decisions, 0.98^100 approximately equals 13%. Of course, real robot tasks do not strictly follow this independent-events model, but it illustrates the point well: **the essence of long-horizon difficulty is error accumulation, not simply sequence length.** This also explains why hierarchical policy, recovery policy, replanning, world models, and memory are all natural directions for addressing long-horizon problems.
+Even if single-step success rate is P = 0.98, after 100 critical decisions, 0.98^100 = approximately 13%. Of course, real robot tasks do not strictly follow this independent-events model, but it illustrates the point well: **the essence of long-horizon difficulty is error accumulation, not simply sequence length.** This also explains why hierarchical policy, recovery policy, replanning, world models, and memory are all natural directions for addressing long-horizon problems.
 
 **Safety -- three levels.** VLA safety issues can be divided into three levels:
 
@@ -657,50 +656,94 @@ This judgment is much stronger than "continuous will eventually replace discrete
 
 ## 10. Three Judgments
 
-Finally, let me distill the article's argument into three judgments.
+Finally, let me distill the article's argument into three judgments. The first part summarizes technical trends from existing papers; the second part proposes future architecture judgments based on these trends.
 
-**Judgment 1: The core progress of VLA is not that parameters are getting larger, but that the action interface is becoming better suited for robots.** From RT-2's 55B to OpenVLA's 7B to pi0's 3.3B, parameter counts are shrinking; but from 256-bin discrete tokens to parallel continuous regression to flow matching + 50-step action chunks, the action interface is continuously evolving. OFT achieved a 26x speed improvement by changing only the action interface, demonstrating that the bottleneck is not in the backbone but in the action interface.
+**Judgment 1: VLA's progress cannot be explained by parameter scale alone; the action interface is becoming a design axis equally important as backbone scaling.** RT-2 -> OpenVLA -> OFT -> pi0 demonstrate that backbone scaling + data scaling + action interface jointly determine performance. From RT-2's 55B to OpenVLA's 7B to pi0's 3.3B, parameter counts are shrinking; but from 256-bin discrete tokens to parallel continuous regression to flow matching + 50-step action chunks, the action interface is continuously evolving. OFT achieved a 26x speed improvement primarily by restructuring the action interface, demonstrating that the action interface is a first-class citizen.
 
-**Judgment 2: The key bottleneck for generalist robot capability is shifting from representation scaling to data scaling, temporal abstraction, and recovery.** pi0.5's 97.6% non-target-domain data, pi0.7's utilization of suboptimal data, and the structural difficulty of error accumulation in long-horizon tasks all point in the same direction -- the next breakthrough depends not on making models larger, but on making data more diverse, temporal structures more robust, and failure recovery stronger.
+**Judgment 2: The key bottleneck for generalist robot capability is shifting from representation scaling to effective data scaling, temporal abstraction, and recovery.** pi0.5's 97.6% non-target-domain data, pi0.7's utilization of suboptimal data, and the structural difficulty of error accumulation in long-horizon tasks all point in the same direction -- the next breakthrough depends not on making models larger, but on making data more diverse, temporal structures more robust, and failure recovery stronger.
 
 **Judgment 3: The real next stage may not be "VLA or World Model," but the unification of policy, predictor, and planner.** The technology map for the future robot foundation model can be drawn as:
 
 ```
-                         Robot Foundation Model
-                                  |
-              +-------------------+-------------------+
-              |                   |                   |
-          Representation      Action Interface     Temporal Structure
-              |                   |                   |
-          VLM / VLA         discrete token       single action
-              |                   |                   |
-       cross-modal FM       continuous action     action chunk
-                                  |                   |
-                           flow matching       semantic subtask
-                                  |                   |
-              +-------------------+-------------------+
-              |
-              v
-       Generalist Policy
-              |
-              |        + predictive modeling
-              |
-              v
-       Action-conditioned
-         World Model
-              |
-              v
-        Future prediction
-              |
-              v
-        Planning / Safety
+                 Robot Foundation Models
+                           |
+          +----------------+----------------+
+          |                |                |
+       Backbone       Action Interface   Temporal Structure
+          |                |                |
+      VLM / VLA       discrete token      action
+          |                |              chunk
+      semantic        continuous            |
+      grounding       regression       semantic subtask
+          |                |                |
+          |           flow matching         |
+          |                |                |
+          +----------------+----------------+
+                           |
+                    Generalist Policy
+                           |
+                +----------+----------+
+                |                     |
+             Action              Prediction
+                |                     |
+                |              future state /
+                |              visual subgoal
+                |                     |
+                +----------+----------+
+                           |
+                   Planning / Recovery
+                           |
+                           |
+                    Physical Robot
 ```
 
-To summarize in one sentence:
+If this technical main thread is compressed:
 
-> Robot Foundation Model = Perception + Language + Policy + Prediction + Planning
+```
+RT-2
+|
++- web knowledge -> action token
+|
+v
+OpenVLA
+|
++- open multi-robot scaling
+|
+v
+OpenVLA-OFT
+|
++- action interface
+|
+v
+pi0
+|
++- continuous generative action
+|
+v
+pi0.5
+|
++- heterogeneous data
++- semantic hierarchy
+|
+v
+pi0.7
+|
++- context-rich steering
++- subgoal conditioning
++- heterogeneous / suboptimal experience
+|
+v
+???
++- policy
++- prediction
++- planning
+```
 
-But immediately followed by a caveat: **today's public systems typically cover only a portion of this, and work like pi0.5/pi0.7 is more like gradually expanding this closed loop rather than having completed the unification.**
+If a directional description is to be used:
+
+> A possible form of Robot Foundation Model = combining Perception + Language + Policy + Prediction + Planning capabilities on a unified representational foundation
+
+But two caveats must immediately follow: **today's public systems typically cover only a portion of this, and work like pi0.5/pi0.7 is more like gradually expanding this closed loop rather than having completed the unification.** Furthermore, this does not mean every robot foundation model must simultaneously include all of these capabilities -- the more likely future form is a system that can flexibly combine these capabilities on a unified representational foundation.
 
 As I mentioned in the [world model survey](/en/articles/2026-09-01-world-model-h2-review/), "world model" is losing its singular meaning. The addition of VLA makes this picture more complex -- and more interesting.
 

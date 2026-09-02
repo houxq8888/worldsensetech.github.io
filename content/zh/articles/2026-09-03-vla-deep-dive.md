@@ -71,7 +71,7 @@ V-JEPA → V-JEPA 2 → V-JEPA 2-AC → ???
 | OpenVLA-OFT | 离散 AR action decoder 能否变成高吞吐 policy？ |
 | π₀ | 连续动作生成能否扩展到 generalist robot policy？ |
 | π₀.5 | 能否利用异质数据和层次化语义处理长时序任务？ |
-| π₀.7 | 能否通过策略条件实现 steerable generalist policy？ |
+| π₀.7 | 能否通过丰富上下文实现 steerable generalist policy？ |
 
 这张表比单纯的参数对比更能揭示技术演进的内在逻辑。
 
@@ -204,12 +204,12 @@ OpenVLA 是一个 7B 参数的模型，基于 Prismatic VLM 架构：
 
 **视觉端——双编码器：**
 - SigLIP（1152 维特征）+ DINOv2（1024 维特征），两个视觉编码器提供互补的视觉特征
-- 224×224 图像经过 patch size 14 的视觉编码器得到 16×16 = 256 个 patch embeddings
+- 每个视觉编码器在 224×224 输入、14×14 patch 设置下产生 256 个 spatial patch tokens
 - 两个编码器的特征在通道维度拼接，得到 2176 维表示
 
 **投影层：** 3 层 MLP（GELU 激活）把 2176 维视觉特征映射到 LLM 的 4096 维嵌入空间。OpenVLA 的 VLA 训练并非简单冻结视觉端，而是对视觉表示进行针对机器人数据的适配——这是论文中比较反直觉的设计选择之一。
 
-**语言骨干：** Llama-2 7B（32 层 Transformer decoder），约 280 个 token 的输入序列（BOS + 视觉 patch + 语言指令 + 动作 token）。
+**语言骨干：** Llama-2 7B（32 层 Transformer decoder），视觉 patch token、语言 instruction token 和 action token 共同组成输入序列。
 
 **动作输出：** 沿用 RT-2 的思路——**覆盖 Llama tokenizer 中 256 个最低频 token** 作为动作 bin 的 ID（Llama tokenizer 只有约 100 个 reserved special tokens，不够用），每个动作维度自回归生成一个 token。对 WidowX 机器人输出 7-DoF 动作。
 
@@ -230,7 +230,7 @@ OpenVLA 是一个 7B 参数的模型，基于 Prismatic VLM 架构：
 | OpenVLA vs Diffusion Policy | — | 高出 20.4% |
 | OpenVLA vs RT-1-X / Octo | — | 均超过 |
 
-**在高难度语义泛化任务上（需要互联网规模知识才能理解的概念），RT-2-X 仍然更强。** OpenVLA 的 Open X-Embodiment 训练数据不包含互联网规模的图文预训练，所以在"理解从未见过的语义概念"这件事上，它不如 RT-2。
+**在高难度语义泛化任务上，RT-2-X 仍然更强。** RT-2 直接继承 PaLI-X / PaLM-E 等经过大规模互联网多模态预训练的 backbone，而 OpenVLA 的训练重点是机器人数据，因此在依赖 web-scale semantic knowledge 的 zero-shot evaluation 上，RT-2 具有明显优势。
 
 ### 局限
 
@@ -260,7 +260,7 @@ OpenVLA 的 action decoding 是逐 token 自回归生成离散 token。OFT 对�
 | 推理 throughput | 4.2 Hz | **109.7 Hz** |
 | 速度提升 | — | **26 倍** |
 
-OFT 的意义在于证明了一个重要结论：**模型 backbone 的 scaling 并不是机器人实时控制性能的唯一瓶颈，action interface 本身同样重要。** 将 action decoding 从逐 token 自回归改为并行解码 + action chunking + continuous action head，仅改变 action interface 就获得了 26 倍速度提升和大幅成功率提升。
+OFT 的意义在于证明了一个重要结论：**backbone scaling 并不是机器人实时控制性能的唯一瓶颈；action interface 本身就是一个一等公民的问题。** 主要通过重构 action interface——从逐 token 自回归改为并行解码 + action chunking + continuous action head——OFT 获得了大幅速度提升和成功率提升。
 
 这和我们后面会看到的"离散负责统一，连续负责控制"这条主线高度吻合。
 
@@ -274,7 +274,7 @@ OFT 的意义在于证明了一个重要结论：**模型 backbone 的 scaling �
 
 ### Physical Intelligence 背景
 
-Physical Intelligence（也叫 π）2023 年成立于旧金山，使命是"构建通用机器人大脑"。五位联合创始人包括 Karol Hausman（CEO，前 Google DeepMind，SayCan / RT-2 核心成员）、Chelsea Finn（Stanford，MAML 发明者）、Sergey Levine（UC Berkeley，SAC 共同作者）、Brian Ichter 和 Jasmine Hsu（均出自 Google Brain）。截至 2026 年，Physical Intelligence 已累计融资约 21 亿美元，最近一轮融资对应估值约 110 亿美元。
+Physical Intelligence 是一家总部位于旧金山、专注通用机器人基础模型的公司。其 π 系列代表了目前连续动作 VLA 的重要技术路线之一。
 
 ### 核心架构
 
@@ -294,44 +294,36 @@ Physical Intelligence（也叫 π）2023 年成立于旧金山，使命是"构�
 
 ### 连续动作生成的三种机制
 
-连续动作生成有三种主要机制，需要区分清楚。它们不是"先后替代"的关系，而是**生成式动作建模（generative action modeling）下的两条平行路线**：
+连续动作生成有三种主要机制，需要区分清楚。它们**不是先后替代关系，而是三种平行的连续动作建模方式**：
 
 ```
-              Generative Action Modeling
+             Continuous Action Modeling
                         │
-                   ┌────┴────┐
-              Diffusion   Flow Matching
-                   │             │
-             score/noise   vector field
-                   │             │
-             iterative     ODE integration
-             denoising     / transport
-                   │             │
-                   └────┬────────┘
-                        │
-                  Regression
-                        │
-                  direct prediction
-                  (no sampling)
+          ┌─────────────┼─────────────┐
+          ↓             ↓             ↓
+     Regression      Diffusion    Flow Matching
+          │             │             │
+    direct output   denoising      vector field
+                    sampling       + ODE
 ```
 
-Flow matching 训练的是概率路径上的 vector field / velocity field，使模型能够通过 ODE integration 从简单先验分布 transport 到目标数据分布。它的做法是：
+Flow matching 训练的是概率路径上的 vector field / velocity field，使模型能够通过 ODE integration 从简单先验分布向目标动作分布 transport。它的做法是：
 
-- 定义一条从纯噪声分布到目标动作分布的概率路径（linear-Gaussian probability path）
+- 定义一条从简单先验分布到目标动作分布的概率路径（linear-Gaussian probability path）
 - 训练一个网络来预测这条路径上的速度场
-- 推理时从噪声出发，沿学到的向量场积分，得到连续动作
+- 推理时从先验出发，沿学到的向量场积分，得到连续动作
 
-和 diffusion 的关键区别在于：两者的训练目标和推理形式不同。在 π₀ 的具体实现中，flow matching 配合较少的 Euler integration steps，形成了适合实时 action chunk generation 的连续策略。
+和 diffusion 的关键区别在于：两者的训练目标和推理形式不同。π₀ 采用 flow matching，并在具体实现中使用少量 Euler integration steps 进行 action generation，从而将连续生成过程控制在适合机器人实时执行的计算预算内。
 
 ### 动作 Chunk、时序抽象与规划：三个容易混淆的概念
 
-π₀ 每次生成一个包含 **50 个未来动作**的 action chunk；在最高 **50 Hz 系统控制频率**下，这相当于约 1 秒的未来轨迹。论文报告其系统在 dexterous tasks 上可以达到最高 50 Hz 的系统控制频率。
+π₀ 每次预测一个长度为 **50 steps 的 action chunk**，每个 step 对应当前 embodiment 的动作向量（最多 18 DoF）。在 50 Hz 控制频率下，50-step chunk 对应约 1 秒的时间跨度。论文报告其系统在 dexterous tasks 上可以达到最高 50 Hz 的系统控制频率。
 
 需要注意的是，flow matching 推理本身还需要进行多步 integration。50 Hz 是包含 action chunk 执行在内的系统级控制频率，不是单次 flow matching 推理的速度。
 
 **这里需要特别澄清三个容易混淆的概念：**
 
-**Action chunking**——一次输出 a_t, a_{t+1}, ..., a_{t+H-1}。解决的是减少决策频率、提高动作连贯性。π₀ 的 50 步 chunk 属于这个层面。
+**Action chunking**——一次输出 a_t, a_{t+1}, ..., a_{t+H-1}。解决的是减少决策频率、提高动作连贯性。π₀ 的 50-step chunk 属于这个层面。
 
 **Temporal abstraction**——把长任务压缩到更高层的时间尺度。比如"拿起杯子"是一个高层行为，而不是 50 个关节动作。π₀.5 的 semantic subtask 属于这个层面。
 
@@ -373,7 +365,7 @@ ALOHA 双臂     → 14 DoF
 | 桌面清理 | 报告 97.1% success |
 | 对比离散 VLA | 在这些特定 zero-shot protocol 上明显更强 |
 
-需要注意，这些观察高度依赖具体的 task protocol（trial 数量、机器人形态、task definition、"zero-shot"的具体含义等），因此不宜理解成跨模型的普适性能排序。但它们清楚地表明：衣物折叠和桌面清理这类需要长序列、高精度连续操作的任务，正好是离散 token 方案的弱点。
+需要注意，这些观察高度依赖具体的 task protocol（trial 数量、机器人形态、task definition、"zero-shot"的具体含义等），因此不宜理解成跨模型的普适性能排序。但它们清楚地表明：这类任务恰好暴露了离散 action representation 在高精度连续控制中的潜在限制。
 
 ### 如何理解 π₀ 的性能提升
 
@@ -417,7 +409,13 @@ ALOHA 双臂     → 14 DoF
 
 π₀.5 因此说明"离散 vs 连续"不是一个简单的替代关系。它的实际路线不是 "discrete → continuous"，而是 **discrete for scalable multimodal pretraining + continuous for fine-grained control**。
 
-π₀.5 已经能够在训练中未出现的家庭环境执行 10-15 分钟级别的长时序任务，但其成功率仍明显低于受控环境中的短任务。这说明长程任务中的错误累积仍然是 VLA 泛化的主要瓶颈。
+从 π₀.5 和 π₀-FAST 的设计来看，一个越来越清晰的工程分工是：**离散表示更适合 foundation-model pretraining 和 multimodal sequence modeling，而连续生成更适合最终的高精度控制。** 如果压缩成一句话，可以概括为：
+
+> **离散负责统一，连续负责控制。**
+
+这是本文对 π₀ / π₀.5 / π₀-FAST 技术演进的总结性解释，而非某一篇论文已经证明的普适设计原则。
+
+π₀.5 展示了分钟级长时序 household manipulation，并在论文中讨论了 10–15 分钟级别的长任务能力；其定量 real-home evaluation 中的具体任务则主要持续约 2–5 分钟。长程任务中的错误累积仍然是 VLA 泛化的主要瓶颈。
 
 ### π₀-FAST：为什么离散 token 并没有消失？
 
@@ -434,16 +432,14 @@ Physical Intelligence 后续还探索了 **π₀-FAST**，用 FAST action tokeni
 - 数据格式统一
 
 **连续 action 的优势（a ∈ ℝ^D）：**
-- 保留空间精度，避免 256-bin 量化损失
-- 可建模多峰 action distribution
-- 生成连续 action chunk
-- 适合高频精细控制
+- 避免离散 bin 的量化误差
+- 与 diffusion / flow matching 等连续分布建模方法兼容
+- 可以直接生成连续 action chunk
+- 更适合高精度控制
 
-所以最终不是 "discrete → continuous"，而是 **tokenization 和 continuous generation 可能服务于不同阶段/不同层级。** 全文最核心的判断可以压成一句：
+所以最终不是 "discrete → continuous"，而是 **tokenization 和 continuous generation 可能服务于不同阶段/不同层级。**
 
-> **离散负责统一，连续负责控制。**
-
-### π₀.7：从 task conditioning 到 strategy conditioning
+### π₀.7：从 task conditioning 到 context-rich policy steering
 
 π₀.7（2026 年 4 月，arXiv:2604.15483）进一步探索了 VLA 的"可引导泛化"（steerability）。
 
@@ -456,19 +452,23 @@ RT-2：  language → action
 π₀.7：  language + episode metadata + strategy + subgoal image + history → policy → action chunk
 ```
 
-π₀.7 的真正进步不只是"多了一些输入"，而是：**prompt 从"描述我要做什么"变成了"描述我应该如何做"。** 也就是从 **task conditioning** 逐渐走向 **strategy conditioning / policy steering**。这恰好也是为什么 π₀.7 的标题用了 "Steerable Generalist"。
+π₀.7 的真正进步不只是"多了一些输入"，而是：**prompt 从"描述我要做什么"变成了"描述我应该如何做"。** 也就是从 **task conditioning** 逐渐走向 **context-rich policy steering**。这恰好也是为什么 π₀.7 的标题用了 "Steerable Generalist"。
 
 模型不再只把语言指令作为条件，而是把语言、episode metadata、执行策略信息、视觉子目标以及观测历史等多模态上下文统一作为 policy 的条件输入。
 
+**π₀.7 解决的一个核心问题是异质数据的"条件冲突"。** 同一个任务的不同 demo 可能呈现完全不同的行为模式——快速但粗糙、慢但高质量、包含错误、不同策略、不同机器人。如果训练数据只有 (task, observation) → action，那么这些行为模式对于 policy 来说可能是**相互冲突的 supervision**。π₀.7 的解决方案是增加条件变量（subtask、strategy/metadata、quality、speed、subgoal image、control mode 等），**不是单纯增加数据，而是增加"数据为什么不同"的条件变量，使原本相互冲突的 action supervision 变得 conditionally consistent。** 这是非常漂亮的 foundation-model insight。
+
 π₀.7 的模型规模约为 5B，由约 4B 的 VLM backbone、视频历史编码模块（MEM-style video history encoder）以及 860M 参数的 action expert 组成。它仍然沿用 flow matching 连续动作生成路线。
 
-值得注意的是，**π₀.7 本身不是一个 action-conditioned world model；不过其推理系统可以使用由外部轻量视觉生成模型产生的 subgoal image 作为未来视觉目标，因此已经出现了 policy 与 predictive/generative model 组合的雏形。**
+值得注意的是，**π₀.7 的核心 VLA 本身并不是一个 action-conditioned world model**。但与前代模型相比，它的完整推理系统已经显式引入了 predictive/generative component：high-level policy 产生语义子任务，用于生成视觉 subgoal 的轻量 world model 根据当前观察和子任务生成未来视觉目标，再把这些信息作为条件输入给低层 VLA。
+
+因此，π₀.7 更准确的定位不是"VLA 已经变成 world model"，而是：**VLA 开始把预测模型产生的未来目标作为 policy conditioning signal。** 这意味着 policy 与 prediction 的接口开始出现，但两者仍然承担不同职责：world model 负责生成"希望未来看起来怎样"的视觉目标，VLA 负责学习"在当前状态下如何行动才能完成这个目标"。它还不是一个统一的、可查询 action-conditioned dynamics model。
 
 π₀.7 报告的结果：在未见过的机器人形态上达到 85.6% 任务进度和 80% 成功率，接近人类遥操作员的 90.9% / 80.6%。
 
 ### Visual Subgoal ≠ World Model
 
-π₀.7 引入视觉子目标后，VLA 与 world model 的边界开始变得模糊。但需要注意，**"使用未来视觉子目标"并不自动等价于"拥有一个显式世界模型"**。真正的世界模型通常需要学习 action-conditioned transition dynamics，并能够在内部进行未来状态预测或 rollout。π₀.7 更准确地说是在 policy 中引入了未来视觉目标作为 conditioning signal。
+π₀.7 引入视觉子目标后，VLA 与 world model 的边界开始变得模糊。但需要注意，**"使用未来视觉子目标"并不自动等价于"拥有一个显式世界模型"**。如果讨论的是用于机器人规划的 world model，那么关键能力通常是 action-conditioned prediction：给定当前状态和候选动作，预测未来状态或 latent state。π₀.7 更准确地说是在 policy 中引入了未来视觉目标作为 conditioning signal。
 
 这一区分很重要：一个模型"看到未来目标"与一个模型"能够预测执行动作后世界会如何变化"，是两个不同能力。
 
@@ -487,7 +487,7 @@ VLA 当然可以做预测——一个足够大的自回归模型完全可以预�
 - **VLA 学的是 action distribution**：π(a_t | o_{≤t}, l)——只需要回答"现在该做什么动作"
 - **世界模型学的是 future distribution**：p(z_{t+1:t+H} | z_t, a_{t:t+H-1})——回答"如果执行这些动作，未来会变成什么样"
 
-有了后者，才能自然地形成：
+有了后者，才能自然地形成一种典型的 planning 形式：
 
 ```
 候选动作 a⁽¹⁾ → 预测未来 ô⁽¹⁾ → 评估 J(a⁽¹⁾)
@@ -496,7 +496,7 @@ VLA 当然可以做预测——一个足够大的自回归模型完全可以预�
 选择 J 最大的动作序列
 ```
 
-这才是 planning 的关键——**在内部生成多个候选未来，比较它们，然后选择**。VLA 的端到端 policy 不具备这个可查询的 interface。
+**这是一种典型的 planning 形式：利用预测模型评估候选动作或轨迹的后果，再进行选择或优化。** Planning 还可以通过 trajectory optimization、MPC、gradient-based optimization、tree search、latent-space optimization、goal-conditioned planning 等多种方式实现，不一定必须显式生成离散的多个候选轨迹。VLA 的端到端 policy 不具备这个可查询的 action-conditioned prediction interface。
 
 需要注意：典型的 imitation-learning VLA 并不显式学习可查询的 action-conditioned dynamics model——但 policy 本身可以隐式编码动态先验。这和"完全没有关于物理世界的内部表征"是两回事。
 
@@ -505,16 +505,15 @@ VLA 当然可以做预测——一个足够大的自回归模型完全可以预�
 | 维度 | VLA / Policy | Action-conditioned World Model |
 |------|-------------|-------------------------------|
 | **核心问题** | 现在应该做什么？ | 做了之后会发生什么？ |
-| **学习目标** | π(a \| o, l) | p(o_{t+1:t+H} \| o_t, a_{t:t+H}) |
-| **输出** | 动作指令 | 预测的未来状态/表征 |
-| **强项** | 直接控制、反应速度 | 预测、比较候选未来 |
-| **长处** | execution | planning |
-| **弱点** | error accumulation | model bias / compute |
-| **是否必须 action label** | policy 需要 | action-conditioned 版本需要 |
-| **是否天然需要搜索** | 不需要 | 通常可与搜索/MPC/optimization 结合 |
-| **最终角色** | actor | predictor / planner |
+| **学习目标** | π(a \| o, l) | p(z_future \| z, a) |
+| **数据关系** | observation → action | observation + action → future |
+| **输出** | 动作指令 | 预测的未来状态/latent |
+| **典型用途** | execution | prediction / planning |
+| **主要风险** | policy error / distribution shift | model bias / compounding prediction error |
+| **是否需要搜索** | 不需要 | 可与搜索/MPC/optimization 结合 |
+| **典型角色** | 偏 execution | 偏 prediction / planning |
 
-简单来说：VLA 回答"我要做什么动作"；世界模型回答"执行这个动作后世界会变成什么样"。
+简单来说：VLA 回答"我要做什么动作"；世界模型回答"执行这个动作后世界会变成什么样"。典型角色上，VLA 更偏 execution，world model 更偏 prediction/planning——但 VLA 也可以做 implicit planning、hierarchical policy、chain-of-thought，world model 也可以直接支持 policy learning。
 
 ### 被动世界模型 vs Action-conditioned 世界模型
 
@@ -540,7 +539,7 @@ p(a_{t:t+H}, z_{t+1:t+H} | z_t, l, g)
 
 ### 两条路线正在靠近
 
-需要纠正一个常见误解：世界模型路线并不是"没有语言"或"不能做 action"。V-JEPA 2 已经展示了 web-scale video pretraining + action-conditioned world model + V-JEPA 2-AC 的完整技术栈，包括 zero-shot robot deployment 和 image-goal planning。世界模型本身也可以通过语言对齐获得语义能力。
+需要纠正一个常见误解：世界模型路线并不是"没有语言"或"不能做 action"。V-JEPA 2 系列已经展示了从 web-scale 视频预训练到 action-conditioned latent prediction、再到机器人规划/控制的技术链条，包括 zero-shot robot deployment 和 image-goal planning。世界模型本身也可以通过语言对齐获得语义能力。
 
 JEPA 路线的规划也不一定是"生成多条轨迹再选择"。它可以是 latent prediction → goal-conditioned planning，可以是 search、optimization 或 policy guidance。
 
@@ -587,11 +586,11 @@ JEPA 路线的规划也不一定是"生成多条轨迹再选择"。它可以是 
 
 ## 九、开放问题
 
-**数据瓶颈——从"小时数"到"数据价值"。** 更有意义的问题可能不是"如何获得百万小时机器人数据"，而是：**机器人数据是否真的应该继续按"小时"计量？** 1 小时人类连续成功折 300 件衣服，和 1 小时机器人遇到 50 次失败、20 次恢复、10 种不同策略、5 种 embodiment——信息量完全不同。未来数据 scaling 的价值函数可能更像：
+**数据瓶颈——从"小时数"到"有效数据"。** 更有意义的问题可能不是"如何获得百万小时机器人数据"，而是：**机器人数据是否真的应该继续按"小时"计量？** 1 小时人类连续成功折 300 件衣服，和 1 小时机器人遇到 50 次失败、20 次恢复、10 种不同策略、5 种 embodiment——信息量完全不同。未来数据 scaling 的价值函数可能更像：
 
 Data Value = f(diversity, failure, recovery, embodiment, task coverage)
 
-而不只是 Data Value ∝ hours。这正好连接到 π₀.7 对 heterogeneous / suboptimal data 的探索。许多主流 VLA 数据集以成功 demonstration 为主，失败 / recovery 数据相对稀缺。**如何从"成功 demo 数据集"走向包含失败、恢复和策略变化的 experience dataset？** 是更关键的问题。
+而不只是 Data Value ∝ hours。这正好连接到 π₀.7 对 heterogeneous / suboptimal data 的探索。许多主流 VLA 数据集以成功 demonstration 为主，失败 / recovery 数据相对稀缺。**如何从"成功 demo 数据集"走向包含失败、恢复和策略变化的 experience dataset？** 是更关键的问题。下一阶段不是单纯 scale hours，而是 scale useful experience。
 
 **长时序任务——错误传播而非步数。** 长时序真正的问题不是 H > 5 或 H > 50，而是错误累积的概率效应：
 
@@ -651,50 +650,94 @@ robot
 
 ## 十、三个判断
 
-最后把全文的论证收束为三个判断。
+最后把全文的论证收束为三个判断。前半部分是从已有论文归纳出的技术趋势，后半部分是基于这些趋势提出的未来架构判断。
 
-**判断一：VLA 的核心进步不是参数越来越大，而是动作接口越来越适合机器人。** 从 RT-2 的 55B 到 OpenVLA 的 7B 到 π₀ 的 3.3B，参数量在缩小；但从 256-bin 离散 token 到 parallel continuous regression 到 flow matching + 50-step action chunk，动作接口在不断进化。OFT 仅改变 action interface 就获得 26 倍速度提升，说明瓶颈不在 backbone，而在 action interface。
+**判断一：VLA 的进步不能用参数规模单轴解释，动作接口正在成为与 backbone scaling 同等重要的设计轴。** RT-2 → OpenVLA → OFT → π₀ 证明：backbone scaling + data scaling + action interface 共同决定性能。从 RT-2 的 55B 到 OpenVLA 的 7B 到 π₀ 的 3.3B，参数量在缩小；但从 256-bin 离散 token 到 parallel continuous regression 到 flow matching + 50-step action chunk，动作接口在不断进化。OFT 主要通过重构 action interface 就获得 26 倍速度提升，说明 action interface 是一个一等公民的问题。
 
-**判断二：通用机器人能力的关键瓶颈正在从 representation scaling 转向 data scaling、temporal abstraction 和 recovery。** π₀.5 的 97.6% 非目标域数据、π₀.7 对 suboptimal data 的利用、以及长时序任务中错误累积的结构性困难，都指向同一个方向——下一步突破的关键不只是模型更大，而是数据更多样、时序结构更鲁棒、失败恢复能力更强。
+**判断二：通用机器人能力的关键瓶颈正在从 representation scaling 转向 effective data scaling、temporal abstraction 和 recovery。** π₀.5 的 97.6% 非目标域数据、π₀.7 对 suboptimal data 的利用、以及长时序任务中错误累积的结构性困难，都指向同一个方向——下一步突破的关键不只是模型更大，而是数据更多样、时序结构更鲁棒、失败恢复能力更强。
 
 **判断三：真正的下一阶段可能不是"VLA 还是 World Model"，而是 policy、predictor 和 planner 的统一。** 未来机器人基础模型的技术地图可以画成：
 
 ```
-                         Robot Foundation Model
-                                  │
-              ┌───────────────────┼───────────────────┐
-              │                   │                   │
-          Representation      Action Interface     Temporal Structure
-              │                   │                   │
-          VLM / VLA         discrete token       single action
-              ↓                   ↓                   ↓
-       cross-modal FM       continuous action     action chunk
-                                  ↓                   ↓
-                           flow matching       semantic subtask
-                                  │                   │
-              ┌───────────────────┴───────────────────┘
-              │
-              ↓
-       Generalist Policy
-              │
-              │        + predictive modeling
-              │
-              ↓
-       Action-conditioned
-         World Model
-              │
-              ↓
-        Future prediction
-              │
-              ↓
-        Planning / Safety
+                 Robot Foundation Models
+                           │
+          ┌────────────────┼────────────────┐
+          │                │                │
+       Backbone       Action Interface   Temporal Structure
+          │                │                │
+      VLM / VLA       discrete token      action
+          ↓                ↓              chunk
+      semantic        continuous            ↓
+      grounding       regression       semantic subtask
+          │                ↓                │
+          │           flow matching         │
+          │                │                │
+          └────────────────┼────────────────┘
+                           ↓
+                    Generalist Policy
+                           │
+                ┌──────────┴──────────┐
+                ↓                     ↓
+             Action              Prediction
+                │                     │
+                │              future state /
+                │              visual subgoal
+                │                     │
+                └──────────┬──────────┘
+                           ↓
+                   Planning / Recovery
+                           │
+                           ↓
+                    Physical Robot
 ```
 
-如果用一句话概括：
+如果把这条技术主线压缩：
 
-> Robot Foundation Model = Perception + Language + Policy + Prediction + Planning
+```
+RT-2
+│
+├─ web knowledge → action token
+│
+↓
+OpenVLA
+│
+├─ open multi-robot scaling
+│
+↓
+OpenVLA-OFT
+│
+├─ action interface
+│
+↓
+π₀
+│
+├─ continuous generative action
+│
+↓
+π₀.5
+│
+├─ heterogeneous data
+├─ semantic hierarchy
+│
+↓
+π₀.7
+│
+├─ context-rich steering
+├─ subgoal conditioning
+├─ heterogeneous / suboptimal experience
+│
+↓
+???
+├─ policy
+├─ prediction
+└─ planning
+```
 
-但必须马上补一句：**今天的公开系统通常只覆盖其中的一部分，π₀.5/π₀.7 等工作更像是在逐步扩大这个闭环，而不是已经完成统一。**
+如果要用一个方向性描述：
+
+> Robot Foundation Model 的可能形态 = 在统一表征基础上，组合 Perception + Language + Policy + Prediction + Planning 能力
+
+但必须马上补两句：**今天的公开系统通常只覆盖其中的一部分，π₀.5/π₀.7 等工作更像是在逐步扩大这个闭环，而不是已经完成统一。** 并且，这并不意味着每个 robot foundation model 都必须同时包含所有这些能力——更可能的未来形态，是一个能够在统一表征基础上灵活组合这几个能力的系统。
 
 正如我在[世界模型盘点](/zh/articles/2026-09-01-world-model-h2-review/)里说的，"world model"正在失去单一含义。VLA 的加入让这个图景更复杂，也更有趣。
 
