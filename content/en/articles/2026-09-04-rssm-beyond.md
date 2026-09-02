@@ -36,15 +36,13 @@ Let's start with a quick review. The core of RSSM (Recurrent State-Space Model) 
                      observation model
 ```
 
-The **deterministic path h_t** is recursively updated by h_t = f(h_{t-1}, z_{t-1}, a_{t-1}), responsible for accumulating historical information. The **stochastic path z_t** models the uncertainty of the current state through a categorical distribution's prior/posterior. Together, they constitute RSSM's latent state s_t = (h_t, z_t), which conditions the observation model. From a POMDP perspective, this latent state can be understood as a parameterization of the belief state formed from historical observations and actions -- it does not directly recover the environment's "true physical state," but rather learns a latent belief representation sufficient to support prediction and control.
+The **deterministic path h_t** is recursively updated by h_t = f(h_{t-1}, z_{t-1}, a_{t-1}), responsible for accumulating historical information. The **stochastic path z_t** models latent state uncertainty through categorical prior/posterior. Together, they constitute RSSM's latent state s_t = (h_t, z_t), providing conditions for prediction heads such as the observation model. From a POMDP perspective, this latent state can be understood as a parameterized approximation of the belief state formed from historical observations and actions; it does not require recovering the environment's "true physical state," but rather learning a latent representation sufficient to support prediction and control.
 
 This design has several noteworthy characteristics:
 
-**First, RSSM is more accurately described as a belief-state model.** The classical state-space model takes the form z_{t+1} = f(z_t, a_t), o_t = g(z_t). RSSM is closer to a **partially observable** latent variable model. RSSM's recurrent state (h_t, z_t) is not an exact Bayesian belief state, but rather a parameterized approximation of one.
+**First, the categorical latent is an engineering-driven choice.** An engineering advantage of the categorical latent is that both prior and posterior are explicit discrete distributions, so KL divergence can be computed analytically; at the same time, it provides a discrete stochastic representation, allowing prior/posterior to perform KL computation directly on categorical distributions. DreamerV2 introduced the categorical stochastic latent combined with a straight-through estimator; DreamerV3 continued this representation. This is a pragmatic design decision, not a theoretically optimal solution.
 
-**Second, the categorical latent is an engineering-driven choice.** An engineering advantage of the categorical latent is that both prior and posterior are explicit discrete distributions, so KL divergence can be computed analytically; at the same time, it provides a discrete stochastic representation, allowing prior/posterior to perform KL computation directly on categorical distributions. DreamerV2 introduced the categorical stochastic latent combined with a straight-through estimator; DreamerV3 continued this representation. This is a pragmatic design decision, not a theoretically optimal solution.
-
-**Third, Dreamer's core training mechanism is combining learned latent dynamics with actor-critic learning, enabling policy/value to be trained primarily on imagined latent trajectories.** The concept of imagination / model rollout in model-based RL predates Dreamer. Dreamer's innovation lies in: RSSM is not only used to fit historical data, but also to "imagine" future trajectories in latent space -- starting from the current posterior, using the prior to rollout multiple future paths, and then training the actor and critic on these imagined trajectories. This has made the Dreamer series one of the most representative works in the latent imagination + actor-critic line, demonstrating strong sample efficiency across multiple visual control and reinforcement learning benchmarks.
+**Second, Dreamer's core training mechanism is combining learned latent dynamics with actor-critic learning, enabling policy/value to be trained primarily on imagined latent trajectories.** The concept of imagination / model rollout in model-based RL predates Dreamer. Dreamer's innovation lies in: RSSM is not only used to fit historical data, but also to "imagine" future trajectories in latent space -- starting from the current posterior, using the prior to rollout multiple future paths, and then training the actor and critic on these imagined trajectories. This has made the Dreamer series one of the most representative works in the latent imagination + actor-critic line, demonstrating strong sample efficiency across multiple visual control and reinforcement learning benchmarks.
 
 These design choices were progressively validated through the evolution from DreamerV1 → V2 → V3. But are they the only possible path?
 
@@ -59,7 +57,7 @@ h'(t) = A h(t) + B x(t)
 y(t) = C h(t) + D x(t)
 ```
 
-The key to S4 lies in structured parameterization of the state matrix A, combined with HiPPO initialization and low-rank correction, enabling stable and efficient computation of long-range convolutions. S4 demonstrated Transformer-level performance on long-sequence benchmarks, but with higher computational efficiency.
+The key to S4 lies in structured parameterization of the state matrix A, combined with HiPPO initialization and low-rank correction, enabling stable and efficient computation of long-range convolutions. S4 demonstrated competitive performance on long-sequence benchmarks, translating long-sequence computation into more efficient convolutional/state-space operations through structured SSMs.
 
 **Mamba (2023/2024)** built upon S4 by introducing **selectivity** -- making the SSM's key parameters (B_t, C_t, Δ_t) input-dependent, thereby obtaining a **selective state space**. This means that state transition / information retention can vary based on the current token content, enabling the model to selectively remember or forget information. Mamba demonstrated competitive performance with same-scale Transformers on the language modeling experiments reported in its paper, while exhibiting linear scaling in sequence length and efficient hardware execution through selective scan.
 
@@ -93,7 +91,7 @@ TD-MPC2 does not use RSSM's dual-track structure, but instead employs a more con
 Encoder:     e_t = E(o_t)                    → encode observations into latent
 Dynamics:    z_{t+1} = f_θ(z_t, a_t)         → predict next latent
 Reward:      r_t = R(z_t, a_t)               → predict reward
-Q-function:  Q(z_t, a_t)                     → long-term value estimation (5 Q ensemble)
+Q-function:  Q(z_t, a_t)                     → long-term value estimation (Q ensemble)
 Policy:      π(a_t | z_t)                    → policy prior
 ```
 
@@ -103,7 +101,7 @@ Policy:      π(a_t | z_t)                    → policy prior
 
 A very important divergence emerges here.
 
-The Dreamer approach of constraining latent representations through observation prediction is:
+The Dreamer approach of constraining latent representations through observation / reward prediction tasks is:
 
 ```
 observation → latent → dynamics → predict observation
@@ -122,7 +120,7 @@ observation → encoder → z_t → latent dynamics → ẑ_{t+1}
                                           encoder(o_{t+1})
 ```
 
-**Unlike Dreamer's approach of constraining latent representations through observation prediction, TD-MPC2 explicitly adopts a decoder-free implicit world model: it does not require the latent to reconstruct pixels, but instead uses latent consistency, reward prediction, and value learning to directly make representations serve control objectives.**
+**Unlike Dreamer's approach of constraining latent representations through observation / reward prediction tasks, TD-MPC2 explicitly adopts a decoder-free implicit world model -- here "implicit" means it does not define a pixel-generating world model through an explicit observation decoder, but instead constrains latent space through task-relevant objectives such as latent dynamics, reward/value prediction.**
 
 ### A Deeper Perspective: Decision-sufficient vs Observation-sufficient
 
@@ -150,7 +148,7 @@ reward / value / terminal
 action selection (MPC)
 ```
 
-The former requires the latent to retain sufficient information to generate future observations; the latter only requires the latent to retain information useful for decision-making. The representation pressures are not the same. TD-MPC2 optimizes for a **decision-sufficient representation**, not an observation-sufficient representation -- which explains why it can forgo a decoder.
+In typical generative world models, the latent needs to retain sufficient information to support the generation or prediction of future observations; the latter only requires the latent to retain information useful for decision-making. The representation pressures are not the same. TD-MPC2 optimizes for a **decision-sufficient representation**, not an observation-sufficient representation -- which explains why it can forgo a decoder.
 
 From the functional perspective adopted in this article, this can be understood as a design trend from "generating the world" toward "providing predictive interfaces." This is a design trend, not a field-wide consensus -- generative and control-oriented lines clearly coexist. But it raises a core question: **a world model does not necessarily need to become a more powerful "video generator." The more critical question is: what kind of action-conditioned predictive interface does it need to provide to support planning, value estimation, or policy learning at the lowest computational and data cost?**
 
@@ -160,7 +158,7 @@ The core of TD-MPC2 is not a complex latent-state decomposition, but rather the 
 
 **First, the combination of latent-space MPC and Q-function ensemble.** TD-MPC2's explicit MPC planning horizon is very short (default 3 steps), so it does not complete long-term planning through extended rollouts; instead, it lets the learned Q-function provide long-term value bootstrap at the planning boundary. **In other words, TD-MPC2 partially transforms "long-horizon planning" from a model rollout problem into a value estimation problem.** Specifically, TD-MPC2 performs short-horizon rollouts on latent dynamics and uses a Q-function ensemble (defaulting to 5 Q-functions, with TD target using the minimum of a randomly subsampled Q-function) to provide long-term value estimation, thereby bridging short-horizon MPC planning with long-horizon TD bootstrapping.
 
-**Second, task-conditioned cross-task / cross-embodiment scaling.** TD-MPC2 was evaluated on 104 continuous control tasks, and further demonstrated that a single 317M-parameter agent can be trained on 80 tasks, covering different tasks, embodiments, and action spaces. This is not "one dynamics model automatically understanding all embodiments," but rather using **task embeddings / task-conditioned components** to adapt the same set of models to different tasks -- the encoder, dynamics, reward, policy prior, and Q components are all linked to task embeddings.
+**Second, task-conditioned multi-task and cross-embodiment scaling.** TD-MPC2 was evaluated on 104 continuous control tasks, and further demonstrated that a single 317M-parameter agent can be trained on 80 tasks, covering different tasks, embodiments, and action spaces. This is not "one dynamics model automatically understanding all embodiments," but rather using **task embeddings / task-conditioned components** to adapt the same set of models to different tasks -- the encoder, dynamics, reward, policy prior, and Q components are all linked to task embeddings.
 
 **Third, stabilization of latent representations.** TD-MPC2 uses SimNorm to normalize latent states, and jointly trains the encoder, dynamics, reward, policy prior, and Q-functions, so that the latent representation serves both prediction and control -- without requiring the stochastic prior/posterior KL constraints of RSSM.
 
@@ -174,17 +172,18 @@ Placing the models discussed above together reveals that they do not operate at 
 
 **Vertical axis: functional role** (sequence backbone → latent dynamics → prediction interface → planning / policy)
 
-```
-Architecture \ Role    Seq Backbone    Latent Dynamics    Planning / Policy
-GRU                    ✓ (RNN)         RSSM               ✓ (actor)
-MLP                    —               TD-MPC2            —
-Transformer            ✓ (GPT etc.)    IRIS / WM          ✓ (policy)
-Mamba                  ✓ (SSM)         possible           ✓ (policy)
-```
+| Architecture | Sequence backbone | Latent dynamics | Planning / policy |
+| ------------ | ----------------- | --------------- | ----------------- |
+| GRU | ✓ | RSSM | can serve as policy/value backbone |
+| MLP | — | TD-MPC2 | can serve as policy/value network |
+| Transformer | ✓ | IRIS / other WMs | can serve as policy / planner |
+| Mamba | ✓ | can be constructed | can serve as policy backbone |
+
+> **The same architecture can occupy different functional layers; what truly determines whether it constitutes a world model is the training objective, input interface, and what predictive interface it can provide.**
 
 This table expresses the article's core point: **Architecture ≠ function.** RSSM uses GRU for latent dynamics; Mamba could also be used for latent dynamics -- the difference lies not in the architecture, but in the training interface and functional role.
 
-Therefore, "world model" is better understood as a functional interface rather than a fixed network structure: it needs to provide at least some queryable predictive capability regarding future states, observations, rewards, or values, and be usable for decision-making, planning, or policy learning. From this perspective, RSSM, TD-MPC2, Transformer world models, and even certain JEPA-style predictive models can all belong to the world-model family, but the prediction interfaces they provide are not the same.
+Therefore, "world model" is better understood as a functional interface rather than a fixed network structure: it needs to provide at least some queryable prediction interface related to the future evolution of the environment that can be consulted by decision processes, such as predictions of future latent states, observations, rewards, or termination; value functions can further serve as a downstream bootstrap mechanism for this predictive model. From this perspective, RSSM, TD-MPC2, Transformer world models, and even certain JEPA-style predictive models can all belong to the world-model family, but the prediction interfaces they provide are not the same.
 
 ### Comparison Table
 
@@ -261,7 +260,7 @@ There are several questions that I think do not yet have clear answers.
 
 **Will scaling change architectural choices?** A hypothesis worth testing is: in regimes where data is limited, observations are complex, or environments are highly stochastic, explicit stochastic latent structure may provide valuable inductive bias; while after data and task scales expand, whether more concise and unified latent dynamics architectures exhibit better scaling efficiency under large-scale data and multi-task training requires systematic experimental validation.
 
-**What are the limits of imagination?** DreamerV3 does not solve long-horizon decision-making through a single infinitely extended latent rollout; its default imagination horizon is 15 steps, with long-term returns primarily propagated through value bootstrap. Interestingly, TD-MPC2 adopts a similar strategy -- with a default MPC horizon of only 3 steps, also handling long-term effects beyond the explicit planning horizon through Q-function bootstrap. **Neither simply solves long-horizon decision-making by infinitely extending latent rollouts; both delegate long-range prediction partially to value functions.** Therefore, a more accurate question is: **to what extent can finite-horizon imagination/planning + value bootstrap reliably solve long-horizon tasks? If the rollout horizon is further increased, at what rate does model error accumulate?**
+**What are the limits of imagination?** DreamerV3 does not solve long-horizon decision-making through a single infinitely extended latent rollout; its default imagination horizon is 15 steps, with long-term returns primarily propagated through value bootstrap. Interestingly, TD-MPC2 adopts a similar strategy -- with a default MPC horizon of only 3 steps, also handling long-term effects beyond the explicit planning horizon through Q-function bootstrap. **Neither has attempted to solve long-horizon decision-making solely by infinitely extending latent rollouts; both use finite-horizon model-based computation, with value functions bootstrapping longer-range return information back.** The specific implementations differ: Dreamer performs actor-critic learning on imagination trajectories, while TD-MPC2 uses Q-functions at the boundary of short-horizon MPC to provide long-term value estimation. Therefore, a more accurate question is: **to what extent can finite-horizon imagination/planning + value bootstrap reliably solve long-horizon tasks? If the rollout horizon is further increased, at what rate does model error accumulate?**
 
 ---
 

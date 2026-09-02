@@ -36,15 +36,13 @@ related_articles:
                      observation model
 ```
 
-**确定性路径 h_t** 由 h_t = f(h_{t-1}, z_{t-1}, a_{t-1}) 递归更新，负责积累历史信息。**随机性路径 z_t** 通过 categorical distribution 的 prior/posterior 建模当前状态的不确定性。两者共同构成 RSSM 的 latent state s_t = (h_t, z_t)，为 observation model 提供条件。从 POMDP 视角看，这个 latent state 可以被理解为对历史观测与动作所形成 belief state 的一种参数化——它并不是直接恢复环境的"真实物理状态"，而是学习一个足以支持预测和控制的 latent belief representation。
+**确定性路径 h_t** 由 h_t = f(h_{t-1}, z_{t-1}, a_{t-1}) 递归更新，负责积累历史信息。**随机性路径 z_t** 通过 categorical prior/posterior 建模 latent state 的不确定性。两者共同构成 RSSM 的 latent state s_t = (h_t, z_t)，并为 observation model 等预测头提供条件。从 POMDP 视角看，这个 latent state 可以理解为对历史观测与动作所形成 belief state 的一种参数化近似；它并不要求恢复环境的"真实物理状态"，而是学习一个足以支持预测和控制的 latent representation。
 
 这个设计有几个值得注意的特点：
 
-**第一，RSSM 更准确地说是 belief-state model。** 经典的 state-space model 形式是 z_{t+1} = f(z_t, a_t), o_t = g(z_t)。RSSM 则更接近一个 **partially observable** 的隐变量模型。RSSM 的 recurrent state (h_t, z_t) 不是精确的 Bayesian belief state，而是其参数化近似。
+**第一，categorical latent 是一个工程导向的选择。** categorical latent 的工程优势是，prior/posterior 都是显式离散分布，KL 可以直接解析计算；同时它提供了一种离散的随机表示，允许 prior/posterior 直接在 categorical distribution 上进行 KL 计算。DreamerV2 引入 categorical stochastic latent 并结合 straight-through estimator；DreamerV3 延续了这一表示方式。这是一个实用主义的设计决策，不是理论最优解。
 
-**第二，categorical latent 是一个工程导向的选择。** categorical latent 的工程优势是，prior/posterior 都是显式离散分布，KL 可以直接解析计算；同时它提供了一种离散的随机表示，允许 prior/posterior 直接在 categorical distribution 上进行 KL 计算。DreamerV2 引入 categorical stochastic latent 并结合 straight-through estimator；DreamerV3 延续了这一表示方式。这是一个实用主义的设计决策，不是理论最优解。
-
-**第三，Dreamer 的核心训练机制，是把 learned latent dynamics 与 actor-critic learning 结合起来，使 policy/value 可以主要在 imagined latent trajectories 上训练。** model-based RL 中的 imagination / model rollout 概念早于 Dreamer 就存在。Dreamer 的创新在于：RSSM 不仅用于拟合历史数据，还在隐空间中"想象"未来轨迹——从当前 posterior 出发，用 prior rollout 出多条未来路径，然后在想象 trajectories 上训练 actor 和 critic。这使 Dreamer 系列成为 latent imagination + actor-critic 路线中最具代表性的工作之一，并在多个视觉控制与强化学习 benchmark 上展示了很强的样本效率。
+**第二，Dreamer 的核心训练机制，是把 learned latent dynamics 与 actor-critic learning 结合起来，使 policy/value 可以主要在 imagined latent trajectories 上训练。** model-based RL 中的 imagination / model rollout 概念早于 Dreamer 就存在。Dreamer 的创新在于：RSSM 不仅用于拟合历史数据，还在隐空间中"想象"未来轨迹——从当前 posterior 出发，用 prior rollout 出多条未来路径，然后在想象 trajectories 上训练 actor 和 critic。这使 Dreamer 系列成为 latent imagination + actor-critic 路线中最具代表性的工作之一，并在多个视觉控制与强化学习 benchmark 上展示了很强的样本效率。
 
 这些设计选择在 DreamerV1 → V2 → V3 的演进中被逐步验证。但它们是唯一的路线吗？
 
@@ -59,7 +57,7 @@ h'(t) = A h(t) + B x(t)
 y(t) = C h(t) + D x(t)
 ```
 
-S4 的关键在于对 state matrix A 进行结构化参数化，并结合 HiPPO 初始化与低秩修正，使其能够稳定、高效地计算长程卷积。S4 在长序列基准上展示了 Transformer 级别的性能，但计算效率更高。
+S4 的关键在于对 state matrix A 进行结构化参数化，并结合 HiPPO 初始化与低秩修正，使其能够稳定、高效地计算长程卷积。S4 在长序列基准上展示了有竞争力的性能，并通过结构化 SSM 将长序列计算转化为更高效的卷积/状态空间运算。
 
 **Mamba（2023/2024）** 在 S4 的基础上引入了 **selectivity**——让 SSM 的关键参数（B_t, C_t, Δ_t）成为输入相关的，从而获得 **selective state space**。这意味着 state transition / information retention 可以根据当前 token 内容变化，让模型能够选择性地记住或遗忘信息。Mamba 在论文报告的语言建模实验中表现出与同规模 Transformer 竞争的性能，同时在序列长度上具有线性 scaling，并通过 selective scan 实现高效硬件执行。
 
@@ -93,7 +91,7 @@ TD-MPC2 不使用 RSSM 的双轨结构，而是用一个更简洁的架构：
 Encoder:     e_t = E(o_t)                    → 将观察编码为 latent
 Dynamics:    z_{t+1} = f_θ(z_t, a_t)         → 预测下一个 latent
 Reward:      r_t = R(z_t, a_t)               → 预测奖励
-Q-function:  Q(z_t, a_t)                     → 长期价值估计（5 个 Q ensemble）
+Q-function:  Q(z_t, a_t)                     → 长期价值估计（Q ensemble）
 Policy:      π(a_t | z_t)                    → policy prior
 ```
 
@@ -103,7 +101,7 @@ Policy:      π(a_t | z_t)                    → policy prior
 
 这里出现了一个非常重要的分野。
 
-Dreamer 中通过 observation prediction 约束 latent representation 的路线是：
+Dreamer 中通过 observation / reward 等预测任务约束 latent representation 的路线是：
 
 ```
 observation → latent → dynamics → predict observation
@@ -122,7 +120,7 @@ observation → encoder → z_t → latent dynamics → ẑ_{t+1}
                                           encoder(o_{t+1})
 ```
 
-**与 Dreamer 中通过 observation prediction 约束 latent representation 的路线不同，TD-MPC2 明确采用 decoder-free 的 implicit world model：它不要求 latent 能够重建像素，而是通过 latent consistency、reward prediction 和 value learning，让表示直接服务于控制目标。**
+**与 Dreamer 中通过 observation / reward 等预测任务约束 latent representation 的路线不同，TD-MPC2 明确采用 decoder-free 的 implicit world model——这里的 implicit 指它不通过显式 observation decoder 定义一个可生成像素的世界模型，而是通过 latent dynamics、reward/value prediction 等任务相关目标约束 latent space。**
 
 ### 一个更深的视角：decision-sufficient vs observation-sufficient
 
@@ -150,7 +148,7 @@ reward / value / terminal
 action selection (MPC)
 ```
 
-前者要求 latent 保留足够的信息来生成未来观测；后者只要求 latent 保留对决策有用的信息。二者的 representation pressure 并不相同。TD-MPC2 优化的是 **decision-sufficient representation**，而不是 observation-sufficient representation——这解释了为什么它可以不做 decoder。
+在典型的 generative world model 中，latent 需要保留足够的信息来支持未来观测的生成或预测；后者只要求 latent 保留对决策有用的信息。二者的 representation pressure 并不相同。TD-MPC2 优化的是 **decision-sufficient representation**，而不是 observation-sufficient representation——这解释了为什么它可以不做 decoder。
 
 从本文采用的功能视角来看，这可以理解为一个从"生成世界"向"提供预测接口"的设计趋势。这是一种设计趋势，而不是领域共识——generative 和 control-oriented 两条路线目前明显并存。但这引出一个核心问题：**world model 不一定需要成为一个更强的"视频生成器"，更关键的问题是：它需要提供什么样的 action-conditioned predictive interface，才能以最低的计算与数据成本支持 planning、value estimation 或 policy learning。**
 
@@ -160,7 +158,7 @@ TD-MPC2 的核心不是复杂的 latent-state decomposition，而是把**简洁�
 
 **第一，latent-space MPC 与 Q-function ensemble 的结合。** TD-MPC2 的显式 MPC planning horizon 很短（默认 3 steps），因此它并不是通过长 rollout 直接完成长期规划，而是让 learned Q-function 在规划边界处提供 long-term value bootstrap。**换言之，TD-MPC2 把"长期规划"从模型 rollout 问题部分转移成了 value estimation 问题。** 具体地，TD-MPC2 在 latent dynamics 上进行短视 rollout，并使用 Q-function ensemble（默认 5 个 Q-functions，TD target 使用随机子采样 Q-function 的 minimum）提供长期价值估计，从而把短期 MPC planning 与长期 TD bootstrapping 结合起来。
 
-**第二，task-conditioned cross-task / cross-embodiment scaling。** TD-MPC2 在 104 个连续控制任务上进行评估，并进一步展示了一个 317M 参数的单一 agent 可以在 80 个任务上进行训练，覆盖不同任务、embodiment 和 action space。它并不是让一个 dynamics model 在没有条件信息的情况下"自动理解所有 embodiment"，而是通过 **task embeddings / task-conditioned components** 让同一套模型适应不同任务——encoder、dynamics、reward、policy prior、Q 等组件都与 task embedding 联系起来。
+**第二，task-conditioned 的多任务与跨 embodiment scaling。** TD-MPC2 在 104 个连续控制任务上进行评估，并进一步展示了一个 317M 参数的单一 agent 可以在 80 个任务上进行训练，覆盖不同任务、embodiment 和 action space。它并不是让一个 dynamics model 在没有条件信息的情况下"自动理解所有 embodiment"，而是通过 **task embeddings / task-conditioned components** 让同一套模型适应不同任务——encoder、dynamics、reward、policy prior、Q 等组件都与 task embedding 联系起来。
 
 **第三，latent representation 的稳定化。** TD-MPC2 使用 SimNorm 对 latent state 做归一化，并通过联合训练 encoder、dynamics、reward、policy prior 和 Q-functions，使 latent representation 服务于预测与控制，而不需要 RSSM 那样的 stochastic prior/posterior KL 约束。
 
@@ -174,17 +172,18 @@ TD-MPC2 的核心不是复杂的 latent-state decomposition，而是把**简洁�
 
 **纵轴：functional role**（sequence backbone → latent dynamics → prediction interface → planning / policy）
 
-```
-Architecture \ Role    Seq Backbone    Latent Dynamics    Planning / Policy
-GRU                    ✓ (RNN)         RSSM               ✓ (actor)
-MLP                    —               TD-MPC2            —
-Transformer            ✓ (GPT etc.)    IRIS / WM          ✓ (policy)
-Mamba                  ✓ (SSM)         可以               ✓ (policy)
-```
+| Architecture | Sequence backbone | Latent dynamics | Planning / policy |
+| ------------ | ----------------- | --------------- | ----------------- |
+| GRU | ✓ | RSSM | 可作为 policy/value backbone |
+| MLP | — | TD-MPC2 | 可作为 policy/value network |
+| Transformer | ✓ | IRIS / other WMs | 可作为 policy / planner |
+| Mamba | ✓ | 可以构造 | 可作为 policy backbone |
+
+> **同一种 architecture 可以被放在不同功能层；真正决定它是否构成 world model 的，是训练目标、输入接口以及它能提供什么 predictive interface。**
 
 这张表表达了全文的核心观点：**Architecture ≠ function。** RSSM 用 GRU 做 latent dynamics，Mamba 也可以用做 latent dynamics——区别不在 architecture，而在训练接口和功能角色。
 
-因此，"world model"更适合作为一种功能接口，而不是一种固定网络结构：它至少需要提供某种关于未来状态、观测、奖励或价值的可查询预测能力，并能够被用于决策、规划或策略学习。从这个角度看，RSSM、TD-MPC2、Transformer world model 甚至某些 JEPA-style predictive models 都可以属于 world-model family，但它们提供的 prediction interface 并不相同。
+因此，"world model"更适合作为一种功能接口，而不是一种固定网络结构：它至少需要提供某种与环境未来演化有关、可被决策过程查询的预测接口，例如对未来 latent state、observation、reward 或 termination 的预测；value function 则可以进一步作为这个 predictive model 的 downstream bootstrap mechanism。从这个角度看，RSSM、TD-MPC2、Transformer world model 甚至某些 JEPA-style predictive models 都可以属于 world-model family，但它们提供的 prediction interface 并不相同。
 
 ### 对比表
 
@@ -261,7 +260,7 @@ Latent Dynamics Model (RSSM-style / TD-MPC-style)
 
 **scaling 会改变架构选择吗？** 一个值得验证的假设是：在数据有限、观测复杂或环境高度随机的 regime 中，显式的 stochastic latent structure 可能提供有价值的 inductive bias；而在数据与任务规模扩大后，更简洁、统一的 latent dynamics architecture 是否在大规模数据、多任务训练下具有更好的 scaling efficiency，则需要系统实验验证。
 
-**想象力的边界在哪里？** DreamerV3 并不是通过一次无限延长的 latent rollout 来解决长期决策；其默认 imagination horizon 为 15 steps，长期回报主要通过 value bootstrap 传递。有趣的是，TD-MPC2 也采用了类似的策略——默认 MPC horizon 仅 3 steps，同样通过 Q-function bootstrap 处理超出显式 planning horizon 的长期影响。**两者都没有简单地通过无限延长 latent rollout 来解决长期决策，而是把远期预测部分交给 value function。** 因此，一个更准确的问题是：**有限 horizon 的 imagination/planning + value bootstrap 能够在多大程度上可靠地解决长时程任务？如果进一步增加 rollout horizon，模型误差又会以什么速度累积？**
+**想象力的边界在哪里？** DreamerV3 并不是通过一次无限延长的 latent rollout 来解决长期决策；其默认 imagination horizon 为 15 steps，长期回报主要通过 value bootstrap 传递。有趣的是，TD-MPC2 也采用了类似的策略——默认 MPC horizon 仅 3 steps，同样通过 Q-function bootstrap 处理超出显式 planning horizon 的长期影响。**两者都没有试图仅靠无限延长 latent rollout 来解决长期决策，而是通过有限 horizon 的 model-based computation，再由 value function 将更远期的回报信息 bootstrap 回来。** 具体实现虽然不同：Dreamer 在 imagination trajectories 上进行 actor-critic learning，而 TD-MPC2 在短视 MPC 的规划边界使用 Q-function 提供长期价值估计。因此，一个更准确的问题是：**有限 horizon 的 imagination/planning + value bootstrap 能够在多大程度上可靠地解决长时程任务？如果进一步增加 rollout horizon，模型误差又会以什么速度累积？**
 
 ---
 
