@@ -35,21 +35,9 @@ Physical Intelligence 发布了 π₀.7，Google DeepMind 推出了 Gemini Robot
 
 Physical Intelligence 的 π₀ 系列是目前 VLA 路线最具代表性的工作。从 π₀ 的 flow matching 连续动作生成，到 π₀.5 的离散-连续混合 recipe，再到 π₀.7 的 context-rich steering + 视觉子目标——这条技术线在动作接口设计上持续迭代。
 
-π₀.7 尤其值得关注，因为它恰好说明 **VLA 并没有简单地排斥世界模型，而是在逐渐吸收预测性组件**。π₀.7 的视觉子目标（visual subgoal）由一个 lightweight world model 生成——这意味着 VLA 的核心策略网络虽然没有显式的 action-conditioned prediction interface，但它已经开始借助外部预测模块来获得"想象未来状态"的能力。π₀.7 展示的 cross-embodiment zero-shot T-shirt folding 是一个标志性结果，但需要注意的是，这仍然是在特定评估协议下的结果，距离通用家庭操作还有相当距离。
+π₀.7 尤其值得关注，因为它恰好说明 **VLA 并没有简单地排斥世界模型，而是在逐渐吸收预测性组件**。π₀.7 的视觉子目标（visual subgoal）由一个 lightweight world model 生成——这意味着 π₀.7 的核心策略接口仍然不是一个显式的 action-conditioned rollout interface，但系统已经通过外部 predictive component 引入了对未来状态的结构化建模。π₀.7 展示的 cross-embodiment zero-shot T-shirt folding 是一个标志性结果，但需要注意的是，这仍然是在特定评估协议下的结果，距离通用家庭操作还有相当距离。
 
-Google DeepMind 的路线则从 RT-2 的视觉语言模型机器人化，逐渐发展到 Gemini Robotics，再到 Gemini Robotics-ER / Gemini Robotics 1.5。其重要变化不只是"更大的 VLM"，而是把机器人策略、物理世界理解、任务分解和高层 reasoning 逐渐组织成一个分层系统：
-
-```
-RT-2 (2023)
-  ↓
-Gemini Robotics (2025)
-  ↓
-Gemini Robotics On-Device
-  ↓
-Gemini Robotics 1.5 + Robotics-ER 1.5 (2026)
-```
-
-Gemini Robotics 1.5 已经不是简单的"VLM → robot policy"了，而是明显朝着 **VLA + embodied reasoning + planning / orchestration** 的方向发展。官方把 Robotics-ER 1.5 定义为高层 embodied reasoning / planning，而 Robotics 1.5 负责视觉到 motor commands 的映射。这条演化线的方向是：让语义理解、物理推理和动作生成在一个分层架构中各司其职。
+Google DeepMind 的路线则从 RT-2 的视觉语言模型机器人化，逐渐发展到 Gemini Robotics，并进一步扩展到 Robotics-ER 1.5 及后续版本。其重要变化不只是"更大的 VLM"，而是逐渐形成由 VLA、embodied reasoning 和高层任务规划共同组成的分层系统。Gemini Robotics 1.5 已经不是简单的"VLM → robot policy"了——官方把 Robotics-ER 1.5 定义为高层 embodied reasoning / planning，而 Robotics 1.5 负责视觉到 motor commands 的映射。这条演化线的方向是：让语义理解、物理推理和动作生成在一个分层架构中各司其职。
 
 NVIDIA 的 GR00T N1/N2 也属于这一层——它是开源的人形机器人基础模型，提供策略级别的 capability。
 
@@ -59,21 +47,23 @@ NVIDIA 的 GR00T N1/N2 也属于这一层——它是开源的人形机器人基
 
 **核心思路：** 在隐空间中学习 action-conditioned dynamics，再通过 imagination、MPC 或 value estimation 等方式把预测模型用于控制。
 
-**代表：** DreamerV3（RSSM + imagination）、TD-MPC2（latent dynamics + MPC）、NVIDIA Cosmos（world foundation models）
+**代表：** DreamerV3（RSSM + imagination）、TD-MPC2（latent dynamics + MPC），以及更广义的 world foundation models（如 NVIDIA Cosmos）
 
 DreamerV3 通过 RSSM 在隐空间中学习动力学模型，然后在想象中 rollout 轨迹训练 actor-critic 策略。这条路线在 sample efficiency 上有明显优势——用少量真实交互数据就能学到复杂技能。
 
 TD-MPC2 走了更简洁的路线：encoder + MLP ensemble dynamics + latent-space MPC + Q-function ensemble。不用 RSSM 的双轨结构，而是在 cross-task scaling 上展示潜力——在 104 个连续控制任务、4 个 domain 上进行评估，并展示了单一 317M 参数模型跨 80 个任务训练的 scaling 结果（关于 TD-MPC2 的架构细节，在[之前的文章](/zh/articles/2026-09-04-rssm-beyond/)中做过详细拆解）。
 
-**这条路线的优势**是 sample efficiency，以及显式利用 action-conditioned dynamics 进行预测、规划或价值估计。需要注意的是，latent predictive model ≠ accurate physical simulator——隐空间预测模型的优势不在于"物理预测精度高"，而在于它提供了一个可用于 planning 和 value bootstrap 的预测接口。**局限**在于：世界模型的预测质量随 rollout 长度衰减，长程任务的可靠性仍然是瓶颈。另外，世界模型路线在语义理解（语言接地）方面通常不如 VLA 路线。
+**这条路线的优势**是 sample efficiency，以及显式利用 action-conditioned dynamics 进行预测、规划或价值估计。需要注意的是，latent predictive model ≠ accurate physical simulator——隐空间预测模型的优势不在于"物理预测精度高"，而在于它提供了一个可用于 planning 和 value bootstrap 的预测接口。**局限**在于：世界模型的预测质量随 rollout 长度衰减，长程任务的可靠性仍然是瓶颈。对于以 latent dynamics + model-based control 为核心的传统世界模型路线（如 Dreamer、TD-MPC2），语言接地和开放世界语义泛化通常不是其主要优化目标，因此在这些能力上往往不如以 foundation model 为基础的 VLA。
 
-NVIDIA Cosmos 也属于这一层——它提供 world foundation models，能够进行 action-conditioned 的物理预测与合成数据生成。Cosmos 的定位已经远不止"合成数据生成器"，而是包含 world models、post-training、data processing、evaluation 在内的 Physical AI 开发栈。
+NVIDIA Cosmos 也属于 Dynamics 这一层，但需要做一个区分：其中 Dreamer / TD-MPC2 更接近控制导向的 latent dynamics，而 Cosmos 属于面向物理世界建模、生成与策略模型训练的 foundation-model 路线，两者并非同一种 world model。Cosmos 能够用于物理世界预测、世界生成以及 action / policy model 的训练与生成，其定位已经远不止"合成数据生成器"，而是包含 world models、post-training、data processing、evaluation 在内的 Physical AI 开发栈。
 
 ### Infrastructure：怎么获得训练数据和环境？
 
 **核心思路：** 提供仿真平台、数据工具链和基础模型，支撑上层 Policy 和 Dynamics 的训练与评估。
 
-**代表：** NVIDIA（Isaac / Omniverse）、World Labs（Marble）、遥操作数据系统
+**代表：** NVIDIA（Isaac / Omniverse）、World Labs（Marble）、遥操作数据采集与 dataset curation 系统
+
+Infrastructure 不只是仿真，也包括 robot data collection、teleoperation、dataset curation、synthetic data generation 和 evaluation。
 
 NVIDIA 在这个层面构建的是一个 Physical AI 全栈：Isaac / Omniverse 提供仿真与数据生成基础设施，GR00T 提供机器人基础模型（Policy 层），Cosmos 则提供 world foundation models 与数据生成、预测和 post-training 能力（Dynamics 层）。NVIDIA 不做自己的机器人产品，而是让生态伙伴在其全栈上构建——这是一个杠杆效应很强的定位。
 
@@ -92,13 +82,13 @@ World Labs Marble
   robotics / simulation downstream
 ```
 
-Marble 解决的是 sim-to-real 链条中的一个关键环节：仿真环境的多样性和真实性。但它本身不是一个机器人策略系统，而是为下游的 Policy 和 Dynamics 层提供空间智能基础设施。
+Marble 有潜力成为 sim-to-real 链条中的一个重要环境生成环节——仿真环境的多样性和真实性。但它本身不是一个机器人策略系统，而是为下游的 Policy 和 Dynamics 层提供空间智能基础设施。
 
 ## 人形机器人：硬件形态的赌注
 
 2026 年最显眼的趋势之一是人形机器人的集体冲刺。
 
-**Figure AI** 的 Figure 02 在 BMW Spartanburg 工厂进行了 11 个月部署，累计运行超过 1,250 小时，并参与了 30,000+ 辆 X3 的生产流程（以上数据来自 Figure 官方披露）。Figure 的技术路线结合了端到端学习（与 OpenAI 合作）和传统控制。这是目前公开信息中最接近"真实部署"的案例之一。
+**Figure AI** 的 Figure 02 在 BMW Spartanburg 工厂进行了 11 个月部署，累计运行超过 1,250 小时，并参与了 30,000+ 辆 X3 的生产流程（以上数据来自 Figure 官方披露）。Figure 的技术路线结合了端到端学习（与 OpenAI 合作）和传统控制。在公开披露的人形机器人案例中，这是目前较接近长期真实部署的一类案例。
 
 **Tesla Optimus** 持续迭代硬件设计，目标是工厂内部部署。Tesla 的优势在于垂直整合能力——自有工厂提供测试环境，自有芯片（Dojo/FSD）提供训练算力，自有 AI 团队提供算法。
 
@@ -158,7 +148,7 @@ VLA 和世界模型的关系已经不再是简单的"向中间靠拢"。更准�
 
 ### 趋势四：从 demo 到部署的鸿沟
 
-大多数公开的机器人能力展示仍然是"demo 级别"——在受控环境中完成特定任务。从 demo 到可靠部署（处理失败恢复、适应环境变化、长时间稳定运行）之间有一个巨大的工程鸿沟。Figure AI 在 BMW 的 11 个月部署测试是目前公开信息中最接近"真实部署"的案例之一。
+大多数公开的机器人能力展示仍然是"demo 级别"——在受控环境中完成特定任务。从 demo 到可靠部署之间有一个巨大的工程鸿沟——"能完成任务"和"能连续运行 8 小时"根本不是同一个问题。这个鸿沟涵盖 task success → robustness → failure recovery → long-horizon autonomy → fleet-level reliability → economic viability 等多个层级。Figure AI 在 BMW 的 11 个月部署测试是目前公开信息中较接近长期真实部署的案例之一。
 
 ## 这张地图意味着什么？
 
@@ -176,7 +166,7 @@ VLA 和世界模型的关系已经不再是简单的"向中间靠拢"。更准�
         │                     │                     │
         └──────────────┬──────┴──────────────┬──────┘
                        │                     │
-                  Data / Simulation     Embodiment
+                  Data / Simulation / Evaluation     Embodiment
                        │                     │
                        └──────────┬──────────┘
                                   │
@@ -196,9 +186,9 @@ VLA 和世界模型的关系已经不再是简单的"向中间靠拢"。更准�
 
 **第二，软件、数据和模型正在成为越来越重要的差异化来源。** 随着人形机器人硬件逐渐出现更多标准化组件和成熟供应链，差异化的重心正在从硬件转向软件、数据和模型。但这个转变还在早期——actuator、hand、force sensing、whole-body control 等硬件能力仍然高度影响机器人的实际表现。
 
-**第三，从 demo 到部署的鸿沟是当前最大的挑战。** 大多数公开结果仍然是"在特定条件下能工作"，而不是"在真实环境中可靠运行"。解决这个问题的关键可能不是更大的模型，而是更好的数据、更鲁棒的策略、以及更成熟的 sim-to-real 链条。
+**第三，从 demo 到部署的鸿沟是当前最大的挑战。** 大多数公开结果仍然是"在特定条件下能工作"，而不是"在真实环境中可靠运行"。解决这个问题的关键可能不是更大的模型，而是更好的数据、更鲁棒的策略、更成熟的 sim-to-real 链条，以及 failure recovery、monitoring 和 fleet-level reliability 等系统工程能力。
 
-**第四，中国在硬件和落地上有优势，在基础模型上仍有差距。** 宇树的 IPO 和多家公司的融资进展表明硬件和商业化能力已经得到市场认可。基础模型方面的差距正在通过开源生态、公开论文和人才回流逐步缩小，但差距的真实大小仍需要更多 benchmark 数据来量化。
+**第四，中国在硬件供应链、制造和成本控制方面具有明显优势，在商业化探索上也非常积极。** 宇树的 IPO 和多家公司的融资进展表明硬件和商业化能力已经得到市场认可。但在大规模可靠部署和通用基础模型方面，公开证据仍不足以证明已经形成同等优势。基础模型方面的差距正在通过开源生态、公开论文和人才回流逐步缩小，但差距的真实大小仍需要更多 benchmark 数据来量化。
 
 ---
 
