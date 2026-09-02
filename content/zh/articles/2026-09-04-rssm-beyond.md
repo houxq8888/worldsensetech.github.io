@@ -5,7 +5,7 @@ date: 2026-09-04
 draft: false
 categories: ["世界模型", "论文解读"]
 tags: ["RSSM", "状态空间模型", "TD-MPC", "Mamba", "DreamerV3", "世界模型", "隐状态动力学"]
-description: "RSSM 是 Dreamer 系列世界模型的核心引擎，但状态空间建模的版图在过去几年发生了很大变化。本文把 RSSM 放在更大的 state-space modeling 演进中审视——区分 latent dynamics 与 sequence backbone 两个层面，讨论 TD-MPC2 的 decoder-free latent world model 路线和 planning + value 融合，以及世界模型引擎从'生成世界'到'提供预测接口'的范式转移。"
+description: "RSSM 是 Dreamer 系列世界模型的核心引擎，但状态空间建模的版图在过去几年发生了很大变化。本文把 RSSM 放在更大的 state-space modeling 演进中审视——区分 latent dynamics 与 sequence backbone 两个层面，讨论 TD-MPC2 的 decoder-free latent world model 路线和 planning + value 融合，以及世界模型引擎从'生成世界'到'提供预测接口'的设计趋势。"
 toc: true
 related_articles:
   - rssm-deep-dive
@@ -36,15 +36,15 @@ related_articles:
                      observation model
 ```
 
-**确定性路径 h_t** 由 h_t = f(h_{t-1}, z_{t-1}, a_{t-1}) 递归更新，负责积累历史信息。**随机性路径 z_t** 通过 categorical distribution 的 prior/posterior 建模当前状态的不确定性。两者共同构成 RSSM 的 **belief state** s_t = (h_t, z_t)，为 observation model 提供条件。
+**确定性路径 h_t** 由 h_t = f(h_{t-1}, z_{t-1}, a_{t-1}) 递归更新，负责积累历史信息。**随机性路径 z_t** 通过 categorical distribution 的 prior/posterior 建模当前状态的不确定性。两者共同构成 RSSM 的 latent state s_t = (h_t, z_t)，为 observation model 提供条件。从 POMDP 视角看，这个 latent state 可以被理解为对历史观测与动作所形成 belief state 的一种参数化——它并不是直接恢复环境的"真实物理状态"，而是学习一个足以支持预测和控制的 latent belief representation。
 
 这个设计有几个值得注意的特点：
 
-**第一，RSSM 更准确地说是 belief-state model。** 经典的 state-space model 形式是 z_{t+1} = f(z_t, a_t), o_t = g(z_t)。RSSM 则更接近一个 **partially observable** 的隐变量模型。从 POMDP 角度看，RSSM 的 recurrent state (h_t, z_t) 可以理解为对历史观测与动作形成的 belief state 的参数化——它并不是直接恢复环境的"真实物理状态"，而是学习一个足以支持预测和控制的 latent belief representation。
+**第一，RSSM 更准确地说是 belief-state model。** 经典的 state-space model 形式是 z_{t+1} = f(z_t, a_t), o_t = g(z_t)。RSSM 则更接近一个 **partially observable** 的隐变量模型。RSSM 的 recurrent state (h_t, z_t) 不是精确的 Bayesian belief state，而是其参数化近似。
 
-**第二，categorical latent 是一个工程导向的选择。** categorical latent 的工程优势是，prior/posterior 都是显式离散分布，KL 可以直接解析计算；同时它提供了一种离散的随机表示，允许 prior/posterior 直接在 categorical distribution 上进行 KL 计算。DreamerV2/V3 进一步结合 straight-through estimator 使用这种 latent。这是一个实用主义的设计决策，不是理论最优解。
+**第二，categorical latent 是一个工程导向的选择。** categorical latent 的工程优势是，prior/posterior 都是显式离散分布，KL 可以直接解析计算；同时它提供了一种离散的随机表示，允许 prior/posterior 直接在 categorical distribution 上进行 KL 计算。DreamerV2 引入 categorical stochastic latent 并结合 straight-through estimator；DreamerV3 延续了这一表示方式。这是一个实用主义的设计决策，不是理论最优解。
 
-**第三，Dreamer 的核心训练机制，是把 learned latent dynamics 与 actor-critic learning 结合起来，使 policy/value 可以主要在 imagined latent trajectories 上训练。** model-based RL 中的 imagination / model rollout 概念早于 Dreamer 就存在。Dreamer 的创新在于：RSSM 不仅用于拟合历史数据，还在隐空间中"想象"未来轨迹——从当前 posterior 出发，用 prior rollout 出多条未来路径，然后在想象 trajectories 上训练 actor 和 critic。这让 Dreamer 系列在 sample efficiency 上持续领先。
+**第三，Dreamer 的核心训练机制，是把 learned latent dynamics 与 actor-critic learning 结合起来，使 policy/value 可以主要在 imagined latent trajectories 上训练。** model-based RL 中的 imagination / model rollout 概念早于 Dreamer 就存在。Dreamer 的创新在于：RSSM 不仅用于拟合历史数据，还在隐空间中"想象"未来轨迹——从当前 posterior 出发，用 prior rollout 出多条未来路径，然后在想象 trajectories 上训练 actor 和 critic。这使 Dreamer 系列成为 latent imagination + actor-critic 路线中最具代表性的工作之一，并在多个视觉控制与强化学习 benchmark 上展示了很强的样本效率。
 
 这些设计选择在 DreamerV1 → V2 → V3 的演进中被逐步验证。但它们是唯一的路线吗？
 
@@ -81,11 +81,11 @@ S4/Mamba：
   → sequence processing
 ```
 
-如果把 Mamba 训练成 action-conditioned latent dynamics，它同样可以成为 world-model engine；反之，RSSM 的 recurrent state 也可以被理解为一种特殊的 sequence state representation。**架构本身不决定语义，训练接口才决定。**
+Mamba 的 hidden state 可以被用作高效的序列历史压缩状态，但它本身并不预设这一状态具有"上下文"或"世界状态"的语义。如果把 Mamba 训练成 action-conditioned latent dynamics，它同样可以成为 world-model engine；反之，RSSM 的 recurrent state 也可以被理解为一种特殊的 sequence state representation。**架构本身不决定语义，训练接口才决定。**
 
 ## TD-MPC2：另一种 latent dynamics 路线
 
-TD-MPC2（2024，arXiv:2310.16828）代表了一种不同于 RSSM 的世界模型设计哲学。
+TD-MPC2（2024，arXiv:2310.16828）是一个 model-based RL system，其核心 world model 采用 decoder-free latent dynamics。
 
 TD-MPC2 不使用 RSSM 的双轨结构，而是用一个更简洁的架构：
 
@@ -103,10 +103,10 @@ Policy:      π(a_t | z_t)                    → policy prior
 
 这里出现了一个非常重要的分野。
 
-RSSM / Dreamer 的路线是：
+Dreamer 中通过 observation prediction 约束 latent representation 的路线是：
 
 ```
-observation → latent → dynamics → reconstruct observation
+observation → latent → dynamics → predict observation
                                         ↓
                                    imagination
 ```
@@ -122,71 +122,79 @@ observation → encoder → z_t → latent dynamics → ẑ_{t+1}
                                           encoder(o_{t+1})
 ```
 
-**与 Dreamer/RSSM 的 observation reconstruction 路线不同，TD-MPC2 是 decoder-free 的 latent world model：它不要求 latent 能够重建像素，而是通过 latent consistency、reward prediction 和 value prediction 直接让表示服务于控制目标。**
+**与 Dreamer 中通过 observation prediction 约束 latent representation 的路线不同，TD-MPC2 明确采用 decoder-free 的 implicit world model：它不要求 latent 能够重建像素，而是通过 latent consistency、reward prediction 和 value learning，让表示直接服务于控制目标。**
 
-这意味着 world model 的目标可能正在从"生成世界"转向"提供足够支持决策的预测接口"。这不是说 generative world model 没有价值——而是说，**world model 不一定需要成为一个更强的"视频生成器"，更关键的问题是：它需要提供什么样的 action-conditioned predictive interface，才能以最低的计算与数据成本支持 planning、value estimation 或 policy learning。**
+### 一个更深的视角：decision-sufficient vs observation-sufficient
+
+这个区别值得进一步展开。
+
+```
+Generative world model (Dreamer)
+
+z_t
+ ↓
+p(o_{t+1:t+H} | z_t, a_{t:t+H})
+ ↓
+future observations
+ → imagination → actor-critic
+
+
+Control-oriented world model (TD-MPC2)
+
+z_t
+ ↓
+p(z_{t+1} | z_t, a_t)
+ ↓
+reward / value / terminal
+ ↓
+action selection (MPC)
+```
+
+前者要求 latent 保留足够的信息来生成未来观测；后者只要求 latent 保留对决策有用的信息。二者的 representation pressure 并不相同。TD-MPC2 优化的是 **decision-sufficient representation**，而不是 observation-sufficient representation——这解释了为什么它可以不做 decoder。
+
+从本文采用的功能视角来看，这可以理解为一个从"生成世界"向"提供预测接口"的设计趋势。这是一种设计趋势，而不是领域共识——generative 和 control-oriented 两条路线目前明显并存。但这引出一个核心问题：**world model 不一定需要成为一个更强的"视频生成器"，更关键的问题是：它需要提供什么样的 action-conditioned predictive interface，才能以最低的计算与数据成本支持 planning、value estimation 或 policy learning。**
 
 ### TD-MPC2 的设计重点
 
 TD-MPC2 的核心不是复杂的 latent-state decomposition，而是把**简洁的 latent dynamics、task-conditioned representation、短视 MPC 与长期 Q-value estimation** 组合起来。可以把 TD-MPC2 的设计重点概括为三个方面：
 
-**第一，latent-space MPC 与 Q-function ensemble 的结合。** TD-MPC2 的显式 MPC planning horizon 很短（默认 3 steps），因此它并不是通过长 rollout 直接完成长期规划，而是让 learned Q-function 在规划边界处提供 long-term value bootstrap。具体地，TD-MPC2 在 latent dynamics 上进行短视 rollout，并使用 Q-function ensemble（默认 5 个 Q-functions，TD target 使用随机子采样 Q-function 的 minimum）提供长期价值估计，从而把短期 MPC planning 与长期 TD bootstrapping 结合起来。这是 TD-MPC2 真正漂亮的地方。
+**第一，latent-space MPC 与 Q-function ensemble 的结合。** TD-MPC2 的显式 MPC planning horizon 很短（默认 3 steps），因此它并不是通过长 rollout 直接完成长期规划，而是让 learned Q-function 在规划边界处提供 long-term value bootstrap。**换言之，TD-MPC2 把"长期规划"从模型 rollout 问题部分转移成了 value estimation 问题。** 具体地，TD-MPC2 在 latent dynamics 上进行短视 rollout，并使用 Q-function ensemble（默认 5 个 Q-functions，TD target 使用随机子采样 Q-function 的 minimum）提供长期价值估计，从而把短期 MPC planning 与长期 TD bootstrapping 结合起来。
 
-**第二，task-conditioned cross-task / cross-embodiment scaling。** TD-MPC2 展示了在大量连续控制任务上的跨任务训练能力，并通过 task embeddings 处理不同任务和 embodiment 的差异。它并不是让一个 dynamics model 在没有条件信息的情况下"自动理解所有 embodiment"，而是通过 **task embeddings / task-conditioned components** 让同一套模型适应不同任务——encoder、dynamics、reward、policy prior、Q 等组件都与 task embedding 联系起来。
+**第二，task-conditioned cross-task / cross-embodiment scaling。** TD-MPC2 在 104 个连续控制任务上进行评估，并进一步展示了一个 317M 参数的单一 agent 可以在 80 个任务上进行训练，覆盖不同任务、embodiment 和 action space。它并不是让一个 dynamics model 在没有条件信息的情况下"自动理解所有 embodiment"，而是通过 **task embeddings / task-conditioned components** 让同一套模型适应不同任务——encoder、dynamics、reward、policy prior、Q 等组件都与 task embedding 联系起来。
 
 **第三，latent representation 的稳定化。** TD-MPC2 使用 SimNorm 对 latent state 做归一化，并通过联合训练 encoder、dynamics、reward、policy prior 和 Q-functions，使 latent representation 服务于预测与控制，而不需要 RSSM 那样的 stochastic prior/posterior KL 约束。
 
 从 RSSM 到 TD-MPC2，一个明显的趋势是：**TD-MPC2 展示了另一种路线：不依赖复杂的 stochastic recurrent state，而是在 compact latent space 中结合 dynamics prediction、short-horizon MPC 与 long-horizon value estimation。**
 
-## 四个层次：从 Sequence Backbone 到 Control
+## Architecture ≠ Function：从 Sequence Backbone 到 Control
 
-把上面讨论的模型放在一起，会发现它们并不处于同一层级。更准确的理解是四个层次：
+把上面讨论的模型放在一起，会发现它们并不处于同一层级。更重要的是，**同一个 architecture 可以占据不同的功能角色**。与其用"四层架构"来描述，不如用一个二维 taxonomy：
+
+**横轴：architecture**（Recurrent / SSM / Transformer / MLP）
+
+**纵轴：functional role**（sequence backbone → latent dynamics → prediction interface → planning / policy）
 
 ```
-             Representation / Sequence Backbone
-                         │
-              ┌──────────┴──────────┐
-              ↓                     ↓
-       Latent Dynamics        Sequence Modeling
-        RSSM / MLP /           S4 / Mamba /
-        Transformer            Transformer
-              │
-              ↓
-      Action-conditioned
-        Prediction
-              │
-       ┌──────┴───────┐
-       ↓              ↓
-   Imagination        MPC
-    Dreamer         TD-MPC2
-       │              │
-       ↓              ↓
-   Actor-Critic    Q / Value
-       └──────┬───────┘
-              ↓
-            Policy
+Architecture \ Role    Seq Backbone    Latent Dynamics    Planning / Policy
+GRU                    ✓ (RNN)         RSSM               ✓ (actor)
+MLP                    —               TD-MPC2            —
+Transformer            ✓ (GPT etc.)    IRIS / WM          ✓ (policy)
+Mamba                  ✓ (SSM)         可以               ✓ (policy)
 ```
+
+这张表表达了全文的核心观点：**Architecture ≠ function。** RSSM 用 GRU 做 latent dynamics，Mamba 也可以用做 latent dynamics——区别不在 architecture，而在训练接口和功能角色。
 
 因此，"world model"更适合作为一种功能接口，而不是一种固定网络结构：它至少需要提供某种关于未来状态、观测、奖励或价值的可查询预测能力，并能够被用于决策、规划或策略学习。从这个角度看，RSSM、TD-MPC2、Transformer world model 甚至某些 JEPA-style predictive models 都可以属于 world-model family，但它们提供的 prediction interface 并不相同。
-
-这个分层很重要：
-
-- **S4/Mamba** 是 sequence engine——解决如何高效维护 state/history
-- **RSSM** 是 latent dynamics engine——解决如何在隐空间建模环境动态
-- **TD-MPC2** 是 latent dynamics + value + MPC system——把短期规划与长期价值结合
-- **Dreamer** 是 latent dynamics + imagination + actor-critic system——在想象中训练策略
-
-它们之间的关系不是"三条平行路线"，而是**不同层级的组件可以组合**。例如，Mamba 可以作为 VLA 的 sequence backbone，但不会自动让 VLA 变成 world model——只有当它被训练成关于环境状态、动作和未来状态之间关系的可查询预测模型时，才真正成为 world model。
 
 ### 对比表
 
 | 维度 | RSSM-based Dreamer | S4 / Mamba | TD-MPC2 |
 |------|-------------------|------------|---------|
-| **定位** | stochastic latent dynamics + imagination RL | general sequence architecture | latent dynamics + MPC + TD learning |
-| **状态结构** | deterministic + stochastic latent | SSM hidden state | continuous task-conditioned latent |
+| **world-model role** | explicit latent dynamics | 本身不是 world model | implicit latent dynamics |
+| **状态结构** | deterministic + stochastic latent | SSM hidden state | continuous latent + task conditioning |
 | **是否 action-conditioned** | 是 | 默认不是 | 是 |
-| **observation decoder** | 通常有 | 不需要 | 不需要（decoder-free） |
-| **核心预测接口** | latent transition + observation/reward | sequence transformation | latent transition + reward/value |
+| **observation decoder** | Dreamer 中通常有 | 取决于具体任务 | 无（decoder-free） |
+| **核心预测接口** | observation / reward + latent transition | 取决于训练 objective | latent transition + reward/value |
 | **控制方式** | imagined actor-critic | 非控制算法本身 | latent MPC + Q bootstrap |
 | **主要优势** | imagination / sample efficiency | long sequence efficiency | planning + value + multitask scaling |
 | **主要限制** | stochastic latent / training complexity | 不天然提供 dynamics semantics | short MPC horizon + Q bootstrap |
@@ -199,28 +207,26 @@ TD-MPC2 的核心不是复杂的 latent-state decomposition，而是把**简洁�
 
 ### 趋势一：VLA 正在借用 SSM 架构
 
-VLA 领域已经出现直接采用 Mamba/SSM backbone 的工作。例如 RoboMamba（NeurIPS 2024）将视觉编码与 Mamba 结合用于 vision-language-action reasoning，并在仿真和真实机器人实验中验证了其效率；近期工作也开始进一步探索将 selective SSM 用于 VLA 的 action expert。
+VLA 领域已经出现直接采用 Mamba/SSM backbone 的工作。RoboMamba（NeurIPS 2024）是代表性案例之一——它将视觉编码与 Mamba 结合用于 vision-language-action reasoning，并在仿真和真实机器人实验中验证了其效率；近期工作也开始进一步探索将 selective SSM 用于 VLA 的 action expert。
 
 动机很直接：标准 full self-attention 在训练时的 attention 计算与上下文长度呈 O(L²) 扩展；自回归推理虽然可以通过 KV cache 避免每一步重新计算整个 attention，但 KV cache 的内存仍随上下文长度增长。对需要持续处理长 observation history 的机器人策略而言，这会形成明显的计算和内存压力。
 
-但这里有一个概念上的张力：**Mamba 的隐状态是序列上下文压缩，不是环境动力学表示。** 用 Mamba 做 VLA backbone 可以让模型更高效地处理长序列，但它不会自动获得 RSSM 那种"在隐空间中模拟物理动态"的能力。
-
-从建模角度看，这恰好连接到了 VLA 系列中讨论的问题：VLA 缺的不是序列处理能力，而是显式的 action-conditioned prediction interface。把 Mamba 放进 VLA 可以改善序列处理效率，但不会自动让 VLA 变成一个 world model。
+但从建模角度看，这恰好连接到了 VLA 系列中讨论的问题：VLA 缺的不是序列处理能力，而是显式的 action-conditioned prediction interface。把 Mamba 放进 VLA 可以改善序列处理效率，但不会自动让 VLA 变成一个 world model。
 
 ### 趋势二：世界模型开始使用 Transformer 架构
 
-反过来，一些世界模型工作开始用 Transformer 替代 RSSM 的 GRU + categorical latent 结构。比如 IRIS（*Transformers are Sample-Efficient World Models*）用离散图像 tokenizer + autoregressive Transformer 构建世界模型，把 image dynamics 变成 token sequence modeling。IRIS 主要验证于 Atari 环境，因此这里更适合作为"Transformer world model"这一架构路线的代表，而不是直接的机器人 world-model benchmark。
+反过来，一些世界模型工作开始用 Transformer 替代 RSSM 的 GRU + categorical latent 结构。比如 IRIS（*Transformers are Sample-Efficient World Models*）用离散图像 tokenizer + autoregressive Transformer 构建世界模型。IRIS 并不是简单地把 RSSM 的 recurrent state 换成 Transformer，而是同时改变了 representation 和 dynamics：先把图像压缩成离散 token，再在 token 序列上用 autoregressive Transformer 建模——这是完全不同的 world-model design。IRIS 主要验证于 Atari 环境，因此这里更适合作为"Transformer world model"这一架构路线的代表，而不是直接的机器人 world-model benchmark。
 
 这种方向的优势是：Transformer 的显式 attention 提供了跨时间位置的直接交互能力，因此模型可以根据当前 prediction target 动态利用不同历史位置的信息，而不必像固定维度 recurrent state 那样把历史压缩进单一递归状态。在标准全局 self-attention 下，训练时 attention 计算与上下文长度呈 O(L²) 扩展；但实际 world model 往往通过 token compression、局部 attention 或其他结构缓解这一问题。
 
 ### 趋势三： latent dynamics + foundation model 的混合架构
 
-一个更有意思的方向是：**用 foundation model 做语义理解和表示，用 latent dynamics model 做物理预测。**
+一个更有意思的方向是：**用 foundation model 做语义/视觉表示，再由专门的 latent dynamics 模块承担 action-conditioned future prediction。**
 
 ```
 Foundation Model (Transformer / Mamba)
       ↓
-  semantic representation
+  semantic / visual representation
       ↓
 Latent Dynamics Model (RSSM-style / TD-MPC-style)
       ↓
@@ -229,7 +235,7 @@ Latent Dynamics Model (RSSM-style / TD-MPC-style)
   planning / policy
 ```
 
-这种混合架构试图结合两者的优势：foundation model 提供强大的语义泛化能力，latent dynamics model 提供物理预测能力。
+这种混合架构试图让 foundation model 提供更强的语义/视觉表示，再由专门的 latent dynamics 模块承担 action-conditioned future prediction；但二者之间如何接口、哪些信息需要从 foundation model 保留到 dynamics latent，仍然是开放问题。
 
 ## RSSM 的遗产
 
@@ -239,7 +245,7 @@ Latent Dynamics Model (RSSM-style / TD-MPC-style)
 
 **第一，它证明了 latent imagination 用于行为学习的实用性。** Dreamer 系列通过 RSSM + imagination 的完整工程实现，证明了 learned latent dynamics 与 actor-critic learning 的结合可以在多种视觉控制与强化学习任务中取得很高的样本效率。
 
-**第二，它提供了一个参考架构。** RSSM 的双轨设计（确定性 + 随机性）不是一个偶然选择，而是反映了一个深层的设计原则：**世界模型需要同时捕获可预测的动态和不可预测的不确定性。** 这个原则不会过时，即使具体实现（GRU、categorical latent）可能被替代。
+**第二，它提供了一个参考架构。** RSSM 的双轨设计体现了一个重要的建模原则：**对于部分可观测或未来具有多模态性的环境，显式表示不确定性往往有价值。** 这个设计维度不会过时，即使具体实现（GRU、categorical latent）可能被替代。
 
 **第三，它代表并系统化了"latent dynamics + imagination-based control"这一条重要设计空间。** RSSM 证明了"在隐空间做动力学预测 + 在想象中训练策略"是一条可行的路线。后续工作既可以在这个空间内替换 dynamics engine（如 TD-MPC2 用 MLP dynamics 替代 RSSM），也可以完全采用不同的 predictive representation（如 JEPA 的 latent prediction、video generative models、diffusion world models）。
 
@@ -253,9 +259,9 @@ Latent Dynamics Model (RSSM-style / TD-MPC-style)
 
 **动力学模型应该是专用的还是通用的？** RSSM 是专用的 latent dynamics model（为环境建模而设计），Mamba 是通用的 sequence model。世界模型的 sequence engine 应该是哪一种？混合架构可能是答案，但最优的组合方式还不清楚。
 
-**scaling 会改变架构选择吗？** 一个值得验证的假设是：在数据有限、观测复杂或环境高度随机的 regime 中，显式的 stochastic latent structure 可能提供有价值的 inductive bias；而在数据与任务规模扩大后，更简洁、统一的 latent dynamics architecture 是否更容易 scaling，则需要系统实验验证。
+**scaling 会改变架构选择吗？** 一个值得验证的假设是：在数据有限、观测复杂或环境高度随机的 regime 中，显式的 stochastic latent structure 可能提供有价值的 inductive bias；而在数据与任务规模扩大后，更简洁、统一的 latent dynamics architecture 是否在大规模数据、多任务训练下具有更好的 scaling efficiency，则需要系统实验验证。
 
-**想象力的边界在哪里？** DreamerV3 并不是通过一次无限延长的 latent rollout 来解决长期决策；其默认 imagination horizon 为 15 steps，长期回报主要通过 value bootstrap 传递。因此，一个更准确的问题是：**有限 horizon 的 imagination + value bootstrap 能够在多大程度上可靠地解决长时程任务？如果进一步增加 rollout horizon，模型误差又会以什么速度累积？**
+**想象力的边界在哪里？** DreamerV3 并不是通过一次无限延长的 latent rollout 来解决长期决策；其默认 imagination horizon 为 15 steps，长期回报主要通过 value bootstrap 传递。有趣的是，TD-MPC2 也采用了类似的策略——默认 MPC horizon 仅 3 steps，同样通过 Q-function bootstrap 处理超出显式 planning horizon 的长期影响。**两者都没有简单地通过无限延长 latent rollout 来解决长期决策，而是把远期预测部分交给 value function。** 因此，一个更准确的问题是：**有限 horizon 的 imagination/planning + value bootstrap 能够在多大程度上可靠地解决长时程任务？如果进一步增加 rollout horizon，模型误差又会以什么速度累积？**
 
 ---
 
