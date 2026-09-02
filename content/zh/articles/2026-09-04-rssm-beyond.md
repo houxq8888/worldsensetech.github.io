@@ -79,7 +79,7 @@ S4/Mamba：
   → sequence processing
 ```
 
-Mamba 的 hidden state 可以被用作高效的序列历史压缩状态，但它本身并不预设这一状态具有"上下文"或"世界状态"的语义。如果把 Mamba 训练成 action-conditioned latent dynamics，它同样可以成为 world-model engine；反之，RSSM 的 recurrent state 也可以被理解为一种特殊的 sequence state representation。**架构本身不决定语义，训练接口才决定。**
+Mamba 的 hidden state 可以被用作高效的序列历史压缩状态，但它本身并不预设这一状态具有"上下文"或"世界状态"的语义。如果把 Mamba 训练成 action-conditioned latent dynamics，它同样可以成为 world-model engine；反之，RSSM 的 recurrent state 也可以被视为一种 sequence state representation，只是它被进一步置于 action-conditioned latent dynamics 和 predictive objectives 之中。**架构本身不决定语义，训练接口才决定。**
 
 ## TD-MPC2：另一种 latent dynamics 路线
 
@@ -141,7 +141,9 @@ Control-oriented world model (TD-MPC2)
 
 z_t
  ↓
-p(z_{t+1} | z_t, a_t)
+f(z_t, a_t)
+ ↓
+z_{t+1}
  ↓
 reward / value / terminal
  ↓
@@ -164,7 +166,7 @@ TD-MPC2 的核心不是复杂的 latent-state decomposition，而是把**简洁�
 
 从 RSSM 到 TD-MPC2，一个明显的趋势是：**TD-MPC2 展示了另一种路线：不依赖复杂的 stochastic recurrent state，而是在 compact latent space 中结合 dynamics prediction、short-horizon MPC 与 long-horizon value estimation。**
 
-## Architecture ≠ Function：从 Sequence Backbone 到 Control
+## Architecture ≠ Function：从序列模型到世界模型
 
 把上面讨论的模型放在一起，会发现它们并不处于同一层级。更重要的是，**同一个 architecture 可以占据不同的功能角色**。与其用"四层架构"来描述，不如用一个二维 taxonomy：
 

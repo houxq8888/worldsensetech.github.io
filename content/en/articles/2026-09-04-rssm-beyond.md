@@ -79,7 +79,7 @@ S4/Mamba:
   → sequence processing
 ```
 
-Mamba's hidden state can serve as efficient sequence history compression, but it does not inherently presuppose that this state carries "context" or "world state" semantics. If Mamba is trained as an action-conditioned latent dynamics model, it too can become a world-model engine; conversely, RSSM's recurrent state can also be understood as a special kind of sequence state representation. **The architecture itself does not determine semantics; the training interface does.**
+Mamba's hidden state can serve as efficient sequence history compression, but it does not inherently presuppose that this state carries "context" or "world state" semantics. If Mamba is trained as an action-conditioned latent dynamics model, it too can become a world-model engine; conversely, RSSM's recurrent state can also be viewed as a sequence state representation, except that it is further situated within action-conditioned latent dynamics and predictive objectives. **The architecture itself does not determine semantics; the training interface does.**
 
 ## TD-MPC2: An Alternative Latent Dynamics Approach
 
@@ -141,7 +141,9 @@ Control-oriented world model (TD-MPC2)
 
 z_t
  ↓
-p(z_{t+1} | z_t, a_t)
+f(z_t, a_t)
+ ↓
+z_{t+1}
  ↓
 reward / value / terminal
  ↓
@@ -164,7 +166,7 @@ The core of TD-MPC2 is not a complex latent-state decomposition, but rather the 
 
 From RSSM to TD-MPC2, a clear trend emerges: **TD-MPC2 demonstrates an alternative path: instead of relying on complex stochastic recurrent states, it combines dynamics prediction, short-horizon MPC, and long-horizon value estimation within a compact latent space.**
 
-## Architecture ≠ Function: From Sequence Backbone to Control
+## Architecture ≠ Function: From Sequence Models to World Models
 
 Placing the models discussed above together reveals that they do not operate at the same level. More importantly, **the same architecture can occupy different functional roles.** Rather than describing a "four-layer architecture," a two-dimensional taxonomy is more accurate:
 
