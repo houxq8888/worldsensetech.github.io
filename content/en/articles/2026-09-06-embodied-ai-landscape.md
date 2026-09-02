@@ -1,77 +1,110 @@
 ---
-title: "Embodied AI in 2026: A Technical Landscape of Who's Doing What and How"
+title: "Embodied AI Roadmap 2026: From VLA to World Models — Who Is Solving What?"
 slug: "2026-09-06-embodied-ai-landscape"
 date: 2026-09-06
 draft: false
 categories: ["Embodied Intelligence", "Industry Observation"]
-tags: ["Embodied Intelligence", "Humanoid Robot", "VLA", "World Model", "Sim-to-Real", "Physical Intelligence", "Gemini Robotics", "GR00T"]
-description: "In 2026, the embodied AI track enters an acceleration phase. From Physical Intelligence's π₀.7 to Google DeepMind's Gemini Robotics, from NVIDIA's GR00T platform to the collective sprint of Chinese humanoid robot companies — this article surveys the technical approaches, progress stages, and core differentiators of the major players, attempting to answer a fundamental question: where exactly is this field right now?"
+tags: ["Embodied Intelligence", "Humanoid Robot", "VLA", "World Model", "Sim-to-Real", "Physical Intelligence", "Gemini Robotics", "GR00T", "Cosmos", "TD-MPC"]
+description: "From π₀, Gemini Robotics to GR00T, Cosmos, TD-MPC2: what technology stack is embodied AI forming? This article surveys the major players along three dimensions — Policy, Dynamics, Infrastructure — and asks a fundamental question: who is solving what problem?"
 toc: true
 related_articles:
+  - 2026-09-07-vla-world-models
   - 2026-09-03-vla-deep-dive
   - 2026-09-01-world-model-h2-review
   - 2026-09-02-jepa-deep-dive
+  - 2026-09-04-rssm-beyond
   - rssm-deep-dive
   - 2026-08-25-dreamer-explained
 ---
 
 Over the past six months, the pace of the embodied AI field has clearly accelerated.
 
-Physical Intelligence released π₀.7, Google DeepMind launched the Gemini Robotics series, NVIDIA's GR00T platform moved from concept to open source, and Figure AI's humanoid robot completed over 11 months of deployment testing at the BMW factory. On the Chinese side, companies like Unitree, Agibot, and Galaxy General have seen financing reach record highs, with humanoid robots beginning to move from lab prototypes toward small-batch production.
+Physical Intelligence released π₀.7, Google DeepMind launched Gemini Robotics 1.5 and Robotics-ER 1.5, NVIDIA's Physical AI full stack moved from concept to open source, and Figure AI's humanoid robot completed over 11 months of deployment at the BMW factory. On the Chinese side, Unitree completed its IPO in August 2026 (valued at approximately $9 billion), while Agibot and Galaxy General continued to expand their financing rounds, with humanoid robots beginning to move from lab prototypes toward small-batch production.
 
-This article attempts a foundational survey: **what the major players are doing, what technical approaches they are using, and what stage they have reached.** No predictions, no rankings — just drawing the technology map clearly.
+This article attempts a foundational survey: **what technology stack is embodied AI forming? What problems are the major players solving? And what stage have they reached?** No predictions, no rankings — just drawing the technology map clearly.
 
-## Three Schools of Technical Approach
+## Three Core Questions: Policy, Dynamics, Infrastructure
 
-Based on underlying technical choices, the major players in embodied AI can be roughly divided into three schools.
+Rather than dividing embodied AI participants into "three schools," it is more useful to ask three different questions: **how to make a robot act? how to predict the future? how to obtain training data and environments?** These three questions correspond to three different technical layers, and a complete embodied AI system typically needs to address all of them.
 
-### School One: VLA End-to-End Policy
+### Policy: How to Make a Robot Learn to Act?
 
-**Core idea:** Use a Vision-Language-Action (VLA) model to map directly from perception to action, without explicitly building a world model.
+**Core idea:** Map from perception (vision, language, proprioception) directly to action, or through intermediate planning to action output.
 
-**Representatives:** Physical Intelligence (π₀ series), Google DeepMind (RT-2 → Gemini Robotics)
+**Representatives:** Physical Intelligence (π₀ series), Google DeepMind (RT-2 → Gemini Robotics 1.5), NVIDIA GR00T
 
-Physical Intelligence's π₀ series is currently the most representative work in the VLA approach. From π₀'s flow matching continuous action generation, to π₀.5's discrete-continuous hybrid recipe, to π₀.7's context-rich steering + visual sub-goals — this technical line has been continuously iterating on action interface design. π₀.7's cross-embodiment zero-shot T-shirt folding is a landmark result, but it should be noted that this is still a result under a specific evaluation protocol, and there is still considerable distance to general household manipulation.
+Physical Intelligence's π₀ series is currently the most representative work in the VLA approach. From π₀'s flow matching continuous action generation, to π₀.5's discrete-continuous hybrid recipe, to π₀.7's context-rich steering + visual sub-goals — this technical line has been continuously iterating on action interface design.
 
-Google DeepMind's approach evolved from RT-2 (a 55B VLM fine-tuned as a robot policy) to Gemini Robotics. The core change in the Gemini Robotics series is: instead of training a robot-specific model from scratch, they directly adapt the Gemini multimodal foundation model for robotics. This is a "general to specific" approach, in the same lineage as RT-2's "from VLM to robot policy" but at a larger scale.
+π₀.7 is particularly noteworthy because it demonstrates that **VLA has not simply rejected world models — it is gradually absorbing predictive components.** π₀.7's visual subgoal is generated by a lightweight world model — meaning that while the VLA's core policy network does not have an explicit action-conditioned prediction interface, it has begun leveraging external prediction modules to gain the ability to "imagine future states." The cross-embodiment zero-shot T-shirt folding demonstrated by π₀.7 is a landmark result, but it should be noted that this is still a result under a specific evaluation protocol, and there is considerable distance to general household manipulation.
 
-**The advantage of this approach** is strong semantic generalization — the semantic knowledge VLA inherits from internet pre-training enables it to handle novel objects and novel instructions. **The limitation** is: a typical VLA does not have an explicit action-conditioned prediction interface (this issue was discussed in [a previous article](/en/articles/2026-09-07-vla-world-models/)), resulting in limited physical prediction capability.
+Google DeepMind's approach has evolved from RT-2's vision-language model adapted for robotics, through Gemini Robotics, to Gemini Robotics-ER / Gemini Robotics 1.5. The key change is not simply "a bigger VLM," but rather organizing robot policy, physical world understanding, task decomposition, and high-level reasoning into a layered system:
 
-### School Two: World Model + Imagination Training
+```
+RT-2 (2023)
+  ↓
+Gemini Robotics (2025)
+  ↓
+Gemini Robotics On-Device
+  ↓
+Gemini Robotics 1.5 + Robotics-ER 1.5 (2026)
+```
 
-**Core idea:** First learn a world model that can predict the future, then train the policy in "imagination."
+Gemini Robotics 1.5 is no longer simply "VLM → robot policy" — it is clearly moving toward **VLA + embodied reasoning + planning / orchestration.** The official description positions Robotics-ER 1.5 for high-level embodied reasoning / planning, while Robotics 1.5 handles vision-to-motor-commands mapping. The direction of this evolution is: letting semantic understanding, physical reasoning, and action generation each play their role in a layered architecture.
 
-**Representatives:** DreamerV3 (RSSM + imagination), TD-MPC2 (latent dynamics + MPC)
+NVIDIA's GR00T N1/N2 also belongs at this layer — it is an open-source humanoid robot foundation model providing policy-level capability.
+
+**The advantage of this approach** is strong semantic generalization — the semantic knowledge VLA inherits from internet pre-training enables it to handle novel objects and novel instructions. **The limitation** is: the core interface of traditional VLA policy remains observation / instruction → action, rather than explicitly outputting action-conditioned future states available for rollout — but as π₀.7 and Gemini Robotics 1.5 demonstrate, recent systems are gradually adding predictive, subgoal, and high-level planning modules.
+
+### Dynamics: How to Predict the Future?
+
+**Core idea:** Learn action-conditioned dynamics in latent space, then use the prediction model for control through imagination, MPC, or value estimation.
+
+**Representatives:** DreamerV3 (RSSM + imagination), TD-MPC2 (latent dynamics + MPC), NVIDIA Cosmos (world foundation models)
 
 DreamerV3 learns a dynamics model in latent space through RSSM, then rolls out trajectories in imagination to train an actor-critic policy. This approach has a clear advantage in sample efficiency — complex skills can be learned from a small amount of real interaction data.
 
-TD-MPC2 takes a more concise approach: encoder + MLP ensemble dynamics + latent-space MPC. Without the dual-track structure of RSSM, it demonstrates potential in cross-task scaling — training a single world model across 139 tasks.
+TD-MPC2 takes a more concise approach: encoder + MLP ensemble dynamics + latent-space MPC + Q-function ensemble. Without the dual-track structure of RSSM, it demonstrates potential in cross-task scaling — evaluated on 104 continuous control tasks across 4 domains, and further demonstrating that a single 317M-parameter agent can be trained across 80 tasks (for detailed architecture analysis of TD-MPC2, see [a previous article](/en/articles/2026-09-04-rssm-beyond/)).
 
-**The advantage of this approach** is sample efficiency and physical prediction capability. **The limitation** is: world model prediction quality degrades with rollout length, and reliability for long-horizon tasks remains a bottleneck. Additionally, the world model approach typically lags behind the VLA approach in semantic understanding (language grounding).
+**The advantage of this approach** is sample efficiency, and the explicit use of action-conditioned dynamics for prediction, planning, or value estimation. It is important to note that latent predictive model ≠ accurate physical simulator — the advantage of latent prediction models is not "high-precision physical prediction," but rather providing a predictive interface usable for planning and value bootstrap. **The limitation** is: world model prediction quality degrades with rollout length, and reliability for long-horizon tasks remains a bottleneck. Additionally, the world model approach typically lags behind the VLA approach in semantic understanding (language grounding).
 
-### School Three: Platform + Simulation + Foundation Models
+NVIDIA Cosmos also belongs at this layer — it provides world foundation models capable of action-conditioned physical prediction and synthetic data generation. Cosmos's positioning has gone far beyond "synthetic data generator" — it now encompasses world models, post-training, data processing, and evaluation as a Physical AI development stack.
 
-**Core idea:** Instead of directly building end-to-end robot policies, provide the infrastructure — simulation platforms, foundation models, data toolchains.
+### Infrastructure: How to Obtain Training Data and Environments?
 
-**Representatives:** NVIDIA (Isaac + GR00T + Cosmos), World Labs (3D scene generation)
+**Core idea:** Provide simulation platforms, data toolchains, and foundation models to support training and evaluation of the Policy and Dynamics layers above.
 
-NVIDIA's strategy is to be the "infrastructure layer" for embodied AI. Isaac Sim provides the physics simulation environment, GR00T N1/N2 provides open-source humanoid robot foundation models, and Cosmos provides a world foundation model for generating synthetic training data. NVIDIA does not build its own robot products; instead, it enables ecosystem partners to build on its platform.
+**Representatives:** NVIDIA (Isaac / Omniverse), World Labs (Marble), teleoperation data systems
 
-World Labs focuses on 3D scene generation — producing 3D environments suitable for simulation training from images or text. This addresses a critical link in the sim-to-real chain: the diversity and realism of simulation environments.
+At this layer, NVIDIA is building a Physical AI full stack: Isaac / Omniverse provides simulation and data generation infrastructure, GR00T provides robot foundation models (Policy layer), and Cosmos provides world foundation models with data generation, prediction, and post-training capabilities (Dynamics layer). NVIDIA does not build its own robot products; instead, it enables ecosystem partners to build on its full stack — a positioning with strong leverage effects.
 
-**The advantage of this approach** is the leverage effect — one platform can serve multiple robot companies. **The limitation** is: the platform's value depends on ecosystem maturity, and the embodied AI ecosystem is still in its early stages.
+### Spatial World Models: World Labs
+
+World Labs deserves separate discussion, as its technical positioning differs from the infrastructure players above.
+
+World Labs's Marble is a multimodal world model that generates explorable, editable 3D worlds from inputs such as text / image / video. It currently sits closer to **spatial intelligence / generative world modeling** rather than a complete robot policy stack.
+
+```
+World Labs Marble
+  Generate / reconstruct 3D world
+        ↓
+  Becomes simulation / spatial environment asset
+        ↓
+  Robotics / simulation downstream
+```
+
+Marble addresses a critical link in the sim-to-real chain: the diversity and realism of simulation environments. But it is not itself a robot policy system — rather, it provides spatial intelligence infrastructure for downstream Policy and Dynamics layers.
 
 ## Humanoid Robots: The Bet on Hardware Form Factor
 
 One of the most prominent trends in 2026 is the collective sprint in humanoid robots.
 
-**Figure AI's** Figure 02/03 has completed over 11 months of deployment testing at the BMW Spartanburg factory, reportedly participating in the production process of over 30,000 vehicles. Figure's technical approach combines end-to-end learning (in partnership with OpenAI) and traditional control.
+**Figure AI's** Figure 02 underwent 11 months of deployment at the BMW Spartanburg factory, accumulating over 1,250 hours of runtime and contributing to the production of 30,000+ X3 vehicles (all figures from Figure's official disclosure). This is one of the closest cases to "real deployment" in publicly available information. Figure's technical approach combines end-to-end learning (in partnership with OpenAI) and traditional control.
 
 **Tesla Optimus** continues to iterate on hardware design, targeting internal factory deployment. Tesla's advantage lies in its vertical integration capability — its own factories provide testing environments, its own chips (Dojo/FSD) provide training compute, and its own AI team provides algorithms.
 
 **1X Technologies'** NEO series targets general-purpose service scenarios, with a technical approach leaning toward end-to-end learning.
 
-**Chinese companies** are investing particularly intensively in this direction. Unitree pivoted from quadruped robots to humanoid, with fast hardware iteration and strong cost control. Agibot and Galaxy General have repeatedly broken records in financing — Galaxy General's valuation has reportedly reached the $3 billion level.
+**Chinese companies** are investing particularly intensively in this direction. Unitree pivoted from quadruped robots to humanoid, with fast hardware iteration and strong cost control, and completed its IPO in August 2026 (pricing corresponding to approximately $9 billion valuation). Agibot and Galaxy General have continued to expand their financing — Galaxy General's valuation has reportedly reached the $3 billion level.
 
 Humanoid robots are a high-risk, high-reward bet. The advantage is: humanoids can adapt to environments designed for humans (stairs, door handles, tools). The risk is: the engineering complexity of humanoids is far greater than that of specialized-form-factor robots, and most current "humanoid robot demos" are still using teleoperation or simple policies to complete relatively simple tasks.
 
@@ -79,29 +112,49 @@ Humanoid robots are a high-risk, high-reward bet. The advantage is: humanoids ca
 
 The Chinese embodied AI track has shown several characteristics over the past six months.
 
-**Explosive financing scale.** Multiple companies have completed financing in the hundreds of millions of RMB range, with leading companies like Galaxy General and Unitree entering unicorn territory. Capital is shifting from "investing in concepts" to "investing in deployment."
+**Accelerating financing and IPOs.** Unitree completed its IPO, and multiple leading companies have entered unicorn territory. Capital is shifting from "investing in concepts" to "investing in deployment."
 
 **Outstanding hardware capability.** China's supply chain advantage in robot hardware (motors, reducers, sensors) is translating into whole-machine advantage. Unitree's cost control capability is competitive on a global scale.
 
-**Still catching up in software/algorithms.** In areas like VLA foundation models, world models, and large-scale robot data, Chinese companies still have a gap compared to Physical Intelligence and Google DeepMind. But this gap is narrowing — partly because open papers and open-source code have lowered the technical barrier.
+**Gap remains in software/algorithms.** Based on publicly available papers, models, and benchmarks, Chinese embodied AI companies still have a gap compared to leading research teams like Physical Intelligence and Google DeepMind in areas such as general VLA foundation models, cross-embodiment data scale, and public technical influence; however, the true size of this gap is difficult to accurately quantify based solely on public materials. At the same time, open-source models, public papers, and growing domestic robot data collection scale are lowering some technical barriers.
 
-**Application scenario differentiation.** Compared to American companies leaning toward general-purpose humanoids, Chinese companies are focusing more on specific scenarios — warehouse logistics, industrial assembly, commercial services. This is a more pragmatic strategy, but it also means that accumulation of generalizability may be slower.
+**Application scenario differentiation.** Some Chinese companies place greater emphasis on clearly defined scenarios such as industrial, warehouse, and commercial services deployment, while American leading companies simultaneously bet on general-purpose humanoids, foundation models, and cross-scenario generalization. Both strategies involve tradeoffs — scenario focus enables faster commercial validation, but accumulation of generalizability may be slower.
 
 ## Several Technical Trends Worth Watching
 
 Setting aside specific companies, there are several technical trends that deserve continued attention.
 
-### Trend One: VLA and World Models Are Converging
+### Trend One: VLA and World Models Are Forming Hybrid Architectures
 
-From π₀.7 introducing visual sub-goals and Gemini Robotics introducing multimodal reasoning, the VLA approach is gaining more and more "predictive" capability. Conversely, the world model approach is also gaining language and semantic capabilities. The two approaches are converging from both ends toward the middle — but as of now, no single system simultaneously possesses mature language grounding, action-conditioned prediction, and high-frequency continuous control.
+The relationship between VLA and world models is no longer simply "converging from both ends." More accurately, the industry is gradually forming a layered structure:
 
-### Trend Two: Simulation Becomes Standard
+```
+         Semantic / Reasoning
+                ↓
+              VLA
+                ↓
+      Predictive / World Model
+                ↓
+        Planning / Value
+                ↓
+    High-frequency Control
+                ↓
+          Embodiment
+                ↓
+          Real World
+```
 
-Nearly all major players are using simulation at scale for training or data augmentation. The use of simulation platforms like NVIDIA Isaac Sim, MuJoCo, and Isaac Lab has become an industry standard. The sim-to-real gap is narrowing, but has not yet been eliminated — particularly in fine manipulation and contact-rich tasks.
+In this layering, **VLA provides semantic prior / task understanding, world models provide predictive interfaces, and low-level controllers / policies provide high-frequency action execution.** For example: π₀.7's visual subgoals come from a lightweight world model; Gemini Robotics 1.5 separates embodied reasoning from VLA into distinct layers; NVIDIA Cosmos provides world foundation models + synthetic data; GR00T provides foundation policy; TD-MPC2 provides latent planning.
 
-### Trend Three: Data Is Becoming the Bottleneck
+This suggests the core competitive question may not be "VLA vs World Model," but rather: **who handles semantic abstraction, who handles prediction, who handles control.** As of now, no single system simultaneously possesses mature language grounding, action-conditioned prediction, and high-frequency continuous control — but multiple systems are approaching this goal by composing different modules.
 
-Differentiation in model architecture is shrinking; differentiation in data and training recipes is growing. Whoever has more, more diverse, and higher-quality robot interaction data has the advantage. This explains why teleoperation data collection, synthetic data generation, data quality filtering, and other "data engineering" directions are receiving more attention.
+### Trend Two: Simulation Becomes a Key Component of Mainstream R&D
+
+Nearly all major players are using simulation at scale for training or data augmentation. The use of simulation platforms like NVIDIA Isaac Sim, MuJoCo, and Isaac Lab has become an important component of mainstream robot R&D workflows. The sim-to-real gap still exists, particularly in fine manipulation, contact dynamics, and long-tail environments.
+
+### Trend Three: Data Is Becoming a Key Differentiator
+
+An increasingly obvious trend is that pure model architecture differences are becoming less likely to form decisive advantages, while the importance of data scale, data diversity, and training recipes is rising. This is not to say architecture doesn't matter — rather, the performance bottleneck in the foundation model era is increasingly shifting toward data / compute / embodiment coverage. Whoever has more, more diverse, and higher-quality robot interaction data has the advantage. This explains why teleoperation data collection, synthetic data generation, data quality filtering, and other "data engineering" directions are receiving more attention.
 
 ### Trend Four: The Gap from Demo to Deployment
 
@@ -112,33 +165,40 @@ Most publicly demonstrated robot capabilities remain "demo-level" — completing
 If we summarize the current technology map of embodied AI:
 
 ```
-                    Embodied AI 2026
-                          │
-           ┌──────────────┼──────────────┐
-           │              │              │
-       VLA Policy    World Model     Platform
-    (π₀, Gemini)   (Dreamer,      (NVIDIA,
-                    TD-MPC)        World Labs)
-           │              │              │
-           └──────────────┼──────────────┘
-                          │
-                    Humanoid Robots
-                 (Figure, Tesla, 1X,
-                  Unitree, Agibot, ...)
-                          │
-                    Real Deployment
-                  (still early stage)
+                         Embodied AI
+                              │
+        ┌─────────────────────┼─────────────────────┐
+        │                     │                     │
+     Policy                Dynamics           Infrastructure
+        │                     │                     │
+   π₀ / Gemini            RSSM / TD-MPC2       Isaac / Cosmos
+   GR00T / ...             Video WMs            World Labs
+        │                     │                     │
+        └──────────────┬──────┴──────────────┬──────┘
+                       │                     │
+                  Data / Simulation     Embodiment
+                       │                     │
+                       └──────────┬──────────┘
+                                  │
+                            Robot Systems
+                                  │
+                         ┌────────┴────────┐
+                         │                 │
+                     Industrial         General
+                      deployment        humanoid
 ```
+
+What is truly competing is not three isolated approaches, but how policy, dynamics, data, simulation, and embodiment ultimately combine.
 
 Several assessments:
 
-**First, technical approaches have not yet converged.** The three approaches — VLA, world models, and platformization — each have their advantages and each have unsolved problems. The final system will likely be a hybrid architecture, but a clear convergence direction is not yet visible.
+**First, technical approaches have not yet converged.** The Policy, Dynamics, and Infrastructure layers each have unsolved problems. The final system will likely be a hybrid architecture — VLA providing semantics, world models providing prediction, low-level control providing execution — but a clear convergence direction is not yet visible.
 
-**Second, hardware and software are decoupling.** Humanoid robot hardware is becoming a "platform commodity," with differentiation increasingly concentrated in software (foundation models, data, training recipes). This mirrors the evolution path of the electric vehicle industry.
+**Second, software, data, and models are becoming increasingly important sources of differentiation.** As humanoid robot hardware gradually sees more standardized components and a maturing supply chain, the center of differentiation is shifting from hardware to software, data, and models. But this transition is still early — actuator, hand, force sensing, whole-body control, and other hardware capabilities still significantly affect actual robot performance.
 
 **Third, the gap from demo to deployment is the biggest current challenge.** Most public results remain "it works under specific conditions" rather than "it runs reliably in real environments." The key to solving this problem may not be larger models, but better data, more robust policies, and a more mature sim-to-real pipeline.
 
-**Fourth, China has advantages in hardware and deployment, and is still catching up in foundation models.** This landscape may change in the next 1-2 years — the open-source ecosystem and returning talent are narrowing the gap.
+**Fourth, China has advantages in hardware and deployment, and still has a gap in foundation models.** Unitree's IPO and the financing progress of multiple companies demonstrate that hardware and commercialization capabilities have been validated by the market. The gap in foundation models is gradually narrowing through the open-source ecosystem, public papers, and returning talent, but the true size of the gap still requires more benchmark data to quantify.
 
 ---
 
