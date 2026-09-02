@@ -89,7 +89,7 @@ TD-MPC2 does not use RSSM's dual-track structure, but instead employs a more con
 
 ```
 Encoder:     e_t = E(o_t)                    → encode observations into latent
-Dynamics:    z_{t+1} = f_θ(z_t, a_t)         → predict next latent
+Dynamics:    z_{t+1} = f_θ(z_t, a_t)         → deterministic latent transition
 Reward:      r_t = R(z_t, a_t)               → predict reward
 Q-function:  Q(z_t, a_t)                     → long-term value estimation (Q ensemble)
 Policy:      π(a_t | z_t)                    → policy prior
@@ -104,7 +104,7 @@ A very important divergence emerges here.
 The Dreamer approach of constraining latent representations through observation / reward prediction tasks is:
 
 ```
-observation → latent → dynamics → predict observation
+observation → latent → dynamics → predict observation / reward / continuation
                                         ↓
                                    imagination
 ```
@@ -156,7 +156,7 @@ From the functional perspective adopted in this article, this can be understood 
 
 The core of TD-MPC2 is not a complex latent-state decomposition, but rather the combination of **concise latent dynamics, task-conditioned representation, short-horizon MPC, and long-horizon Q-value estimation.** The design priorities of TD-MPC2 can be summarized in three aspects:
 
-**First, the combination of latent-space MPC and Q-function ensemble.** TD-MPC2's explicit MPC planning horizon is very short (default 3 steps), so it does not complete long-term planning through extended rollouts; instead, it lets the learned Q-function provide long-term value bootstrap at the planning boundary. **In other words, TD-MPC2 partially transforms "long-horizon planning" from a model rollout problem into a value estimation problem.** Specifically, TD-MPC2 performs short-horizon rollouts on latent dynamics and uses a Q-function ensemble (defaulting to 5 Q-functions, with TD target using the minimum of a randomly subsampled Q-function) to provide long-term value estimation, thereby bridging short-horizon MPC planning with long-horizon TD bootstrapping.
+**First, the combination of latent-space MPC and Q-function ensemble.** TD-MPC2's explicit MPC planning horizon is very short (default 3 steps), so it does not complete long-term planning through extended rollouts; instead, it lets the learned Q-function provide long-term value bootstrap at the planning boundary. **In other words, TD-MPC2 transforms "a portion of long-horizon planning problems" from a model rollout problem into a value estimation problem.** Specifically, TD-MPC2 performs short-horizon rollouts on latent dynamics and uses a Q-function ensemble (defaulting to 5 Q-functions, with TD target using the minimum of a randomly subsampled Q-function) to provide long-term value estimation, thereby bridging short-horizon MPC planning with long-horizon TD bootstrapping.
 
 **Second, task-conditioned multi-task and cross-embodiment scaling.** TD-MPC2 was evaluated on 104 continuous control tasks, and further demonstrated that a single 317M-parameter agent can be trained on 80 tasks, covering different tasks, embodiments, and action spaces. This is not "one dynamics model automatically understanding all embodiments," but rather using **task embeddings / task-conditioned components** to adapt the same set of models to different tasks -- the encoder, dynamics, reward, policy prior, and Q components are all linked to task embeddings.
 
@@ -181,7 +181,7 @@ Placing the models discussed above together reveals that they do not operate at 
 
 > **The same architecture can occupy different functional layers; what truly determines whether it constitutes a world model is the training objective, input interface, and what predictive interface it can provide.**
 
-This table expresses the article's core point: **Architecture ≠ function.** RSSM uses GRU for latent dynamics; Mamba could also be used for latent dynamics -- the difference lies not in the architecture, but in the training interface and functional role.
+This table expresses the article's core point: **Architecture ≠ function.** RSSM uses GRU for latent dynamics; Mamba can equally serve as a latent dynamics backbone -- the difference lies not in the architecture, but in the training interface and functional role.
 
 Therefore, "world model" is better understood as a functional interface rather than a fixed network structure: it needs to provide at least some queryable prediction interface related to the future evolution of the environment that can be consulted by decision processes, such as predictions of future latent states, observations, rewards, or termination; value functions can further serve as a downstream bootstrap mechanism for this predictive model. From this perspective, RSSM, TD-MPC2, Transformer world models, and even certain JEPA-style predictive models can all belong to the world-model family, but the prediction interfaces they provide are not the same.
 
@@ -234,7 +234,7 @@ Latent Dynamics Model (RSSM-style / TD-MPC-style)
   planning / policy
 ```
 
-This hybrid architecture attempts to let foundation models provide stronger semantic/visual representations, with a dedicated latent dynamics module handling action-conditioned future prediction; but how the two interface, and what information needs to be preserved from the foundation model into the dynamics latent, remain open questions.
+This hybrid architecture attempts to let foundation models provide stronger semantic/visual representations, with a dedicated latent dynamics module handling action-conditioned future prediction; but how the two interface, and what information needs to be preserved from the foundation model into the dynamics latent, remain open questions. A representation well-suited for semantic understanding is not necessarily a dynamics state well-suited for action-conditioned prediction -- this is precisely the core challenge that hybrid architectures must address.
 
 ## The Legacy of RSSM
 

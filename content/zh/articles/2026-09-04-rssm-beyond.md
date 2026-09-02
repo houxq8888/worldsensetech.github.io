@@ -89,7 +89,7 @@ TD-MPC2 不使用 RSSM 的双轨结构，而是用一个更简洁的架构：
 
 ```
 Encoder:     e_t = E(o_t)                    → 将观察编码为 latent
-Dynamics:    z_{t+1} = f_θ(z_t, a_t)         → 预测下一个 latent
+Dynamics:    z_{t+1} = f_θ(z_t, a_t)         → deterministic latent transition
 Reward:      r_t = R(z_t, a_t)               → 预测奖励
 Q-function:  Q(z_t, a_t)                     → 长期价值估计（Q ensemble）
 Policy:      π(a_t | z_t)                    → policy prior
@@ -104,7 +104,7 @@ Policy:      π(a_t | z_t)                    → policy prior
 Dreamer 中通过 observation / reward 等预测任务约束 latent representation 的路线是：
 
 ```
-observation → latent → dynamics → predict observation
+observation → latent → dynamics → predict observation / reward / continuation
                                         ↓
                                    imagination
 ```
@@ -156,7 +156,7 @@ action selection (MPC)
 
 TD-MPC2 的核心不是复杂的 latent-state decomposition，而是把**简洁的 latent dynamics、task-conditioned representation、短视 MPC 与长期 Q-value estimation** 组合起来。可以把 TD-MPC2 的设计重点概括为三个方面：
 
-**第一，latent-space MPC 与 Q-function ensemble 的结合。** TD-MPC2 的显式 MPC planning horizon 很短（默认 3 steps），因此它并不是通过长 rollout 直接完成长期规划，而是让 learned Q-function 在规划边界处提供 long-term value bootstrap。**换言之，TD-MPC2 把"长期规划"从模型 rollout 问题部分转移成了 value estimation 问题。** 具体地，TD-MPC2 在 latent dynamics 上进行短视 rollout，并使用 Q-function ensemble（默认 5 个 Q-functions，TD target 使用随机子采样 Q-function 的 minimum）提供长期价值估计，从而把短期 MPC planning 与长期 TD bootstrapping 结合起来。
+**第一，latent-space MPC 与 Q-function ensemble 的结合。** TD-MPC2 的显式 MPC planning horizon 很短（默认 3 steps），因此它并不是通过长 rollout 直接完成长期规划，而是让 learned Q-function 在规划边界处提供 long-term value bootstrap。**换言之，TD-MPC2 把"一部分长期规划问题"从模型 rollout 问题转移成了 value estimation 问题。** 具体地，TD-MPC2 在 latent dynamics 上进行短视 rollout，并使用 Q-function ensemble（默认 5 个 Q-functions，TD target 使用随机子采样 Q-function 的 minimum）提供长期价值估计，从而把短期 MPC planning 与长期 TD bootstrapping 结合起来。
 
 **第二，task-conditioned 的多任务与跨 embodiment scaling。** TD-MPC2 在 104 个连续控制任务上进行评估，并进一步展示了一个 317M 参数的单一 agent 可以在 80 个任务上进行训练，覆盖不同任务、embodiment 和 action space。它并不是让一个 dynamics model 在没有条件信息的情况下"自动理解所有 embodiment"，而是通过 **task embeddings / task-conditioned components** 让同一套模型适应不同任务——encoder、dynamics、reward、policy prior、Q 等组件都与 task embedding 联系起来。
 
@@ -181,7 +181,7 @@ TD-MPC2 的核心不是复杂的 latent-state decomposition，而是把**简洁�
 
 > **同一种 architecture 可以被放在不同功能层；真正决定它是否构成 world model 的，是训练目标、输入接口以及它能提供什么 predictive interface。**
 
-这张表表达了全文的核心观点：**Architecture ≠ function。** RSSM 用 GRU 做 latent dynamics，Mamba 也可以用做 latent dynamics——区别不在 architecture，而在训练接口和功能角色。
+这张表表达了全文的核心观点：**Architecture ≠ function。** RSSM 用 GRU 做 latent dynamics，Mamba 同样可以被用作 latent dynamics backbone——区别不在 architecture，而在训练接口和功能角色。
 
 因此，"world model"更适合作为一种功能接口，而不是一种固定网络结构：它至少需要提供某种与环境未来演化有关、可被决策过程查询的预测接口，例如对未来 latent state、observation、reward 或 termination 的预测；value function 则可以进一步作为这个 predictive model 的 downstream bootstrap mechanism。从这个角度看，RSSM、TD-MPC2、Transformer world model 甚至某些 JEPA-style predictive models 都可以属于 world-model family，但它们提供的 prediction interface 并不相同。
 
@@ -234,7 +234,7 @@ Latent Dynamics Model (RSSM-style / TD-MPC-style)
   planning / policy
 ```
 
-这种混合架构试图让 foundation model 提供更强的语义/视觉表示，再由专门的 latent dynamics 模块承担 action-conditioned future prediction；但二者之间如何接口、哪些信息需要从 foundation model 保留到 dynamics latent，仍然是开放问题。
+这种混合架构试图让 foundation model 提供更强的语义/视觉表示，再由专门的 latent dynamics 模块承担 action-conditioned future prediction；但二者之间如何接口、哪些信息需要从 foundation model 保留到 dynamics latent，仍然是开放问题。适合语义理解的 representation 未必就是适合 action-conditioned prediction 的 dynamics state——这恰恰是混合架构需要解决的核心难题。
 
 ## RSSM 的遗产
 
