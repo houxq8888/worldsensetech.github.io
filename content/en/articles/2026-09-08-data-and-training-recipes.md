@@ -214,7 +214,9 @@ These problems currently have no standardized solutions, but are becoming an ind
 
 An important point needs emphasis here: **Curation does not mean simply deleting failure trajectories.** For imitation learning, clearly erroneous demonstrations may need filtering; but for world models, offline RL, or recovery policies, failure and boundary trajectories themselves may have very high informational value. For example: grasping failures, object slippage, collisions, grasp recovery, occlusion, unexpected contact — these may be the data most needed for policy robustness. Successful trajectories tell the model "doing this leads to success," while failure trajectories may tell the model "in this state, this action leads to what consequences." What truly needs to be optimized is data relevance to the target objective, not simply maximizing success rate.
 
-Abstracting further, **the value of failure data lies not in "failure" itself, but in the negative / counterfactual information it provides.** A single $(s, a_{\mathrm{bad}}, s')$ tells the model "in this state, this action produces what consequence"; whereas if there are only successful demonstrations $(s, a_{\mathrm{good}}, s')$, the model does not necessarily know why $a_{\mathrm{bad}}$ is bad. It is precisely this counterfactual signal that gives failure trajectories unique value for world models and offline RL — elevating "failure data is useful" from an empirical remark to a clearer learning-theoretic intuition.
+Abstracting further, **the value of failure data lies not in "failure" itself, but in the negative intervention information (off-target intervention evidence) it provides.** A single $(s, a_{\mathrm{bad}}, s')$ tells the model "in this state, this action produces what consequence"; whereas if there are only successful demonstrations $(s, a_{\mathrm{good}}, s')$, the model does not necessarily know why $a_{\mathrm{bad}}$ is bad.
+
+To be precise: a strict counterfactual asks "what would happen at the same $s$ if a different $a'$ were taken," but all we observe is $(s, a_{\mathrm{bad}}, s')$ — we do not simultaneously observe the paired $(s, a_{\mathrm{good}}, s'')$. So a failure trajectory is more accurately **counterfactual-relevant information** rather than strict counterfactual data — **it acquires genuine counterfactual learning value only when combined with success trajectories or model predictions.** Even so, this negative intervention signal still gives failure trajectories unique value for world models and offline RL — elevating "failure data is useful" from an empirical remark to a clearer learning-theoretic intuition.
 
 ### Data Quality ≠ Data Utility
 
@@ -256,7 +258,17 @@ From a more abstract perspective, **a training recipe is essentially the "transf
 
 $$D \rightarrow Training\ Recipe \rightarrow \theta$$
 
-Given the same dataset $D$, changing the sampling / weighting / objective / schedule ($R_1 \neq R_2$) can yield $\theta_1 \neq \theta_2$. This elevates the "recipe as moat" argument from empirical observation to a clearer technical framework.
+But more accurately, the recipe is not a factor independent of the distribution — **the recipe itself changes the distribution the model actually "sees."** Raw data $D$ first goes through sampling $S_R(D)$, then through weighting $W_R(S_R(D))$; what really enters optimization is the recipe-transformed $D_R$:
+
+$$D \xrightarrow{\ Recipe\ } D_R \xrightarrow{\ Optimization\ } \theta,\qquad D_R = W_R\big(S_R(D)\big)$$
+
+In distributional language, we can view the recipe $R$ as a transformation operator $T_R$ acting on the trajectory distribution:
+
+$$p_{\mathrm{train}}(\tau) = T_R\big[\,p_{\mathrm{raw}}(\tau)\,\big]$$
+
+This step is crucial because it mathematically connects the article's two core concepts — **data distribution** and **training recipe**: performance depends on the $p_{\mathrm{train}}(\tau)$ the model actually experiences, not the static $p_{\mathrm{raw}}(\tau)$ sitting in storage; and $p_{\mathrm{train}}$ is precisely the result of the recipe resampling, reweighting, and reordering the raw distribution.
+
+Given the same dataset $D$, changing the sampling / weighting / objective / schedule ($R_1 \neq R_2$) can yield different $p_{\mathrm{train}}$ and hence $\theta_1 \neq \theta_2$. This elevates the "recipe as moat" argument from empirical observation to a clearer technical framework.
 
 ### Data Mixture: How to Mix Data?
 
@@ -303,13 +315,56 @@ Here we need to distinguish two different types of sim-to-real error: **random n
 
 The LLM domain has established relatively clear scaling laws (more data + larger models + more compute → predictable performance improvement, e.g., Kaplan et al., 2020, arXiv:2001.08361; Hoffmann et al., 2022, arXiv:2203.15556). Does a similar scaling law exist for robotics?
 
+### Data Acquisition ≠ Data Scaling
+
+Before talking about scaling, we need to separate two questions that are often conflated.
+
+**Data acquisition** answers "how do I get more data?" — teleoperation, simulation, autonomous exploration, and synthetic generation are all *acquisition methods*. What the first half of this article discussed ("where data comes from") is essentially an acquisition-level question.
+
+**Data scaling** answers "what data should I add in order to keep improving performance?" — support expansion, density improvement, failure targeting, and embodiment expansion are *scaling strategies*.
+
+The two are entirely different things: no matter how strong your acquisition methods are, they do not automatically answer the scaling question. And since this article's title really asks "what determines performance," the second half should shift its center of gravity from "where data comes from" to "what data is worth continuing to add" — which is exactly what the scaling framework below tries to answer.
+
 First, an important clarification: **the formulas below are not strict scaling laws, but a conceptual decomposition for describing robot data's effective scale.** Robot data scale can be decomposed into at least three layers:
 
 **Data volume:** $N_{\text{steps}}$ (total interaction steps)
 
-**Distribution dimensions:** $task, scene, embodiment, state, action$ (distribution dimensions)
+**Distribution dimensions:** $task, scene, embodiment, \text{behavioral state}, action$ (distribution dimensions)
 
 **Data quality:** $Q$ (data quality)
+
+The "state" dimension needs clarification here: in line with the earlier $o_t \neq s_t$ discussion, we do not mean explicitly annotated environment state (the true $s$ is often not directly obtainable), but rather **behavioral-state coverage / state-space coverage** — the (often latent or inferred) behavioral-state distribution the model actually visits during training. Framed this way, it does not conflict conceptually with the earlier partial-observability discussion.
+
+### What Does Coverage Actually Cover: Different Dimensions Serve Different Generalization
+
+The phrase "increase distribution coverage" is still too vague if not further decomposed. A more accurate statement is: **different distribution dimensions are responsible for different generalization problems, and they cannot be lumped together.**
+
+They can be written respectively as conditional distributions:
+
+$$p(task)\quad(\text{task semantic space})$$
+
+$$p(scene \mid task)\quad(\text{environment conditions})$$
+
+$$p(s \mid task, scene)\quad(\text{behavioral states visited during task execution})$$
+
+$$p(a \mid s)\quad(\text{actions the policy actually takes})$$
+
+$$p(s, a \mid failure)\quad(\text{failure-related regions})$$
+
+Mapping them to the generalization abilities they are responsible for:
+
+```
+Interaction Distribution
+│
+├── Task      → semantic generalization
+├── Scene     → visual / environment generalization
+├── State     → behavioral-state coverage
+├── Action    → controllability / intervention coverage
+├── Failure   → recovery / robustness
+└── Embodiment→ morphology / action-space transfer
+```
+
+In other words, "covering more" must always ask "covering more along which dimension, and to gain which kind of generalization." Increasing scene diversity buys visual/environmental robustness, while increasing task diversity buys semantic generalization — stuffing them vaguely into a single "diversity" keeps the scaling discussion at the empirical level of "diversity matters."
 
 Therefore, robotics' scaling law may not be:
 
@@ -317,13 +372,21 @@ $$Performance = f(N)$$
 
 but rather:
 
-$$D_{\mathrm{effective}} = f(N,\;Coverage,\;Diversity,\;Q,\;Capacity)$$
+$$D_{\mathrm{effective}} = f(N,\;Coverage,\;Diversity,\;Q,\;Relevance)$$
 
-$$Performance = g(D_{\mathrm{effective}},\;Model\ Capacity,\;Compute)$$
+$$Performance = g(D_{\mathrm{effective}},\;Capacity,\;Compute,\;Recipe)$$
+
+Here $Capacity$ is deliberately moved out of $D_{\mathrm{effective}}$ and kept only in $Performance$: otherwise capacity would influence the outcome through two paths at once — via effective data scale and via the performance function — making the decomposition muddy. Effective data scale should describe "how effective the data itself is," while capacity, compute, and recipe describe "how much of that effective data the model can convert into performance."
 
 This means: **what robotics truly needs to scale is not just data volume, but effective data scale — i.e., effective coverage of the interaction distribution.**
 
-It should be emphasized that **effective data scale and model capacity are not independent**: data diversity can only be fully exploited when the model has enough capacity. When model capacity is small, blindly enlarging distribution diversity may yield limited or even negative returns; only when capacity is sufficient can the same diverse data be converted into stronger generalization. So $Performance$ is better understood as jointly determined by $D_{\mathrm{effective}}$, $Model\ Capacity$, and $Compute$, rather than as a function of any single variable.
+For a more intuitive view, $D_{\mathrm{effective}}$ can be further written as a conceptual product decomposition:
+
+$$D_{\mathrm{effective}} = N \cdot \eta_{coverage} \cdot \eta_{quality} \cdot \eta_{relevance}$$
+
+where these $\eta$ are **conceptual effectiveness coefficients** (indicating "what fraction of the data is genuinely effective"), not a claim that a precisely computable formula exists. It turns the question "1 million trajectories" into "of these 1 million, how many are actually new, relevant, effective interaction information" — which is closer to what this article really wants to express.
+
+It should be emphasized that **effective data scale and model capacity are not independent**, but this coupling belongs inside $g(\cdot)$ rather than being stuffed into $D_{\mathrm{effective}}$: data diversity can only be fully exploited when the model has enough capacity. When model capacity is small, blindly enlarging distribution diversity may yield limited or even negative returns; only when capacity is sufficient can the same diverse data be converted into stronger generalization. So $Performance$ is jointly determined by $D_{\mathrm{effective}}$, $Capacity$, $Compute$, and $Recipe$, rather than being a function of any single variable.
 
 LLMs can roughly ask "how many tokens do I have?"; robotics should rather ask "how many tasks, states, environments, actions, failure modes, and embodiments have I covered?"
 
@@ -343,11 +406,41 @@ To make the positioning of this hypothesis clearer, the article's logic can be l
 >
 > **This article's hypothesis:** effective interaction-distribution coverage explains data scaling better than raw trajectory count.
 
+### Support Scaling vs Density Scaling
+
+Simply saying "duplicate data has diminishing returns while diverse data yields more" can easily be shot down by counterexamples. Consider a high-precision manipulation task, such as precisely inserting a very small connector — here a large number of highly similar trajectories can be very valuable, because what the model must learn is not coverage but precision, control stability, contact dynamics, sub-millimeter correction, and action-noise tolerance. For such a task, $10000$ highly similar but high-quality trajectories may be more useful than $1000$ highly diverse ones.
+
+So a more accurate framework splits the marginal value of new data into two parts:
+
+$$\Delta U(D) = \Delta U_{\text{support}} + \Delta U_{\text{estimation}}$$
+
+corresponding to the two basic modes of robot data scaling:
+
+```
+Support scaling (expand the support of the distribution)
+  new task
+  new object
+  new scene
+  new embodiment
+  new failure mode
+  → seeing things never seen before
+
+Density scaling (raise sampling density in already-covered regions)
+  more trajectories
+  more repetitions
+  more demonstrations
+  → in regions already known, better estimate known behaviors
+```
+
+**Support scaling** answers "have I seen new regions of the distribution?"; **density scaling** answers "within regions I already know, have I sampled densely enough and estimated accurately enough?" Both are valuable, but they serve different generalization goals — high-precision, contact-rich tasks often need density scaling more, while open-ended, multi-scene tasks need support scaling more.
+
+This leads directly to a key judgment: **deciding when to support-scale and when to density-scale is itself a core training-recipe question** (echoing the earlier $p_{\mathrm{train}}(\tau) = T_R[p_{\mathrm{raw}}(\tau)]$ — the recipe determines which regions of the raw data are amplified and which are compressed).
+
 ### Testable Predictions
 
 If this hypothesis holds, then under fixed training compute and model scale, the following testable predictions can be made:
 
-- The returns from adding repeated trajectories should diminish rapidly;
+- The marginal value of newly added data depends on whether it expands the relevant support or improves estimation within already-covered support — a simple "duplicate vs diverse" framing is not enough to predict returns; it must be combined with the task's relative need for precision vs coverage;
 - Adding new tasks / scenes / embodiments that expand the support of the target task distribution is expected to have higher marginal value than simply repeating existing trajectories (the keyword is *expand the support*, not "new = good" — if a new embodiment's morphology and action semantics closely resemble existing ones, its marginal value may be very low);
 - Targeted data addressing failure modes should be more effective than randomly adding data;
 - Changes to data mixture and sampling recipes should produce reproducible performance differences.
@@ -363,6 +456,18 @@ If we connect the threads from previous articles:
 - [RSSM evolution](/en/articles/2026-09-04-rssm-beyond/) discussed different latent dynamics' data requirements
 - [The industry landscape](/en/articles/2026-09-06-embodied-ai-landscape/) pointed out data is becoming a key differentiator
 
+If we condense this article's core into "four pillars," they are:
+
+$$\boxed{Interaction\ Distribution:\ p(\tau \mid task, scene, embodiment)}$$
+
+$$\boxed{Support\ vs.\ Density\ Scaling}$$
+
+$$\boxed{Data\ Utility:\ U(D \mid \mathcal{L})}$$
+
+$$\boxed{Recipe:\ p_{\mathrm{raw}}(\tau) \rightarrow p_{\mathrm{train}}(\tau)}$$
+
+Taken together, these four are really trying to say one thing: **the basic unit of robot scaling may not be the trajectory, but the effective coverage of the interaction distribution.** Moving from "robot data is complicated" to "what actually counts as effective robot data scaling" is precisely the step this article tries to take.
+
 What this article wants to say is: **data and training recipes may be becoming embodied AI's most underestimated competitive advantage.**
 
 Model architectures can be disseminated through papers and open-source code; simulation platforms are being standardized by a few players; but **high-quality robot interaction data, effective data curation processes, and repeatedly refined training recipes — these are difficult to fully transmit through a single paper.**
@@ -377,7 +482,17 @@ $$Deployment \rightarrow Failure \rightarrow Data \rightarrow Training \rightarr
 
 That is, deployment produces real failures, failures flow back as new targeted data, data drives better policies after curation, which then enter the next round of deployment. Once this loop starts turning, competitors can hardly catch up by merely copying one isolated link — **the moat comes from the flywheel turning, not from any static pile of data.**
 
-And the core question here is not "who has more data," but "who covers a broader interaction distribution $p(\tau \mid task, scene, embodiment)$," and who can keep expanding that distribution through deployment.
+But if we stop here, the flywheel is still just an "engineering strategy," disconnected from the scaling theory above. From a technical viewpoint we can take one more step: what is truly valuable is not "deployment produces more data," but "deployment **selectively produces data for the region of the distribution that is currently most lacking.**" This can be written as:
+
+$$D_{t+1} = D_t + D_{\text{targeted}}$$
+
+where the newly added part should be the piece with the highest return per unit cost:
+
+$$D_{\text{targeted}} = \operatorname*{argmax}_{D'}\ \frac{\Delta Performance}{Cost}$$
+
+This step genuinely connects the **data flywheel** to **effective data scale**: the point of the flywheel turning is not that $N$ grows, but that each round prioritizes filling the gap in $p(\tau \mid task, scene, embodiment)$ with the highest utility-per-cost. In other words, **the strongest data flywheel is not "keep collecting data," but "keep discovering the current distribution's gaps and refill them in a targeted way."**
+
+And the core question here is therefore not "who has more data," but "who covers a broader interaction distribution $p(\tau \mid task, scene, embodiment)$," and who can keep expanding that distribution through deployment — continuously and with direction.
 
 ## References
 
