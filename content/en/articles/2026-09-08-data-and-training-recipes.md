@@ -71,59 +71,35 @@ This difference is not a detail — it's a fundamental data structure difference
 
 ## Several Data Source Approaches
 
-Currently, data sources for embodied AI can be roughly divided into four categories.
+Data sources for embodied AI fall into roughly four categories, each with a different cost / quality / coverage profile.
 
 ### Teleoperation Data
 
-The most direct source is having humans control robots to complete tasks, recording observation-action trajectory pairs.
+The most direct source: humans control robots to complete tasks, recording observation-action trajectory pairs.
 
-**Advantage:** Compared to pure autonomous exploration, it is easier to obtain trajectories that are task-relevant, have higher success rates, and carry clear behavioral intent; it naturally contains human manipulation strategies and common sense.
+**Advantage:** compared to pure autonomous exploration, it more easily yields task-relevant, higher-success-rate trajectories with clear behavioral intent, and naturally carries human manipulation strategies and common sense. **Limitation:** slow and costly collection; operator skill directly shapes data quality; task and environmental diversity are bounded by the operator's time and imagination.
 
-Note, however, that teleop data does not automatically equal high-quality data. It can likewise contain hesitation, correction, redundant motion, inconsistent behavior, operator bias, failed attempts and recovery, and differences across operators of varying skill levels — which is exactly the problem curation must handle later: human-generated ≠ high-quality.
-
-**Limitation:** Slow collection speed, high cost; operator skill level directly affects data quality; task diversity and environmental diversity are limited by the operator's time and imagination.
-
-Current mainstream teleoperation systems include VR controller-based control, SpaceMouse, and vision-based imitation systems. Multiple robotics companies are building scaled teleoperation data collection infrastructure, though specific data volumes and coverage are typically not public.
+Teleop data does not automatically equal high-quality data, though — it can carry hesitation, correction, redundant motion, inconsistent behavior, operator bias, failed attempts and recovery, and differences across skill levels (exactly what curation must handle later: human-generated ≠ high-quality). Mainstream systems include VR-controller control, SpaceMouse, and vision-based imitation; several robotics companies are building scaled teleop infrastructure, though specific volumes and coverage are usually not public.
 
 ### Autonomous Data: Online vs Offline Distinction
 
-Having robots collect interaction data in real or simulated environments. Here an important distinction needs to be made.
-
-**Online interaction:** The policy currently produces actions in the environment $a_t \sim \pi(\cdot|o_t)$, then obtains new trajectories. Typical problems are exploration efficiency, safety, reset cost, on-policy distribution. Classic RL typically relies on this approach — agents repeatedly trial-and-error in environments.
-
-**Offline data:** Existing replay / demonstration data $D=\{(o_t,a_t,o_{t+1},r_t)\}$, without continuing to interact with the environment.
-
-But in current robot RL practice, pure online RL is not the only paradigm. Increasingly common approaches include: offline RL, demonstration + RL, imitation pretraining + online RL, replay-based RL, and simulation RL + real fine-tuning. Therefore, robot RL data sources are actually diverse — online interaction, offline trajectories, demonstration data, and simulation-generated data are all widely used.
+Letting robots collect interaction data themselves, in real or simulated environments, splits into two modes: **online interaction**, where the current policy acts in the environment ($a_t \sim \pi(\cdot|o_t)$) and the concerns are exploration efficiency, safety, reset cost, and on-policy distribution; and **offline data**, a fixed replay / demonstration set $D=\{(o_t,a_t,o_{t+1},r_t)\}$ with no further interaction. Classic RL is usually the former, but current robot RL practice widely mixes paradigms — offline RL, demonstration + RL, imitation pretraining + online RL, replay-based RL, and simulation RL + real fine-tuning — so robot RL data sources are genuinely diverse.
 
 ### Simulation Data
 
 Generating training data in simulated environments.
 
-**Advantage:** Can be massively parallelized, precisely controlled environment parameters, automatic annotation; can generate extreme scenario data difficult to obtain in real environments.
+**Advantage:** massive parallelism, precisely controlled parameters, automatic annotation, and extreme scenarios that are hard to obtain in the real world. **Limitation:** the sim-to-real gap remains — contact mechanics, friction, and deformation in simulation do not perfectly match reality, so direct use can degrade real-world policy performance.
 
-**Limitation:** Sim-to-real gap still exists — physical dynamics in simulation (contact mechanics, friction, deformation) don't perfectly match the real world. The distribution of simulation data and real data have mismatches, and direct use can cause policy performance degradation in real environments.
-
-NVIDIA Isaac Sim, MuJoCo (Todorov et al., IROS 2012; now open-sourced by DeepMind), and other simulation platforms are being widely used to generate training data; GPU-parallel physics simulation (e.g., Isaac Gym, Makoviychuk et al., 2021, arXiv:2108.10470) further lowers the cost of large-scale collection. But simulation data typically needs to be combined with domain randomization (Tobin et al., IROS 2017, arXiv:1703.06907), system identification, or real-world fine-tuning to bridge the gap.
+NVIDIA Isaac Sim, MuJoCo (Todorov et al., IROS 2012; now open-sourced by DeepMind), and GPU-parallel simulation such as Isaac Gym (Makoviychuk et al., 2021, arXiv:2108.10470) are widely used to generate training data; simulation data typically still needs domain randomization (Tobin et al., IROS 2017, arXiv:1703.06907), system identification, or real-world fine-tuning to bridge the gap.
 
 ### Synthetic Data: World Models as Experience Generators
 
-An increasingly important direction is: **using trained world models to expand agent experience.**
-
-But here two different mechanisms need to be distinguished:
-
-**Model-based RL (e.g., Dreamer):** The world model serves as a **latent experience generator**, producing imagined trajectories in latent space. Actor/critic trains in latent imagination: $z_t \rightarrow a_t \rightarrow z_{t+1}$, without needing to generate photorealistic RGB frames (Dreamer, Hafner et al., 2019, arXiv:1912.01603; DreamerV3, Hafner et al., 2023, arXiv:2301.04104).
-
-**Generative world models (e.g., video-generative world models, NVIDIA Cosmos):** Further attempt to generate synthetic data (synthetic observations / videos / trajectories) close to real observations. Cosmos positions itself as a **fine-tunable world foundation model platform / digital-twin** layer for Physical AI, whose generated video is treated as a **potential data source** for downstream development (including robotics) — though it should be said that this is more the platform's vision and positioning, and the paper itself does not provide a direct empirical conclusion that "generated data improves real-robot policy training" (Cosmos World Foundation Model Platform for Physical AI, NVIDIA, 2025, arXiv:2501.03575).
-
-Both are "using models to expand experience," but the data forms are completely different. The former primarily serves latent prediction, imagination, and model-based control; the latter is closer to the traditional sense of "synthetic data generation."
-
-The "world model" here includes two related but different concepts: dynamics models for latent prediction / imagination / control, and generative world models for generating or predicting visual worlds.
-
-But there is a point that must be brought into the article's distribution framework: **data generated by a world model is not "free real-data expansion."** The distribution of generated trajectories $\hat p(\tau)$ generally does not equal the real distribution $p(\tau)$, and model error accumulates over the rollout horizon (compounding error). This chain can be written as:
+An increasingly important direction is **using trained world models to expand agent experience**, via two distinct mechanisms. **Model-based RL** (e.g., Dreamer, Hafner et al., 2019, arXiv:1912.01603; DreamerV3, Hafner et al., 2023, arXiv:2301.04104) uses the world model as a **latent experience generator**, training actor/critic in latent imagination ($z_t \rightarrow a_t \rightarrow z_{t+1}$) without generating photorealistic RGB frames. **Generative world models** (video-generative models, NVIDIA Cosmos) instead try to produce synthetic observations / videos / trajectories close to real ones; Cosmos positions itself as a **fine-tunable world foundation model platform / digital-twin** layer for Physical AI whose generated video is a **potential data source** for downstream work — though this is more the platform's vision and positioning, and the paper itself offers no direct empirical conclusion that "generated data improves real-robot policy training" (NVIDIA, 2025, arXiv:2501.03575). The shared key point is that **model-generated data is not "free real-data expansion":** the generated distribution $\hat p(\tau)$ generally differs from $p(\tau)$, and model error compounds over the rollout horizon:
 
 $$D_{\mathrm{real}} \rightarrow M \rightarrow \hat D_{\mathrm{synthetic}}$$
 
-where the synthetic data $\hat D$ inherits the bias of the model $M$. Therefore the effectiveness of synthetic trajectories is jointly limited by model bias, long-horizon compounding error, and the mismatch between the generated distribution and the real interaction distribution — it remains fundamentally a distribution problem, not merely "more data."
+so synthetic trajectories inherit the bias of model $M$ and are jointly limited by model bias, long-horizon compounding error, and the mismatch between generated and real interaction distributions — a distribution problem, not merely "more data."
 
 ## Data Interfaces for Different Paradigms
 
@@ -131,13 +107,9 @@ This is an easily overlooked but very important dimension: **different technical
 
 ### VLA's Data Interface
 
-The most basic VLA training sample can be abstracted as $(o_t, l, a_{t:t+k})$, where $l$ is the language instruction and $a_{t:t+k}$ is an action chunk. But it should be emphasized: **an action chunk is only a common training/inference interface, not the definition of VLA.** The core of VLA is really the $(V, L) \rightarrow A$ mapping, while the $a_{t:t+k}$ chunk form is a concrete policy parameterization — a system that does not explicitly predict chunks can still be a VLA.
+The most basic VLA training sample can be abstracted as $(o_t, l, a_{t:t+k})$, where $l$ is the language instruction and $a_{t:t+k}$ is an action chunk. But note: **an action chunk is only a common training/inference interface, not the definition of VLA** — the core of VLA is the $(V, L) \rightarrow A$ mapping, while the chunk form is a concrete policy parameterization, so a system that does not explicitly predict chunks can still be a VLA. Real systems also often add proprioception, historical observation windows, task metadata, and embodiment information, and the action output is not simply $(o,l) \rightarrow a$ but may be action chunks, diffusion / flow action heads, discrete tokens, or continuous action (heterogeneous representations). Representative works transferring large-scale vision-language knowledge to robotic control include RT-2 (Brohan et al., CoRL 2023, arXiv:2307.15818) and π₀ (Black et al., Physical Intelligence, 2024, arXiv:2410.24164).
 
-But actual systems may also include: proprioception, historical observation windows, task metadata, embodiment information. Action output is also not simply $(o,l) \rightarrow a$ — modern VLAs may use action chunks, diffusion / flow action heads, discrete action tokens or continuous action, and heterogeneous action representations. Representative works transferring large-scale vision-language knowledge to robotic control include RT-2 (Brohan et al., CoRL 2023, arXiv:2307.15818) and π₀ (Black et al., Physical Intelligence, 2024, arXiv:2410.24164).
-
-This means VLA's core data requirement is: **high-quality observation-action pairs, covering sufficiently diverse tasks and objects, while needing to adapt to different embodiment action representations.**
-
-There is a deeper problem here: **action representation itself is part of data interface design.** $a_{t:t+k}$ is not just "action" — it could be joint position, joint velocity, end-effector delta pose, absolute pose, gripper command, discretized tokens, continuous flow, or even latent action. Therefore, the core problem of cross-embodiment is not simply "putting data from different robots into the same dataset," but finding a sufficiently general observation/action representation that enables experiences from different embodiments to be shared in the same learning space.
+So VLA's core data requirement is **high-quality observation-action pairs, covering sufficiently diverse tasks and objects, while adapting to different embodiment action representations.** A deeper point is that **action representation is itself part of interface design:** $a_{t:t+k}$ may be joint position/velocity, end-effector delta / absolute pose, gripper command, discretized tokens, continuous flow, or even latent action — so the real challenge of cross-embodiment is not "dumping different robots' data into one dataset" but finding a general enough observation/action representation for different embodiments' experience to be shared in one learning space.
 
 ### World Model's Data Interface
 
@@ -152,35 +124,27 @@ Core output:
 
 Optional:
   reconstructed observation (p(o_t | z_t))
-  reward
-  termination
-  task outcome
+  reward / termination / task outcome
 ```
 
-It's important to note that **the core of a world model is learning action-conditioned dynamics; reward prediction is not a logically required component of the dynamics model.** But we should not go the other way and dictate that "reward doesn't belong to the world model." A more accurate technical layering is: a `dynamics model` (learning state transitions), a `reward model` (predicting reward), and a `continuation / termination model` (predicting whether the episode continues) — and in some literature and system definitions, these modules together are called the **world model**. So in a concrete model-based RL agent (such as Dreamer), reward and continuation prediction often form, together with the dynamics model, the complete world-model module; they are simply not logically required outputs of action-conditioned dynamics itself.
-
-For approaches centered on latent dynamics + model-based control (such as Dreamer's RSSM, TD-MPC2, Hansen et al., ICLR 2024, arXiv:2310.16828), data needs to be temporally coherent, action-annotated interaction trajectories.
+The key point is that **the core of a world model is learning action-conditioned dynamics; reward prediction is not a logically required output of the dynamics model.** But we should not go the other way and dictate that "reward doesn't belong to the world model" — a cleaner layering is a `dynamics model` (state transitions), a `reward model` (reward), and a `continuation / termination model` (whether the episode continues), with some literature calling these modules together the **world model**; so in an agent like Dreamer, reward and continuation often form, together with the dynamics model, the full world-model module. For routes centered on latent dynamics + model-based control (Dreamer's RSSM, TD-MPC2, Hansen et al., ICLR 2024, arXiv:2310.16828), data needs to be temporally coherent, action-annotated interaction trajectories.
 
 ### RL's Data Interface
 
 RL's data requirements depend on the specific paradigm:
 
 - **On-policy** (e.g., PPO): needs data produced by the current policy; data "freshness" matters
-- **Off-policy** (e.g., SAC): can reuse historical replay data, thus usually having higher data-reuse capability; but off-policy ≠ automatically more sample-efficient — final sample efficiency still depends on replay distribution, exploration, critic quality, reward structure, and the task itself, and the replay buffer's distribution and coverage affect policy generalization and stability
-- **Offline RL**: relies entirely on pre-collected datasets; extremely high requirements for data distribution coverage
+- **Off-policy** (e.g., SAC): can reuse historical replay, giving stronger data-reuse capability; but off-policy ≠ automatically more sample-efficient — efficiency still depends on replay distribution, exploration, critic quality, reward structure, and the task, and the buffer's distribution and coverage affect generalization and stability
+- **Offline RL**: relies entirely on pre-collected datasets; extremely high requirements for distribution coverage
 - **Imitation + RL**: first pre-train with demonstrations, then fine-tune with online interaction
 
-From a data perspective, different RL paradigms have very different requirements for replay buffer or dataset quality and diversity.
+Different RL paradigms impose very different requirements on replay-buffer / dataset quality and coverage.
 
 ### Data Interface Incompatibility
 
-A commonly encountered practical problem is: **data from different embodiments, different sensor configurations, different action spaces typically cannot be directly used for the same low-level policy without processing.**
+A common practical difficulty: **data from different embodiments, sensor configurations, and action spaces usually cannot be fed to the same low-level policy without processing.** Data collected on a Franka arm, differing in action-space dimension, viewpoint, and dynamics, typically needs action retargeting, normalization, or embodiment conditioning before transfer — which is why cross-embodiment data is an important direction.
 
-Data collected on a Franka arm, due to differences in action space dimensions, observation viewpoints, and dynamic characteristics, typically needs action retargeting, action normalization, or embodiment conditioning before it can be used for other robots.
-
-This is why cross-embodiment data is an important research direction. But terminology precision is needed: **multi-task** (same robot completing multiple tasks), **multi-embodiment** (training data from multiple robots but handled separately), and **cross-embodiment** (model generalizes to unseen robots) are three different levels of problem.
-
-TD-MPC2's multi-task / multi-domain capability is primarily achieved through task embeddings — but task conditioning ≠ embodiment conditioning. Embodiment differences involve action space, observation space, morphology, dynamics, control frequency, and multiple other dimensions, which cannot be simply solved with a task embedding. The π₀ series demonstrates the importance of large-scale, multi-embodiment data for cross-robot generalization (this is an empirical observation, not a causal attribution about the specific mechanism) — Open X-Embodiment (Open X-Embodiment Collaboration, 2023, arXiv:2310.08864) is a representative example of such large-scale cross-embodiment datasets.
+Here three levels must be distinguished: **multi-task** (one robot, many tasks), **multi-embodiment** (data from many robots, handled separately), and **cross-embodiment** (the model generalizes to unseen robots). TD-MPC2's multi-task / multi-domain capability rests mainly on task embeddings, but **task conditioning ≠ embodiment conditioning** — embodiment differences span action space, observation space, morphology, dynamics, control frequency and more, and cannot be collapsed into one task embedding. The π₀ series demonstrates the importance of large-scale multi-embodiment data for cross-robot generalization (an empirical observation, not a causal attribution to a specific mechanism), and Open X-Embodiment (Open X-Embodiment Collaboration, 2023, arXiv:2310.08864) is a representative large-scale cross-embodiment dataset.
 
 ## Data Is Not a Dataset, It's a Distribution
 
@@ -201,7 +165,7 @@ Data diversity and curriculum learning are two orthogonal dimensions:
 
 If training data only covers one type of cup, one lighting condition, one table surface, the policy will fail when encountering variation — this is insufficient diversity. Curriculum learning (simple to complex) is a training strategy that affects the optimization path, not coverage itself. **Diversity determines coverage; curriculum determines optimization path.**
 
-Here we also need to distinguish diversity from coverage: **Diversity describes how different samples are from each other; coverage describes how much of the target task distribution has been covered.** For example: data of 1000 different cups → high diversity; but if all are "desktop cup grasping" tasks, task coverage may still be very low.
+Here we also need to distinguish diversity from coverage: **Diversity describes how different samples are from each other; coverage describes how much of the target task distribution has been covered.** For example: data of 1000 different cups → high diversity; but if all are "desktop cup grasping" tasks, task coverage may still be very low. For this reason diversity is better seen as a handle worth watching during curation than as an independent quantity that buys scaling returns on its own — in the later $D_{\mathrm{effective}}$ decomposition we no longer list it as a multiplier alongside Coverage; it enters scaling only by translating into coverage.
 
 ### Data Curation: From Trend to Technical
 
@@ -435,7 +399,7 @@ $$\text{Coverage} = C\big(p_{\mathrm{train}},\ p_{\mathrm{eval}}\big),\qquad \te
 
 That is, what we really care about has never been some "coverage score" a dataset carries on its own, but the degree to which $p_{\mathrm{train}}$ covers a *specified* $p_{\mathrm{eval}}$. Making this step explicit is also what turns the utility definition just below from a notation that seems to appear out of nowhere into a result derived naturally along the line "coverage is a relation."
 
-One line should be drawn immediately: **coverage ≠ distribution similarity.** The $C(p_{\mathrm{train}},p_{\mathrm{eval}})$ above actually points at three different things — **support coverage** (have we seen the evaluation-relevant region yet), **density** (how much have we sampled within it), and **distribution alignment** (how similar the two distributions are overall). They rank Dataset A / B differently: measured by support coverage, A — which fills the whole evaluation support — clearly wins; measured by an overall distance such as $D_{KL}(p_{\mathrm{eval}}\,\|\,p_{\mathrm{train}})$, B — which densely covers 80% of the region — may actually score lower; and if the evaluation metric is especially sensitive to one core region, high-density B may again be better. So this article's support / density decomposition is **not equivalent to "finding a single distribution distance and minimizing it"** — it deliberately keeps "have we seen it" and "do the two look alike" as separate questions.
+One line should be drawn immediately: **coverage, density, and distribution similarity are three different things, and cannot be swept together under the single word "coverage."** The $C(p_{\mathrm{train}},p_{\mathrm{eval}})$ above actually points at three independent quantities — **support coverage** (have we seen the evaluation-relevant region yet, a roughly 0/1 question), **density** (how much have we sampled within it, an intensity question), and **distribution similarity** (how similar the two distributions are overall, typically given by some distance metric). They rank Dataset A / B differently: measured by support coverage, A — which fills the whole evaluation support — clearly wins; measured by an overall distance such as $D_{KL}(p_{\mathrm{eval}}\,\|\,p_{\mathrm{train}})$, i.e. distribution similarity, B — which densely covers 80% of the region — may actually score lower; and if the evaluation metric is especially sensitive to one core region, high-density B may again be better. So this article's support / density decomposition is **not equivalent to "finding a single distribution distance and minimizing it"** — it deliberately treats "have we seen it," "how much did we sample," and "do the two look alike" as three separate questions, and only after separating them can the budget later be **allocated** to whichever one most needs filling.
 
 This also tightens the earlier utility definition by one notch: **data utility is not only objective-conditioned — it is evaluation-conditioned.**
 
@@ -507,9 +471,11 @@ $$Performance = f(N)$$
 
 but rather:
 
-$$D_{\mathrm{effective}} = f(N,\;Coverage,\;Diversity,\;Q,\;Relevance)$$
+$$D_{\mathrm{effective}} = f(N,\;Coverage,\;Q,\;Relevance)$$
 
 $$Performance = g(D_{\mathrm{effective}},\;Capacity,\;Compute,\;Recipe)$$
+
+We deliberately **no longer list Diversity as a separate term**: difference between samples does not create value on its own — it only matters once that difference turns into an expansion of evaluation-relevant support or an improvement in density, at which point it acts *through* $Coverage$. Otherwise more diversity is just "more," not "coverage." Treating Diversity as a multiplier on par with Coverage inside $D_{\mathrm{effective}}$ would tempt readers into a "more diverse is always better" reading and dodge the real question — diverse *where*, and *enough for the evaluation or not*. So the decomposition below uses Coverage throughout (split into its support and density facets) to carry the meaning previously hung on Diversity.
 
 Here $Capacity$ is deliberately moved out of $D_{\mathrm{effective}}$ and kept only in $Performance$: otherwise capacity would influence the outcome through two paths at once — via effective data scale and via the performance function — making the decomposition muddy. Effective data scale should describe "how effective the data itself is," while capacity, compute, and recipe describe "how much of that effective data the model can convert into performance."
 
@@ -547,7 +513,7 @@ So robot data scaling contends with **both sample redundancy and distribution re
 
 (Statistically, there is a classic intuition for folding temporal correlation into an effective sample size, of the form $N_{\mathrm{eff}} \approx N / (1 + 2\sum_k \rho_k)$; this article deliberately keeps it out of the main text so as not to drag the discussion into the technical details of "time-series ESS.")
 
-It should be emphasized that **effective data scale and model capacity are not independent**, but this coupling belongs inside $g(\cdot)$ rather than being stuffed into $D_{\mathrm{effective}}$: data diversity can only be fully exploited when the model has enough capacity. When model capacity is small, blindly enlarging distribution diversity may yield limited or even negative returns; only when capacity is sufficient can the same diverse data be converted into stronger generalization. So $Performance$ is jointly determined by $D_{\mathrm{effective}}$, $Capacity$, $Compute$, and $Recipe$, rather than being a function of any single variable.
+It should be emphasized that **effective data scale and model capacity are not independent**, but this coupling belongs inside $g(\cdot)$ rather than being stuffed into $D_{\mathrm{effective}}$: a sufficiently wide distribution coverage can only be fully exploited when the model has enough capacity. When model capacity is small, blindly enlarging the covered region may yield limited or even negative returns; only when capacity is sufficient can the same wide-coverage data be converted into stronger generalization (and by "diverse data" here we really mean "data covering a wider region" — diversity counts only once it turns into coverage). So $Performance$ is jointly determined by $D_{\mathrm{effective}}$, $Capacity$, $Compute$, and $Recipe$, rather than being a function of any single variable.
 
 LLMs can roughly ask "how many tokens do I have?"; robotics should rather ask "how many tasks, states, environments, actions, failure modes, and embodiments have I covered?"
 
@@ -717,7 +683,7 @@ The flywheel thereby ties directly back to **effective data scale**: the point o
 
 ### The Capstone Flow of the Whole Article
 
-At this point we can name the article's real subject: on the surface it talks about "data scaling," but what it is fundamentally about is **distribution alignment under a limited data budget** — under a collection-budget constraint, aligning $p_{\mathrm{train}}$ toward $p_{\mathrm{eval}}$, and spending each unit of budget on the gap with the highest marginal data value. Compressing the entire analytical framework into a single diagram, it closes as follows — note that $p_{\mathrm{eval}}$ sits at the top, as **the target coordinate system of the whole loop**:
+At this point we can name the article's real subject: on the surface it talks about "data scaling," but what it is fundamentally about is **evaluation-aware distribution allocation under a limited data budget** — not passively "aligning" $p_{\mathrm{train}}$ to some fixed $p_{\mathrm{eval}}$, but actively allocating a limited collection budget, round by round, to the support and density gaps in $p_{\mathrm{train}}$ that $p_{\mathrm{eval}}$ exposes, spending each unit of budget wherever marginal data value is highest. Compressing the entire analytical framework into a single diagram, it closes as follows — note that $p_{\mathrm{eval}}$ sits at the top, as **the target coordinate system of the whole loop**:
 
 ```text
                               p_eval

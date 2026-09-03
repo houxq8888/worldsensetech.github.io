@@ -71,73 +71,45 @@ robot trajectory:
 
 ## 数据来源的几条路线
 
-目前具身智能的数据来源大致可以分成四类。
+目前具身智能的数据来源大致分成四类，各自的 cost/quality/coverage profile 并不相同。
 
 ### 遥操作数据（Teleoperation Data）
 
-最直接的来源是人操控机器人完成任务，记录观测-动作轨迹对。
+人操控机器人完成任务、记录观测-动作轨迹对，是最直接的来源。
 
-**优势：** 相比纯自主 exploration，更容易获得任务相关、成功率较高、且具有明确行为意图的 trajectory；天然包含人类的操作策略和常识。
+**优势：** 相比纯自主 exploration，更容易获得任务相关、成功率较高、且具有明确行为意图的 trajectory；天然包含人类的操作策略和常识。**局限：** 采集速度慢、成本高；操作者技能直接影响质量；覆盖的任务与环境多样性受限于操作者的时间和想象力。
 
-但需要注意，teleop 数据并不自动等于高质量数据。它同样可能包含 hesitation、correction、多余动作、inconsistent behavior、operator bias、失败尝试与 recovery，以及不同技能水平操作者的差异——这也正是后文 curation 要处理的问题：human-generated ≠ high-quality。
-
-**局限：** 采集速度慢、成本高；操作者的技能水平直接影响数据质量；覆盖的任务多样性和环境多样性受限于操作者的时间和想象力。
-
-目前主流的遥操作系统包括 VR 手柄控制、空间鼠标（SpaceMouse）、以及基于视觉的 imitation 系统。多家机器人公司正在建设规模化的遥操作数据采集基础设施，但具体数据量和覆盖范围通常不公开。
+需要注意的是，teleop 数据并不自动等于高质量数据——hesitation、correction、多余动作、inconsistent behavior、operator bias、失败尝试与 recovery、不同操作者的技能差异都会混在里面（这也正是后文 curation 要处理的问题：human-generated ≠ high-quality）。主流系统包括 VR 手柄控制、SpaceMouse、以及基于视觉的 imitation 系统；多家机器人公司正在建设规模化遥操作基础设施，但具体数据量与覆盖范围通常不公开。
 
 ### 自主采集数据：Online 与 Offline 的区分
 
-让机器人在真实或仿真环境中采集交互数据。这里需要做一个重要的区分。
-
-**Online interaction：** 策略当前在环境中产生动作 $a_t \sim \pi(\cdot|o_t)$，然后得到新的 trajectory。典型问题是 exploration efficiency、safety、reset cost、on-policy distribution。经典 RL 通常依赖这种方式——agent 在环境中反复试错。
-
-**Offline data：** 已有 replay / demonstration 数据 $D=\{(o_t,a_t,o_{t+1},r_t)\}$，不继续和环境交互。
-
-但在当前机器人 RL 实践中，纯粹的 online RL 并不是唯一范式。越来越常见的方式包括：offline RL、demonstration + RL、imitation pretraining + online RL、replay-based RL、以及 simulation RL + real fine-tuning。因此，机器人 RL 的数据来源实际上是多样的——online interaction、offline trajectories、demonstration data 和 simulation-generated data 都在被广泛使用。
+让机器人在真实或仿真环境中自行采集交互数据，需要区分两种模式：**Online interaction** 由当前策略 $a_t \sim \pi(\cdot|o_t)$ 与环境持续交互，关心 exploration efficiency、safety、reset cost、on-policy distribution；**Offline data** 使用已有的 replay / demonstration 集 $D=\{(o_t,a_t,o_{t+1},r_t)\}$，不再与环境交互。经典 RL 通常属于前者，但在当前机器人 RL 实践中，offline RL、demonstration + RL、imitation pretraining + online RL、replay-based RL、simulation RL + real fine-tuning 等混合范式已经非常普遍——机器人 RL 的数据来源实际上是多样的。
 
 ### 仿真数据（Simulation Data）
 
 在仿真环境中生成训练数据。
 
-**优势：** 可以大规模并行、精确控制环境参数、自动标注；可以生成真实环境中难以获取的极端场景数据。
+**优势：** 大规模并行、精确控制环境参数、自动标注，并可生成真实环境中难以获取的极端场景。**局限：** sim-to-real gap 仍在——接触力学、摩擦、变形等物理动态与真实世界不完全一致，直接使用可能导致策略在真实环境表现退化。
 
-**局限：** sim-to-real gap 仍然存在——仿真中的物理动态（接触力学、摩擦、变形）与真实世界不完全一致。仿真数据的分布和真实数据的分布之间存在 mismatch，直接使用可能导致策略在真实环境中表现退化。
-
-NVIDIA Isaac Sim、MuJoCo（Todorov et al., IROS 2012；现已由 DeepMind 开源）等仿真平台正在被广泛用于生成训练数据；GPU 并行的物理仿真（如 Isaac Gym，Makoviychuk et al., 2021，arXiv:2108.10470）进一步降低了大规模采集成本。但仿真数据通常需要配合 domain randomization（Tobin et al., IROS 2017，arXiv:1703.06907）、system identification 或 real-world fine-tuning 来弥合 gap。
+NVIDIA Isaac Sim、MuJoCo（Todorov et al., IROS 2012；现已由 DeepMind 开源）、GPU 并行物理仿真如 Isaac Gym（Makoviychuk et al., 2021，arXiv:2108.10470）都在被广泛用于生成训练数据；仿真数据通常还需要配合 domain randomization（Tobin et al., IROS 2017，arXiv:1703.06907）、system identification 或 real-world fine-tuning 来弥合 gap。
 
 ### 合成数据：世界模型作为经验生成器
 
-一个越来越重要的方向是：**用训练好的世界模型来扩大 agent 的经验。**
-
-但这里需要区分两种不同的机制：
-
-**Model-based RL（如 Dreamer）：** 世界模型作为 **latent experience generator**，在隐空间中产生 imagined trajectories。actor/critic 在 latent imagination 中训练：$z_t \rightarrow a_t \rightarrow z_{t+1}$，并不需要生成 photorealistic RGB frame（Dreamer，Hafner et al., 2019，arXiv:1912.01603；DreamerV3，Hafner et al., 2023，arXiv:2301.04104）。
-
-**Generative world model（如视频生成式世界模型、NVIDIA Cosmos）：** 进一步尝试生成接近真实观测的合成数据（synthetic observations / videos / trajectories）。Cosmos 把自己定位成一个面向 Physical AI 的**可微调 world foundation model 平台 / digital twin**，其生成视频被视为下游开发（包括机器人）的**潜在数据来源**——不过要说明，这更多是平台的愿景与定位，论文本身并未就"生成数据能提升真实机器人策略训练"给出直接的实证结论（Cosmos World Foundation Model Platform for Physical AI，NVIDIA，2025，arXiv:2501.03575）。
-
-两者都是"用模型扩大经验"，但数据形态完全不同。前者主要服务于 latent prediction、imagination 和 model-based control；后者是更接近传统意义上的"合成数据生成"。
-
-这里的"世界模型"包含两个相关但不同的概念：用于 latent prediction / imagination / control 的 dynamics model，以及用于生成或预测视觉世界的 generative world model。
-
-但这里有一个必须纳入全文 distribution 框架的关键点：**世界模型生成的数据并不是"免费的真实数据扩张"。** 生成轨迹的分布 $\hat p(\tau)$ 一般不等于真实分布 $p(\tau)$，而且 model error 会随着 rollout horizon 不断累积（compounding error）。可以把这条链路写成：
+一个越来越重要的方向是**用训练好的世界模型扩大 agent 的经验**。这里需要区分两种机制：**Model-based RL**（如 Dreamer，Hafner et al., 2019，arXiv:1912.01603；DreamerV3，Hafner et al., 2023，arXiv:2301.04104）把世界模型当作 **latent experience generator**——actor/critic 在 $z_t \rightarrow a_t \rightarrow z_{t+1}$ 的隐空间想象中训练，并不需要生成 photorealistic RGB frame；**Generative world model**（如视频生成式世界模型、NVIDIA Cosmos）则进一步尝试生成接近真实观测的合成 observation / video / trajectory。Cosmos 把自己定位为面向 Physical AI 的**可微调 world foundation model 平台 / digital twin**，其生成视频被视为下游开发（含机器人）的**潜在数据来源**——不过这更多是平台的愿景与定位，论文本身并未就"生成数据能提升真实机器人策略训练"给出直接的实证结论（NVIDIA，2025，arXiv:2501.03575）。两者共同的关键点是：**世界模型生成的数据并不是"免费的真实数据扩张"。** 生成轨迹的分布 $\hat p(\tau)$ 一般不等于真实分布 $p(\tau)$，model error 还会随 rollout horizon 累积（compounding error），可写成
 
 $$D_{\mathrm{real}} \rightarrow M \rightarrow \hat D_{\mathrm{synthetic}}$$
 
-其中合成数据 $\hat D$ 继承了模型 $M$ 的 bias。因此 synthetic trajectory 的有效性受到 model bias、long-horizon compounding error，以及生成分布与真实 interaction distribution 之间 mismatch 的共同限制——它本质上仍然是一个 distribution 问题，而不只是"数据变多了"。
+因此 synthetic trajectory 的有效性同时受 model bias、long-horizon compounding error 以及生成分布与真实 interaction distribution 之间 mismatch 的限制——它本质上仍是一个 distribution 问题，而不是"数据变多了"。
 
 ## 不同范式的数据接口
 
-这是容易被忽略但非常重要的一个维度：**不同的技术路线需要的不是同一种数据。**
+这是一个容易被忽略但非常重要的维度：**不同的技术路线需要的不是同一种数据。**
 
 ### VLA 的数据接口
 
-最基本的 VLA 训练样本可以抽象为 $(o_t, l, a_{t:t+k})$，其中 $l$ 是语言指令，$a_{t:t+k}$ 是 action chunk。但需要强调：**action chunk 只是一种常见的训练/推理接口，而不是 VLA 的定义。** VLA 的核心其实是 $(V, L) \rightarrow A$ 的映射，而 $a_{t:t+k}$ 这种 chunk 形式属于具体的 policy parameterization——一个不显式预测 chunk 的系统，仍然可以是 VLA。
+最基本的 VLA 训练样本可抽象为 $(o_t, l, a_{t:t+k})$，$l$ 是语言指令、$a_{t:t+k}$ 是 action chunk。但要注意：**action chunk 只是一种常见的训练/推理接口，而不是 VLA 的定义**——VLA 的核心是 $(V, L) \rightarrow A$ 的映射，chunk 形式属于具体的 policy parameterization，一个不显式预测 chunk 的系统仍然可以是 VLA。实际系统还常包含 proprioception、历史观测窗口、task metadata、embodiment information；动作输出也不止 $(o,l) \rightarrow a$，而可能是 action chunk、diffusion / flow action head、discrete token 或 continuous action 等 heterogeneous representation。代表性工作有 RT-2（Brohan et al., CoRL 2023，arXiv:2307.15818）与 π₀（Black et al., Physical Intelligence, 2024，arXiv:2410.24164）。
 
-但实际系统还可能包含：proprioception、历史观测窗口、task metadata、embodiment information。动作输出也不只是简单的 $(o,l) \rightarrow a$——现代 VLA 可能使用 action chunk、diffusion / flow action head、discrete action token 或 continuous action，以及 heterogeneous action representation。将大规模视觉语言知识迁移到机器人控制的代表性工作包括 RT-2（Brohan et al., CoRL 2023，arXiv:2307.15818）与 π₀（Black et al., Physical Intelligence, 2024，arXiv:2410.24164）。
-
-这意味着 VLA 对数据的核心需求是：**高质量的 observation-action 配对，覆盖足够多样的任务和物体，同时需要适配不同 embodiment 的动作表示。**
-
-这里有一个更深层的问题：**action representation 本身就是数据接口设计的一部分。** $a_{t:t+k}$ 不只是"动作"——它可能是 joint position、joint velocity、end-effector delta pose、absolute pose、gripper command、discretized tokens、continuous flow、甚至 latent action。因此，cross-embodiment 的核心问题并不只是"把不同机器人的数据放进同一个 dataset"，而是寻找一个足够通用的 observation/action representation，使不同 embodiment 的经验能够在同一个学习空间中共享。
+由此，VLA 对数据的核心需求是：**高质量的 observation-action 配对，覆盖足够多样的任务和物体，并适配不同 embodiment 的动作表示。** 更深层的一点是 **action representation 本身就是接口设计的一部分**：$a_{t:t+k}$ 可能是 joint position/velocity、end-effector delta / absolute pose、gripper command、discretized token、continuous flow 甚至 latent action，因此 cross-embodiment 的真正难点不是"把不同机器人的数据倒进同一个 dataset"，而是找到一个足够通用的 observation/action representation，让不同 embodiment 的经验能在同一学习空间里共享。
 
 ### 世界模型的数据接口
 
@@ -152,35 +124,27 @@ $$D_{\mathrm{real}} \rightarrow M \rightarrow \hat D_{\mathrm{synthetic}}$$
 
 可选：
   reconstructed observation (p(o_t | z_t))
-  reward
-  termination
-  task outcome
+  reward / termination / task outcome
 ```
 
-需要注意的是，**世界模型的核心是学习 action-conditioned dynamics；reward prediction 并非 dynamics model 在逻辑上的必需组成部分。** 但这里不宜反过来规定"reward 不属于 world model"。更准确的技术分层是：`dynamics model`（学习状态转移）、`reward model`（预测 reward）、`continuation / termination model`（预测 episode 是否继续）——在一些文献和系统定义里，这几个模块合起来就被称为 **world model**。因此在具体的 model-based RL agent（如 Dreamer）中，reward 和 continuation prediction 往往与 dynamics model 一起构成完整的 world-model module，只是它们并非 action-conditioned dynamics 在逻辑上必须的输出。
-
-对于以 latent dynamics + model-based control 为核心的路线（如 Dreamer 的 RSSM、TD-MPC2，Hansen et al., ICLR 2024，arXiv:2310.16828），数据需要是时间上连贯的、action-annotated 的交互轨迹。
+要点是：**世界模型的核心是学习 action-conditioned dynamics，reward prediction 并非 dynamics model 逻辑上必需的输出。** 但也不宜反过来规定"reward 不属于 world model"——更准确的分层是 `dynamics model`（状态转移）、`reward model`（预测 reward）、`continuation / termination model`（预测 episode 是否继续），一些文献把这几块合起来统称 **world model**；所以在 Dreamer 这类 agent 里，reward 与 continuation 常和 dynamics model 一起构成完整的 world-model module。对以 latent dynamics + model-based control 为核心的路线（Dreamer 的 RSSM、TD-MPC2，Hansen et al., ICLR 2024，arXiv:2310.16828），数据需要是时间连贯、action-annotated 的交互轨迹。
 
 ### RL 的数据接口
 
 RL 的数据需求取决于具体范式：
 
 - **On-policy**（如 PPO）：需要当前策略产生的数据，数据"新鲜度"很重要
-- **Off-policy**（如 SAC）：可以复用历史 replay data，因此通常具有更高的数据复用能力；但 off-policy ≠ 自动更 sample efficient——最终的数据效率仍取决于 replay distribution、exploration、critic quality、reward structure 和任务本身，replay buffer 的分布和覆盖度会影响策略的泛化与稳定性
-- **Offline RL**：完全依赖预收集的 dataset，对数据分布覆盖度要求极高
+- **Off-policy**（如 SAC）：可复用历史 replay，数据复用能力更强；但 off-policy ≠ 自动更 sample efficient——效率仍取决于 replay distribution、exploration、critic quality、reward structure 与任务本身，buffer 的分布与覆盖度会影响泛化和稳定性
+- **Offline RL**：完全依赖预收集 dataset，对分布覆盖度要求极高
 - **Imitation + RL**：先用 demonstration 预训练，再用 online interaction fine-tune
 
-从数据角度看，不同 RL 范式对 replay buffer 或 dataset 的质量和多样性有非常不同的要求。
+不同 RL 范式对 replay buffer / dataset 的质量与覆盖有着很不一样的要求。
 
 ### 数据接口不兼容的问题
 
-一个实际中经常遇到的问题是：**不同 embodiment、不同传感器配置、不同动作空间的数据通常不能不经处理地直接用于同一个低层 policy。**
+一个现实中的常见困难是：**不同 embodiment、传感器配置、动作空间的数据，通常不能不经处理就塞进同一个低层 policy。** 例如在 Franka 上采集的数据，因动作空间维度、观测视角、动力学差异，往往要经过 action retargeting、action normalization 或 embodiment conditioning 才能迁移到其他机器人——这正是 cross-embodiment data 成为重要方向的原因。
 
-一个在 Franka 机械臂上采集的数据，由于动作空间维度、观测视角、动力学特性的差异，通常需要经过 action retargeting、action normalization、或 embodiment conditioning 才能用于其他机器人。
-
-这就是为什么 cross-embodiment data 是一个重要的研究方向。但需要注意术语的精确性：**multi-task**（同一机器人完成多种任务）、**multi-embodiment**（训练数据来自多种机器人但分别处理）、和 **cross-embodiment**（模型能泛化到未见过的机器人）是三个不同层次的问题。
-
-TD-MPC2 的 multi-task / multi-domain 能力主要通过 task embedding 实现——但 task conditioning ≠ embodiment conditioning。Embodiment 差异涉及 action space、observation space、morphology、dynamics、control frequency 等多个维度，不能简单地用一个 task embedding 来解决。π₀ 系列则展示了大规模、多 embodiment 数据对于跨机器人泛化的重要性（这是一个 empirical observation，而非对具体机制的 causal attribution）——Open X-Embodiment（Open X-Embodiment Collaboration, 2023，arXiv:2310.08864）正是这种跨本体大规模数据集的代表。
+这里要区分三个层次：**multi-task**（同一机器人做多任务）、**multi-embodiment**（数据来自多种机器人但分别处理）、**cross-embodiment**（模型能泛化到未见过的机器人）。TD-MPC2 的 multi-task / multi-domain 能力主要靠 task embedding 实现，但 **task conditioning ≠ embodiment conditioning**——embodiment 差异涉及 action space、observation space、morphology、dynamics、control frequency 等多个维度，不是一个 task embedding 能解决的；π₀ 系列则展示了大规模多 embodiment 数据对跨机器人泛化的重要性（这是一个 empirical observation，而非对具体机制的 causal attribution），Open X-Embodiment（Open X-Embodiment Collaboration, 2023，arXiv:2310.08864）正是这类跨本体大规模数据集的代表。
 
 ## 数据不是 dataset，而是 distribution
 
@@ -201,7 +165,7 @@ TD-MPC2 的 multi-task / multi-domain 能力主要通过 task embedding 实现�
 
 如果训练数据只覆盖一种杯子、一种光照、一种桌面，策略在遇到变化时就会失败——这是 diversity 不足。而课程学习（从简单到复杂）是一种训练策略，影响的是优化路径而非覆盖面本身。**Diversity 决定覆盖面，curriculum 决定优化路径。**
 
-这里还需要区分 diversity 和 coverage：**Diversity 描述样本之间有多不同，coverage 描述目标任务分布被覆盖了多少。** 例如：1000 个不同杯子的数据 → diversity 很高；但如果全部都是"桌面抓取杯子"这一个任务，task coverage 可能仍然很低。
+这里还需要区分 diversity 和 coverage：**Diversity 描述样本之间有多不同，coverage 描述目标任务分布被覆盖了多少。** 例如：1000 个不同杯子的数据 → diversity 很高；但如果全部都是"桌面抓取杯子"这一个任务，task coverage 可能仍然很低。也正因为如此，diversity 更像 curation 时值得盯着的一个抓手，而不是一个能直接换来 scaling 收益的独立量——在后文 $D_{\mathrm{effective}}$ 的分解里，我们不再把它列为与 Coverage 平级的独立乘子，它只有通过 coverage 才真正进入 scaling。
 
 ### 数据 Curation：从趋势到技术
 
@@ -435,7 +399,7 @@ $$\text{Coverage} = C\big(p_{\mathrm{train}},\ p_{\mathrm{eval}}\big),\qquad \te
 
 也就是说，我们真正关心的从来不是某个 dataset 自带的"coverage score"，而是 $p_{\mathrm{train}}$ 相对于一个指定 $p_{\mathrm{eval}}$ 的覆盖程度。
 
-这里还要立刻划清一条容易混的界线：**coverage ≠ distribution similarity。** 上面的 $C(p_{\mathrm{train}},p_{\mathrm{eval}})$ 其实同时指向三件不同的事——**support coverage**（见没见过 evaluation-relevant 区域）、**density**（见过的区域采了多少）、**distribution alignment**（两个分布整体有多像）。三者会给出不同的排序：仍是上面的 Dataset A / B，用 support coverage 衡量时铺满整个 evaluation support 的 A 明显占优；用某个整体距离（如 $D_{KL}(p_{\mathrm{eval}}\,\|\,p_{\mathrm{train}})$）衡量时，把 80% 区域高密度覆盖的 B 反而可能更低；而当 evaluation metric 对某个核心区域特别敏感时，高密度 B 又可能更好。所以本文的 support / density 分解**并不等价于"找一个单一的 distribution distance 把它最小化"**——它刻意的就是把"见没见过"和"像不像"这两件事拆开谈。
+这里还要立刻划清一条容易混的界线：**coverage、density、distribution similarity 是三件不同的事，不能被 "coverage" 一个词笼统盖住。** 上面的 $C(p_{\mathrm{train}},p_{\mathrm{eval}})$ 其实同时指向三个各自独立的量——**support coverage**（见没见过 evaluation-relevant 区域，一个偏 0/1 的问题）、**density**（见过的区域采了多少，是一个强度问题）、以及 **distribution similarity**（两个分布整体有多像，通常由某个距离度量给出）。三者会给出不同的排序：仍是上面的 Dataset A / B，用 support coverage 衡量时铺满整个 evaluation support 的 A 明显占优；用某个整体距离（如 $D_{KL}(p_{\mathrm{eval}}\,\|\,p_{\mathrm{train}})$，即 distribution similarity）衡量时，把 80% 区域高密度覆盖的 B 反而可能更低；而当 evaluation metric 对某个核心区域特别敏感时，高密度 B 又可能更好。所以本文的 support / density 分解**并不等价于"找一个单一的 distribution distance 把它最小化"**——它刻意把"见没见过""采了多少""像不像"当成三个独立问题来谈，也只有先分开，才谈得上后面把预算**分配（allocation）**到最该补的那一个上。
 
 把这一步点明之后，下面这个 utility 定义也就不是凭空冒出来的记号，而是顺着"coverage 是关系量"这条线自然推出来的结果：这也直接把前文 utility 的定义收紧了一档——**数据效用不只是 objective-conditioned，还是 evaluation-conditioned**。
 
@@ -505,9 +469,11 @@ $$Performance = f(N)$$
 
 而更像：
 
-$$D_{\mathrm{effective}} = f(N,\;Coverage,\;Diversity,\;Q,\;Relevance)$$
+$$D_{\mathrm{effective}} = f(N,\;Coverage,\;Q,\;Relevance)$$
 
 $$Performance = g(D_{\mathrm{effective}},\;Capacity,\;Compute,\;Recipe)$$
+
+这里刻意**不再把 Diversity 列为独立的一项**：样本之间的差异本身并不自动产生价值，只有当这种差异转化为 evaluation-relevant support 的扩张或密度的改善时，它才通过 $Coverage$ 生效；否则再多 diversity 也只是"多"，而不是"覆盖"。把 Diversity 塞进 $D_{\mathrm{effective}}$ 作为一个与 Coverage 平级的乘子，会诱导读者以为"越多样越好"，反而绕开了真正的问题——多样到**哪里**、多样到**够不够 evaluation 用**。所以下文的分解一律用 Coverage（并区分 support / density 两个侧面）来承担原本挂在 Diversity 上的语义。
 
 这里刻意把 $Capacity$ 从 $D_{\mathrm{effective}}$ 中移出、只保留在 $Performance$ 里：否则 capacity 会同时经由 effective data scale 和 performance function 两条路径影响结果，让分解变得含混。effective data scale 描述的应当是"数据本身有多有效"，而容量、算力、recipe 描述的是"模型能把这些有效数据转化成多少性能"。
 
@@ -538,7 +504,7 @@ raw count 在每一层都会被折一次：时间相关性削弱 timestep-level 
 
 （统计上确实有把时间相关性折算成有效样本量的经典直觉，形如 $N_{\mathrm{eff}} \approx N / (1 + 2\sum_k \rho_k)$；但本文刻意不在正文展开它，以免把讨论拖进"时间序列 ESS"的技术细节里。）
 
-需要强调的是，**effective data scale 与 model capacity 并非独立**，但这种耦合应当体现在 $g(\cdot)$ 内部，而不是塞进 $D_{\mathrm{effective}}$：数据多样性只有在模型具有足够 capacity 时才能被充分利用。当模型容量较小时，盲目扩大 distribution diversity 可能收益有限甚至为负；而当容量足够时，同样的多样化数据才能转化为更强的泛化能力。因此 $Performance$ 是由 $D_{\mathrm{effective}}$、$Capacity$、$Compute$ 和 $Recipe$ 共同决定的，而非任何单一变量的函数。
+需要强调的是，**effective data scale 与 model capacity 并非独立**，但这种耦合应当体现在 $g(\cdot)$ 内部，而不是塞进 $D_{\mathrm{effective}}$：足够宽的 distribution coverage 只有在模型具有足够 capacity 时才能被充分利用。当模型容量较小时，盲目扩大覆盖范围可能收益有限甚至为负；而当容量足够时，同样宽覆盖的数据才能转化为更强的泛化能力（这里所谓"多样化数据"，也是就"覆盖更宽的数据"而言的——diversity 只有转化成 coverage 才起作用）。因此 $Performance$ 是由 $D_{\mathrm{effective}}$、$Capacity$、$Compute$ 和 $Recipe$ 共同决定的，而非任何单一变量的函数。
 
 LLM 可以粗略问"我有多少 token？"；机器人更应该问"我覆盖了多少种任务、状态、环境、动作、失败模式和 embodiment？"
 
@@ -706,7 +672,7 @@ $$D_{\text{targeted}} = \operatorname*{argmax}_{D'}\ MV(D';\,D_t) \;=\; \operato
 
 ### 全文的 capstone 流程
 
-到这里其实可以把全文真正的主题说清楚：它表面上在讲"data scaling"，但本质上讲的是**有限数据预算下的 distribution alignment**——在采集预算约束下，把 $p_{\mathrm{train}}$ 朝着 $p_{\mathrm{eval}}$ 对齐，并把每一单位预算花到 marginal data value 最高的缺口上。如果把整篇文章的分析框架压成一张图，它是这样闭合的——请注意 $p_{\mathrm{eval}}$ 位于顶端，是**整个系统的目标坐标系**：
+到这里其实可以把全文真正的主题说清楚：它表面上在讲"data scaling"，但本质上讲的是**有限数据预算下的 evaluation-aware distribution allocation**——不是被动地把 $p_{\mathrm{train}}$ "对齐"到某个固定的 $p_{\mathrm{eval}}$，而是主动地把有限的采集预算，按 $p_{\mathrm{eval}}$ 暴露出的缺口，一轮一轮地分配到 $p_{\mathrm{train}}$ 的 support 与 density 上，把每一单位预算花到 marginal data value 最高的地方。如果把整篇文章的分析框架压成一张图，它是这样闭合的——请注意 $p_{\mathrm{eval}}$ 位于顶端，是**整个系统的目标坐标系**：
 
 ```text
                               p_eval
