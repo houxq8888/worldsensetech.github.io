@@ -1,5 +1,5 @@
 ---
-title: "The Data Problem in Embodied AI: As Foundational Paradigms Stabilize, What Determines Performance?"
+title: "The Data Problem in Embodied AI: As Mainstream Paradigms Come Into Focus, What Determines Performance?"
 slug: "2026-09-08-data-and-training-recipes"
 date: 2026-09-08
 draft: false
@@ -25,13 +25,21 @@ $$Performance \neq f(\#trajectory)$$
 
 $$Performance = f(interaction\ distribution,\ data\ quality,\ recipe)$$
 
-That is: **as foundational paradigms like VLA and world models are converging toward clearer mainstream approaches (although concrete architectures are still evolving rapidly — diffusion / flow / autoregressive action heads, latent vs video world models, and action representations are all still unsettled), it is becoming increasingly difficult to gain performance advantages solely through model architecture differences. What increasingly determines performance is the interaction distribution the model sees, the quality of the data, and the training recipe that converts data into parameters.** But "data matters more" doesn't mean "more data is better" — what robotics truly needs to scale is not just trajectory count, but interaction distribution.
+That is: **as foundational paradigms like VLA and world models are converging toward clearer mainstream approaches (although concrete architectures are still evolving rapidly — diffusion / flow / autoregressive action heads, latent vs video world models, and action representations are all still unsettled), it is becoming increasingly difficult to gain performance advantages solely through model architecture differences. What increasingly determines performance is the interaction distribution the model sees, the quality of the data, and the training recipe that converts data into parameters.** But "data matters more" doesn't mean "more data is better" — **the core hypothesis of this article is: what robotics truly deserves to scale is not just trajectory count, but the effective coverage of the interaction distribution relative to an evaluation distribution.**
 
 Let me define interaction distribution upfront, since it runs through the entire article: **the interaction distribution referred to here is the trajectory distribution jointly determined by conditions such as task, scene, and embodiment in the training data,** written as
 
 $$p(\tau \mid task,\ scene,\ embodiment)$$
 
 where the trajectory $\tau=(o_{0:T},a_{0:T-1})$ already contains observations, actions, and temporal dynamics, as well as possible success/failure information; written more explicitly it can also be expressed as $p(o_{0:T},a_{0:T-1}\mid task,scene,embodiment)$. The reason for using a conditional distribution rather than stuffing task, state, and action all into one joint distribution is that state and action are already inside $\tau$, while failure mode is often a label obtained by posterior analysis of a trajectory, $m=h(\tau)$, rather than a raw random variable that exists at collection time. This definition is also stronger than simply talking about diversity, because diversity ≠ distribution coverage — a dataset can contain many objects yet all come from the same task distribution.
+
+One honest upgrade to the definition is worth stating here: **the trajectory distribution is not really determined only by task, scene, and embodiment.** It also depends on environment dynamics, the initial-state / reset distribution, the data-collection strategy (behavior policy / operator policy / exploration / intervention mechanism), and sensor/actuator dynamics. In other words, $p(\tau\mid task,scene,embodiment)$ has already **marginalized out** the "who is acting, and how" factors. A more rigorous notation would be
+
+$$p_D(\tau \mid c),\qquad c=(task,\ scene,\ embodiment)$$
+
+where the subscript $D$ reminds us that this distribution implicitly depends on the concrete collection policy and environment. The reason the article still writes the shorthand $p(\tau\mid task,scene,embodiment)$ is simply notational consistency; but the reader should keep in mind that — **once we start discussing coverage later on, what we care about most is precisely this behavior distribution hidden inside $D$.**
+
+There is another question a technical reader will think of immediately: since what we really care about is "which state/action regions are visited" rather than "how many trajectories there are," the more apt mathematical object would arguably be the RL **policy-induced occupancy measure** $d^\pi(s,a)$ — it measures exactly "how much of the evaluation-relevant state-action region has been visited," and it aligns very well with the support/density distinction discussed later. This article still uses the trajectory distribution as a **deliberately chosen higher-level abstraction**: to discuss VLA, world model, imitation, and RL data under one notation, we choose to stay at the trajectory level; rewriting the whole piece in terms of occupancy measures would immediately turn it from "embodied AI data analysis" into an "RL theory paper." So this is not ignorance of $d^\pi(s,a)$ — it is an intentional choice of the coarser abstraction layer.
 
 ## Why Robot Data Is Not Like Internet Data
 
@@ -105,7 +113,7 @@ But here two different mechanisms need to be distinguished:
 
 **Model-based RL (e.g., Dreamer):** The world model serves as a **latent experience generator**, producing imagined trajectories in latent space. Actor/critic trains in latent imagination: $z_t \rightarrow a_t \rightarrow z_{t+1}$, without needing to generate photorealistic RGB frames (Dreamer, Hafner et al., 2019, arXiv:1912.01603; DreamerV3, Hafner et al., 2023, arXiv:2301.04104).
 
-**Generative world models (e.g., video-generative world models, NVIDIA Cosmos):** Further attempt to generate synthetic data (synthetic observations / videos / trajectories) close to real observations, serving as data sources for downstream training (Cosmos World Foundation Model Platform for Physical AI, NVIDIA, 2025, arXiv:2501.03575).
+**Generative world models (e.g., video-generative world models, NVIDIA Cosmos):** Further attempt to generate synthetic data (synthetic observations / videos / trajectories) close to real observations. Cosmos positions itself as a **fine-tunable world foundation model platform / digital-twin** layer for Physical AI, whose generated video is treated as a **potential data source** for downstream development (including robotics) — though it should be said that this is more the platform's vision and positioning, and the paper itself does not provide a direct empirical conclusion that "generated data improves real-robot policy training" (Cosmos World Foundation Model Platform for Physical AI, NVIDIA, 2025, arXiv:2501.03575).
 
 Both are "using models to expand experience," but the data forms are completely different. The former primarily serves latent prediction, imagination, and model-based control; the latter is closer to the traditional sense of "synthetic data generation."
 
@@ -214,9 +222,9 @@ These problems currently have no standardized solutions, but are becoming an ind
 
 An important point needs emphasis here: **Curation does not mean simply deleting failure trajectories.** For imitation learning, clearly erroneous demonstrations may need filtering; but for world models, offline RL, or recovery policies, failure and boundary trajectories themselves may have very high informational value. For example: grasping failures, object slippage, collisions, grasp recovery, occlusion, unexpected contact — these may be the data most needed for policy robustness. Successful trajectories tell the model "doing this leads to success," while failure trajectories may tell the model "in this state, this action leads to what consequences." What truly needs to be optimized is data relevance to the target objective, not simply maximizing success rate.
 
-Abstracting further, **the value of failure data lies not in "failure" itself, but in the negative intervention information (off-target intervention evidence) it provides.** A single $(s, a_{\mathrm{bad}}, s')$ tells the model "in this state, this action produces what consequence"; whereas if there are only successful demonstrations $(s, a_{\mathrm{good}}, s')$, the model does not necessarily know why $a_{\mathrm{bad}}$ is bad.
+Abstracting further, **the value of failure data lies not in "failure" itself, but in the action-conditioned negative outcome information it provides.** A single $(s, a_{\mathrm{bad}}, s')$ tells the model "in this state, this observation followed this action"; whereas if there are only successful demonstrations $(s, a_{\mathrm{good}}, s')$, the model does not necessarily know why $a_{\mathrm{bad}}$ is bad. Strictly speaking, $(s, a_{\mathrm{bad}}, s')$ is only an *observed transition*, not a *controlled intervention* — a rigorous notion of intervention evidence only applies when the state, action, and confounders can all be intervened upon. The reason we say "action-conditioned negative outcome" rather than "negative intervention" here is precisely to avoid grounding a causal conclusion on purely observational data.
 
-To be precise: a strict counterfactual asks "what would happen at the same $s$ if a different $a'$ were taken," but all we observe is $(s, a_{\mathrm{bad}}, s')$ — we do not simultaneously observe the paired $(s, a_{\mathrm{good}}, s'')$. So a failure trajectory is more accurately **counterfactual-relevant information** rather than strict counterfactual data — **it acquires genuine counterfactual learning value only when combined with success trajectories or model predictions.** Even so, this negative intervention signal still gives failure trajectories unique value for world models and offline RL — elevating "failure data is useful" from an empirical remark to a clearer learning-theoretic intuition.
+To be precise: a strict counterfactual asks "what would happen at the same $s$ if a different $a'$ were taken," but all we observe is $(s, a_{\mathrm{bad}}, s')$ — we do not simultaneously observe the paired $(s, a_{\mathrm{good}}, s'')$. So a failure trajectory is more accurately **counterfactual-relevant information** rather than strict counterfactual data — **it acquires genuine counterfactual learning value only when combined with success trajectories or model predictions.** Even so, this action-conditioned negative outcome signal still gives failure trajectories unique value for world models and offline RL — elevating "failure data is useful" from an empirical remark to a clearer learning-theoretic intuition.
 
 ### Data Quality ≠ Data Utility
 
@@ -245,6 +253,8 @@ $$U_{\mathrm{IL}}(D) \neq U_{\mathrm{WM}}(D) \neq U_{\mathrm{offlineRL}}(D)$$
 This neatly explains the earlier phenomenon: a failure trajectory may be noise to be filtered for imitation learning, yet valuable signal for a world model or offline RL — because its utility differs under different objectives. Strictly speaking, "high-quality data" should really be "data with high utility under the current objective and the current evaluation distribution."
 
 Recasting quality as utility also resolves a common misconception in curation: there is no such thing as a "universally good" dataset, only a dataset that is "good for some $(\mathcal{L}, p_{\mathrm{eval}})$." This is why data curation must be defined together with the training objective and evaluation distribution, rather than discussing "data quality" in isolation from any goal.
+
+It is also worth adding: strictly speaking, data utility even varies with the **model class, the current training state, and the compute budget** — the same data may be useless for a small model yet very useful for a large one; once a model has already learned A, adding more A data has low value, whereas before it has learned A the same data is highly valuable. So the $U$ in this article is a **stage-conditioned utility**, not a static property of the data. (To keep the framework from becoming over-formalized, however, we still write it simply as $U(D \mid \mathcal{L}, p_{\mathrm{eval}})$ and leave the $M$ and $C$ dependencies in prose.)
 
 As for what $p_{\mathrm{eval}}$ actually is, and why it is the single most important patch in this version — we formally introduce it in the next section on robot scaling, where the point becomes clear: **without an evaluation distribution as a reference frame, "coverage" is really a sentence with no subject.**
 
@@ -290,7 +300,7 @@ Given the same dataset $D$, changing the sampling / weighting / objective / sche
 
 But if we stop here, an attentive reader will immediately notice a double-counting problem: if $p_{\mathrm{train}} = T_R[p_{\mathrm{raw}}]$ already folds the recipe into the distribution, then letting Recipe reappear as an independent argument in $Performance = g(D_{\mathrm{effective}},\ Capacity,\ Compute,\ Recipe)$ in the next section would seem to count it twice.
 
-Here we have to concede: **a recipe is not only a distribution transformation — it simultaneously acts on optimization dynamics.** The complete relation must be written as two parallel paths:
+Here we have to concede: **a recipe is not only a distribution transformation — it simultaneously acts on optimization dynamics.** For analytical convenience, we can **roughly** split the recipe's main effects into two parallel paths (as we will see below, this boundary is not a clean partition):
 
 ```
               ┌── Path 1: Distribution Transformation ──►  p_train(τ) = T_R[p_raw(τ)]
@@ -306,6 +316,8 @@ Raw Data D ───┤
 ```
 
 Path 1 determines what the model *sees*; Path 2 determines how the model *turns what it sees into parameters*. The two cannot be reduced to each other: given the same $p_{\mathrm{train}}$, different lr schedules, optimizers, loss weightings, or freezing strategies still yield significantly different $\theta$ — this is not the distribution changing, it is the optimization process itself changing.
+
+A caveat is in order: this "two paths" framing is only an **analytical convenience, not a clean partition.** Some recipe choices straddle both paths at once — the most typical being loss weighting: $L = \lambda_a L_{\text{action}} + \lambda_v L_{\text{value}}$ both changes the effective weighting of different data/objective terms (a Path-1 flavor) and directly changes the optimization dynamics (Path 2). So we do not claim that "any recipe can be uniquely decomposed into these two paths"; we only use the picture to make the point that part of the recipe's effect cannot be absorbed by $p_{\mathrm{train}}$ at all.
 
 Therefore, in the next section's $g(D_{\mathrm{effective}},\ Capacity,\ Compute,\ Recipe)$, the $Recipe$ argument specifically retains the **Path 2 component that cannot be absorbed by $p_{\mathrm{train}}$** — the optimization dynamics — while Path 1 has already been folded into $D_{\mathrm{effective}}$. This split is not a notational nicety: it directly determines which interventions count as "changing the data" vs "changing the training," and it is exactly where many teams' recipe differences become hard to reproduce. Papers can publish Path 1 (data mixture, weighting), but Path 2 knowledge — when to unfreeze the backbone, when to switch the lr, when to change loss weighting — is often left out.
 
@@ -419,6 +431,12 @@ Written as a formula:
 
 $$\Delta Performance \approx f\big(\Delta p_{\mathrm{train}},\ p_{\mathrm{eval}}\big)$$
 
+There is one more detail worth spelling out: **coverage itself is not a natural scalar, nor an absolute property of the training distribution.** Suppose Dataset A has high task coverage but low scene coverage, while Dataset B is the reverse — which one has "higher coverage"? Without a reference frame, the question simply cannot be answered. So the more accurate way to write it is as a **relation**:
+
+$$\text{Coverage} = C\big(p_{\mathrm{train}},\ p_{\mathrm{eval}}\big),\qquad \text{rather than}\quad C(p_{\mathrm{train}})$$
+
+That is, what we really care about has never been some "coverage score" a dataset carries on its own, but the degree to which $p_{\mathrm{train}}$ covers a *specified* $p_{\mathrm{eval}}$. Making this step explicit is also what turns the utility definition just below from a notation that seems to appear out of nowhere into a result derived naturally along the line "coverage is a relation."
+
 This also tightens the earlier utility definition by one notch: **data utility is not only objective-conditioned — it is evaluation-conditioned.**
 
 $$\boxed{U(D \mid \mathcal{L},\ p_{\mathrm{eval}})}$$
@@ -475,7 +493,7 @@ Base Interaction Distribution
    └── recovery trajectories
 ```
 
-In other words, failure is not a new "distribution dimension"; it is a subset carved out of the same interaction distribution by a posterior label $m=h(\tau)$. Its value has already been discussed under Data Utility / negative intervention information; here we are simply putting it in the right slot of the taxonomy.
+In other words, failure is not a new "distribution dimension"; it is a subset carved out of the same interaction distribution by a posterior label $m=h(\tau)$. Its value has already been discussed under Data Utility / action-conditioned negative outcome information; here we are simply putting it in the right slot of the taxonomy.
 
 In other words, "covering more" must always ask "covering more along which dimension, and to gain which kind of generalization." Increasing scene diversity buys visual/environmental robustness, increasing task diversity buys semantic generalization, and widening behavior coverage buys "having seen more distinct actions actually executed at the same state" — stuffing all of these vaguely into a single "diversity" keeps the scaling discussion at the empirical level of "diversity matters."
 
@@ -495,9 +513,19 @@ This means: **what robotics truly needs to scale is not just data volume, but ef
 
 For a more intuitive view, $D_{\mathrm{effective}}$ can be further written as a conceptual product decomposition:
 
-$$D_{\mathrm{effective}} \propto N \cdot \eta_{coverage} \cdot \eta_{quality} \cdot \eta_{relevance}$$
+$$D_{\mathrm{effective}} \propto N_{\mathrm{eff}} \cdot \eta_{coverage} \cdot \eta_{quality} \cdot \eta_{relevance}$$
 
 We deliberately write $\propto$ rather than $=$ here: an equality form would imply "each trajectory contributes at most 1 unit of information," which is not realistic — a long, rich trajectory can carry far more information than a short one. If we wanted to be fully rigorous, an information-theoretic formulation like $I(\tau;\theta)$ would be more natural; this article deliberately stops short of that step in order to keep the conceptual decomposition intuitive. The $\eta$ factors are **heuristic effectiveness coefficients**, used to express the intuition that "effective sample size is jointly modulated by several efficiency factors," rather than a directly measurable formula. This turns the question "1 million trajectories" into "of these 1 million, how many are actually new, relevant, effective interaction information" — which is closer to what this article really wants to express.
+
+Note that $N_{\mathrm{eff}}$ here is itself **not a raw trajectory count**, but an effective sample count after adjusting for correlation, and
+
+$$N_{\mathrm{eff}} \leq N$$
+
+The reason is concrete: robot data has a special problem that distinguishes it from a static iid dataset — **there is strong temporal correlation within a trajectory, and trajectories share many factors with one another.** A 200-timestep "grasp the cup" trajectory is not 200 independent samples; and 1000 trajectories that all come from the same operator, the same kitchen, the same cup, the same reset distribution, and the same strategy may have an effective sample size far below 1000. As repeated sampling grows, $N_{\mathrm{eff}}$ saturates noticeably faster than the raw count $N$ — which is exactly why "raw trajectory count" becomes an increasingly unreliable metric. In one sentence:
+
+> **100,000 highly correlated timesteps do not equal 100,000 independent units of information.**
+
+(Statistically, there is a classic intuition for folding temporal correlation into an effective sample size, of the form $N_{\mathrm{eff}} \approx N / (1 + 2\sum_k \rho_k)$; this article deliberately keeps it out of the main text so as not to drag the discussion into the technical details of "time-series ESS.")
 
 It should be emphasized that **effective data scale and model capacity are not independent**, but this coupling belongs inside $g(\cdot)$ rather than being stuffed into $D_{\mathrm{effective}}$: data diversity can only be fully exploited when the model has enough capacity. When model capacity is small, blindly enlarging distribution diversity may yield limited or even negative returns; only when capacity is sufficient can the same diverse data be converted into stronger generalization. So $Performance$ is jointly determined by $D_{\mathrm{effective}}$, $Capacity$, $Compute$, and $Recipe$, rather than being a function of any single variable.
 
@@ -509,7 +537,7 @@ Robot Data Scaling ≠ More Trajectories
 Effective Data Scale = f(Volume, Distribution Coverage, Quality)
 ```
 
-This is a hypothesis worth testing: **scaling on interaction distribution (rather than pure trajectory count) may be the more effective scaling direction for robotics.** Robotics does not yet have a single universally-accepted scaling law like LLMs, but there is empirical work on data scale worth referencing — for example, studies on data scaling in imitation learning (Lin et al., 2024, *Data Scaling Laws in Imitation Learning for Robotic Manipulation*, arXiv:2410.18647) show that data effectiveness correlates strongly with environmental/task diversity rather than trajectory count alone.
+This is a hypothesis worth testing: **scaling on interaction distribution (rather than pure trajectory count) may be the more effective scaling direction for robotics.** Robotics does not yet have a single universally-accepted scaling law like LLMs, but there is empirical work on data scale worth referencing — for example, the study on data scaling in imitation learning (Lin et al., 2024, *Data Scaling Laws in Imitation Learning for Robotic Manipulation*, arXiv:2410.18647) finds that policy generalization performance follows an approximate power law in the **number of environments and objects**, and that environment/object diversity matters more than merely adding trajectory count — once the number of demonstrations per environment/object exceeds a certain threshold, the returns from piling on further demonstrations saturate rapidly.
 
 To make the positioning of this hypothesis clearer, the article's logic can be layered as follows:
 
@@ -547,9 +575,9 @@ Density scaling (raise sampling density in already-covered regions)
 
 **Support scaling** answers "have I seen new regions of the distribution?"; **density scaling** answers "within regions I already know, have I sampled densely enough and estimated accurately enough?" Both are valuable, but they serve different generalization goals — high-precision, contact-rich tasks often need density scaling more, while open-ended, multi-scene tasks need support scaling more.
 
-But we must add a $p_{\mathrm{eval}}$-relative qualifier to support scaling here: **support expansion is not valuable in itself; only support expansion that falls inside the evaluation-relevant region is valuable.** Written rigorously:
+But we must add a $p_{\mathrm{eval}}$-relative qualifier to support scaling here: **support expansion is not valuable in itself; only support expansion that both falls inside the evaluation-relevant region and is of sufficient quality and learnability can plausibly yield positive marginal utility.** In other words, intersecting the evaluation-relevant support is a **necessary but not sufficient condition** — a single trajectory that lands inside that region but is extremely noisy may have utility near zero, or even negative. So rather than writing a biconditional, it is more accurate to express it as a relation modulated jointly by several factors:
 
-$$\Delta U_{\text{support}} > 0\ \Longleftrightarrow\ \operatorname{supp}(p_{\mathrm{new}}) \cap \operatorname{supp}_{\mathrm{eval\text{-}relevant}} \neq \varnothing$$
+$$\Delta U_{\text{support}} = f\Big(\underbrace{\Delta \operatorname{Supp}_{\mathrm{eval}}}_{\text{expands relevant support?}},\ \underbrace{Q}_{\text{quality}},\ \underbrace{R}_{\text{relevance}},\ \underbrace{\text{Learnability}}_{\text{learnable?}}\Big)$$
 
 The decision chain should be:
 
@@ -611,19 +639,27 @@ Taken together, these five are really trying to say one thing: **the basic unit 
 
 ### Marginal Data Value: Condensing the Whole Framework into an Actionable Concept
 
-Every concept above — interaction distribution, $p_{\mathrm{eval}}$, support/density, utility, recipe — is ultimately answering the same question: **is the next batch of data worth collecting?** This question deserves a formal name:
+Every concept above — interaction distribution, $p_{\mathrm{eval}}$, support/density, utility, recipe — is ultimately answering the same question: **is the next batch of data worth collecting?** This question deserves a formal name. But first, a baseline must be added: the value of a new batch $D'$ only ever makes sense *given what data you already have*, $D$ — so $\Delta Performance$ should be written explicitly as an increment relative to $D$:
 
-$$MV(D') \;=\; \frac{\Delta Performance(D')}{Cost(D')}$$
+$$MV(D';\,D) \;=\; \frac{Performance(D \cup D') - Performance(D)}{Cost(D')}$$
 
 For a single trajectory we can also write:
 
-$$MV(\tau) \;=\; \frac{\Delta Performance(\tau)}{Cost(\tau)}$$
+$$MV(\tau;\,D) \;=\; \frac{Performance(D \cup \{\tau\}) - Performance(D)}{Cost(\tau)}$$
+
+The "$D$" argument looks like a notational detail, but it actually encodes the article's most core distributional argument right into the definition: **the value of a batch of data depends on the data you already have.**
 
 With this in hand, the whole article's thesis condenses into a single sentence:
 
 > **The core question of robot data scaling is not how to maximize data volume, but how to maximize marginal data value.**
 
 This sentence is easier to remember than "effective interaction-distribution coverage," and closer to engineering practice — because volume is a quantity one can push blindly, while $MV$ forces you to answer "relative to the current $p_{\mathrm{train}}$ and $p_{\mathrm{eval}}$, what exactly does this batch fill in, and at what cost?"
+
+And from the baseline-carrying $MV(D';D)$ notation, one can read off what may be the article's single most central insight:
+
+$$MV(D';\,D_t) \;\neq\; MV(D';\,D_{t+1})$$
+
+**Data value is state-dependent.** The same trajectory may be very valuable in the early, data-scarce phase, yet nearly worthless once the relevant regions of the distribution have already been filled in. This is precisely the root reason why "a dataset's quality cannot be permanently defined" — good data was never absolutely "good data," but "**data with high marginal utility under the current training state and evaluation gap.**" It is here that Data Utility → Marginal Data Value → Data Flywheel finally close into a loop.
 
 ### From Scaling Hypothesis to Data Flywheel
 
@@ -645,7 +681,7 @@ But if we stop here, the flywheel is still just an "engineering strategy," disco
 
 $$D_{t+1} = D_t + D_{\text{targeted}}$$
 
-$$D_{\text{targeted}} = \operatorname*{argmax}_{D'}\ MV(D') \;=\; \operatorname*{argmax}_{D'}\ \frac{\Delta Performance(D')}{Cost(D')}$$
+$$D_{\text{targeted}} = \operatorname*{argmax}_{D'}\ MV(D';\,D_t) \;=\; \operatorname*{argmax}_{D'}\ \frac{Performance(D_t \cup D') - Performance(D_t)}{Cost(D')}$$
 
 One clarification is needed: the $\Delta Performance$ here is **not assumed to be a directly readable oracle**. In practice it is typically estimated through evaluation on a proxy distribution, failure statistics, model uncertainty estimation, or offline-RL counterfactual proxy metrics. Making this explicit is what turns the formula from a pretty slogan into an actual research direction — **targeted data collection is fundamentally an estimation + optimization problem, not an oracle-style argmax.**
 
@@ -653,50 +689,49 @@ This step genuinely connects the **data flywheel** to **effective data scale**: 
 
 ### The Capstone Flow of the Whole Article
 
-If we compress the entire analytical framework of this article into a single diagram, it closes as follows:
+At this point we can name the article's real subject: on the surface it talks about "data scaling," but what it is fundamentally about is **distribution alignment under a limited data budget** — under a collection-budget constraint, aligning $p_{\mathrm{train}}$ toward $p_{\mathrm{eval}}$, and spending each unit of budget on the gap with the highest marginal data value. Compressing the entire analytical framework into a single diagram, it closes as follows — note that $p_{\mathrm{eval}}$ sits at the top, as **the target coordinate system of the whole loop**:
 
 ```text
-                    Raw Interaction Data
-                           │
-                           ▼
-                  p_raw(τ | task, scene, embodiment)
-                           │
-                           │  Training Recipe
-                           │  (Path 1: distribution transformation
-                           │   Path 2: optimization dynamics)
-                           ▼
-                  p_train(τ | task, scene, embodiment)
-                           │
-                  ┌────────┴────────┐
-                  │                 │
-                  ▼                 ▼
-             Support           Density
-             Coverage          Estimation
-                  │                 │
-                  └────────┬────────┘
-                           ▼
-                    Data Utility
-                 U(D | L, p_eval)
-                           │
-                           ▼
-                  Effective Data Scale
-                           │
-                           ▼
-             Performance / Generalization
-                           │
-                           ▼
-                       Evaluation
-                           │
-                           ▼
-                 Failure / Gap Analysis
-                           │
-                           ▼
-              Marginal Data Value Estimation
-                           │
-                           ▼
-                  Targeted Data Collection
-                           │
-                           └──────────────→  (back to p_train^new)
+                              p_eval
+                                ▲
+                                │  gap
+                                │
+   Raw Interaction Data         │
+          │                     │
+          ▼                     │
+ p_raw(τ | task, scene, embodiment)
+          │                     │
+          │  Training Recipe    │
+          │  (Path 1: dist. transform; Path 2: optimization dynamics)
+          ▼                     │
+ p_train(τ | task, scene, embodiment)
+          │                     │
+   ┌──────┴──────┐              │
+   ▼             ▼              │
+ Support      Density           │
+ Coverage     Estimation        │
+   │             │              │
+   └──────┬──────┘              │
+          ▼                     │
+   Data Utility / MV            │
+  U(D | L, p_eval)              │
+          │                     │
+          ▼                     │
+  Effective Data Scale          │
+          │                     │
+          ▼                     │
+  Performance / Generalization  │
+          │                     │
+          ▼                     │
+      Evaluation ───────────────┘
+          │
+          ▼
+  Failure / Gap Analysis
+          │
+          ▼
+  Targeted Data Collection
+          │
+          └──────────────→  p_raw' / p_train^new
 ```
 
 Written as formulas, the closed loop this version ultimately wants to leave behind is:
@@ -729,10 +764,10 @@ The main works referenced in the text are listed below (all searchable via arXiv
 
 The works above lean toward models and scaling frameworks. More directly relevant to this article's thesis that "data / distribution is what matters" are the following classes of empirical studies focused on the dataset itself (collection scale, diversity, quality filtering, simulation–real mixing):
 
-- DROID: A Large-Scale In-the-Wild Robot Manipulation Dataset — Khazatsky et al., 2024, arXiv:2403.12945 (large-scale, multi-scene real-robot manipulation dataset emphasizing diversity of environment and task distributions)
-- SCIZOR: Self-Supervised and Composable Data Curation for Robotic Manipulation — Tian et al., 2025, arXiv:2505.22626 (self-supervised, composable data cleaning / quality filtering)
-- Consistency Matters: Revisiting Imitation Learning with Demonstration Quality Metrics — 2024, arXiv:2412.14309 (measuring demonstrations with quality metrics such as consistency, rather than assuming "human demonstration = high quality")
-- Efficient Data Collection for Robot Learning via Compositional Generalization — 2024, arXiv:2403.05110 (reducing data collection cost via compositional task generalization)
+- DROID: A Large-Scale In-the-Wild Robot Manipulation Dataset — Khazatsky et al., 2024, arXiv:2403.12945 (a large-scale, multi-scene real-robot manipulation dataset; what it directly demonstrates is data scale and environment/task diversity, not the causal claim "diversity → scaling benefit," which remains this article's hypothesis)
+- SCIZOR: A Self-Supervised Approach to Data Curation for Large-Scale Imitation Learning — Zhang et al., 2025, arXiv:2505.22626 (self-supervised, composable data cleaning / quality filtering)
+- Consistency Matters: Defining Demonstration Data Quality Metrics in Robot Learning from Demonstration — Sakr et al., 2024, arXiv:2412.14309 (measuring demonstrations with quality metrics such as consistency, rather than assuming "human demonstration = high quality")
+- Efficient Data Collection for Robotic Manipulation via Compositional Generalization — Gao et al., 2024, arXiv:2403.05110 (reducing data collection cost by compositionally generalizing over scene elements)
 - Sim-and-Real Co-Training: A Simple Recipe for Vision-Based Robotic Manipulation — Maddukuri et al., 2025, arXiv:2503.24361 (a systematic study of recipes for mixing simulation and real data)
 
 Note that robotics does not yet have a single universally-accepted scaling law comparable to that of LLMs; the effective-data-scale framework in this article is a conceptual decomposition and a testable hypothesis, not an established conclusion. The data-side works above provide scattered empirical support, not yet a full quantitative validation of that hypothesis.

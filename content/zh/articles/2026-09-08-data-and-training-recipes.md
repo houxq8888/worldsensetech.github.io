@@ -1,5 +1,5 @@
 ---
-title: '具身智能的数据问题：当基础范式逐渐稳定，什么在决定性能？'
+title: '具身智能的数据问题：当主流范式逐渐清晰，什么在决定性能？'
 slug: "2026-09-08-data-and-training-recipes"
 date: 2026-09-08
 draft: false
@@ -25,13 +25,21 @@ $$Performance \neq f(\#trajectory)$$
 
 $$Performance = f(interaction\ distribution,\ data\ quality,\ recipe)$$
 
-也就是说，**随着 VLA、world model 等基础范式正在出现较清晰的主流路线（尽管具体架构仍在快速演进——diffusion / flow / autoregressive action head、latent vs video world model、action representation 都还没定型），单纯依靠模型架构差异形成性能优势正在变得更加困难；真正决定性能的，越来越是模型看到的 interaction distribution、数据的 quality，以及把数据转换成参数的 training recipe。** 但"数据更重要"不等于"数据越多越好"——机器人领域真正需要 scaling 的，不只是 trajectory 数量，而是 interaction distribution。
+也就是说，**随着 VLA、world model 等基础范式正在出现较清晰的主流路线（尽管具体架构仍在快速演进——diffusion / flow / autoregressive action head、latent vs video world model、action representation 都还没定型），单纯依靠模型架构差异形成性能优势正在变得更加困难；真正决定性能的，越来越是模型看到的 interaction distribution、数据的 quality，以及把数据转换成参数的 training recipe。** 但"数据更重要"不等于"数据越多越好"——**本文的核心假设是：机器人领域真正值得 scaling 的，不只是 trajectory 数量，而是 interaction distribution 相对于 evaluation distribution 的有效覆盖。**
 
 这里先给出 interaction distribution 的定义，它会贯穿全文：**本文所说的 interaction distribution，是训练数据中由 task、scene、embodiment 等条件共同决定的 trajectory 分布**，记作
 
 $$p(\tau \mid task,\ scene,\ embodiment)$$
 
 其中 trajectory $\tau=(o_{0:T},a_{0:T-1})$ 本身已经包含 observation、action 和 temporal dynamics，以及可能的 success/failure 信息；如果想写得更显式，也可以表示为 $p(o_{0:T},a_{0:T-1}\mid task,scene,embodiment)$。之所以用条件分布而不是把 task、state、action 都塞进一个联合分布，是因为 state 和 action 已经在 $\tau$ 里，而 failure mode 往往是对 trajectory 做后验分析得到的标签 $m=h(\tau)$，并不是采集时就存在的原始随机变量。这个定义也比单纯讲 diversity 更强，因为 diversity ≠ distribution coverage——一个 dataset 可以有很多 object，但都来自同一种 task distribution。
+
+不过这里应当诚实地给定义补一句升级说明：**trajectory 分布并不真的只由 task、scene、embodiment 决定。** 它还依赖环境动力学（dynamics）、初始状态 / reset 分布、数据采集策略（behavior policy / operator policy / exploration / intervention mechanism），以及 sensor/actuator dynamics。换句话说，$p(\tau\mid task,scene,embodiment)$ 实际上已经把"谁在怎么行动"这些因素**边缘化（marginalize）掉了**。更严谨的写法是
+
+$$p_D(\tau \mid c),\qquad c=(task,\ scene,\ embodiment)$$
+
+其中下标 $D$ 提醒我们：这个分布隐含地依赖具体的采集 policy 与环境。之所以全文仍写成 $p(\tau\mid task,scene,embodiment)$ 的简写，是为了记号统一；但请读者记住——**后文一旦讨论 coverage，我们尤其关心的恰恰就是这个被藏进 $D$ 里的 behavior distribution。**
+
+还有一个技术读者会立刻想到的问题：既然我们真正在意的是"访问了哪些 state/action 区域"而不是"有几条 trajectory"，那更贴切的数学对象其实应该是 RL 里的 **policy-induced occupancy measure** $d^\pi(s,a)$——它衡量的正是"在 evaluation-relevant 的 state-action 区域里访问了多少"，和后文 support/density 的区分高度一致。本文之所以仍用 trajectory distribution，是一个**有意为之的高层抽象**：为了把 VLA、world model、imitation 与 RL 的数据放在同一套记号下讨论，我们选择停留在 trajectory level；若把全文改写成 occupancy measure，文章会立刻从"具身智能数据分析"滑向"RL theory paper"。所以这不是忽略了 $d^\pi(s,a)$，而是在抽象层级上主动选择了更粗的那一层。
 
 ## 为什么机器人数据和互联网数据不是一回事
 
@@ -105,7 +113,7 @@ NVIDIA Isaac Sim、MuJoCo（Todorov et al., IROS 2012；现已由 DeepMind 开�
 
 **Model-based RL（如 Dreamer）：** 世界模型作为 **latent experience generator**，在隐空间中产生 imagined trajectories。actor/critic 在 latent imagination 中训练：$z_t \rightarrow a_t \rightarrow z_{t+1}$，并不需要生成 photorealistic RGB frame（Dreamer，Hafner et al., 2019，arXiv:1912.01603；DreamerV3，Hafner et al., 2023，arXiv:2301.04104）。
 
-**Generative world model（如视频生成式世界模型、NVIDIA Cosmos）：** 进一步尝试生成接近真实观测的合成数据（synthetic observations / videos / trajectories），从而作为下游训练的数据来源（Cosmos World Foundation Model Platform for Physical AI，NVIDIA，2025，arXiv:2501.03575）。
+**Generative world model（如视频生成式世界模型、NVIDIA Cosmos）：** 进一步尝试生成接近真实观测的合成数据（synthetic observations / videos / trajectories）。Cosmos 把自己定位成一个面向 Physical AI 的**可微调 world foundation model 平台 / digital twin**，其生成视频被视为下游开发（包括机器人）的**潜在数据来源**——不过要说明，这更多是平台的愿景与定位，论文本身并未就"生成数据能提升真实机器人策略训练"给出直接的实证结论（Cosmos World Foundation Model Platform for Physical AI，NVIDIA，2025，arXiv:2501.03575）。
 
 两者都是"用模型扩大经验"，但数据形态完全不同。前者主要服务于 latent prediction、imagination 和 model-based control；后者是更接近传统意义上的"合成数据生成"。
 
@@ -214,9 +222,9 @@ $$\mathrm{Curation} = \{\mathrm{Quality},\ \mathrm{Diversity},\ \mathrm{Coverage
 
 这里需要特别强调一点：**Curation 并不意味着简单删除失败轨迹。** 对 imitation learning 而言，明显错误的 demonstration 可能需要过滤；但对于 world model、offline RL 或 recovery policy，失败和边界轨迹本身可能具有很高的信息价值。例如：抓取失败、物体滑落、碰撞、grasp recovery、occlusion、unexpected contact——这些可能是 policy robustness 最需要的数据。成功轨迹告诉模型"这样做可以成功"，而失败轨迹可能告诉模型"在这个状态下，这种 action 会导致什么后果"。真正需要优化的是数据对目标 objective 的 relevance，而不是简单最大化 success rate。
 
-更进一步抽象，**failure data 的价值并不在于"失败"本身，而在于它提供了 negative intervention information（负向干预证据）。** 一条 $(s, a_{\mathrm{bad}}, s')$ 告诉模型"在这个 state 下，这个 action 会产生什么后果"；而如果只有成功 demonstration $(s, a_{\mathrm{good}}, s')$，模型并不一定知道 $a_{\mathrm{bad}}$ 为什么不好。
+更进一步抽象，**failure data 的价值并不在于"失败"本身，而在于它提供了 action-conditioned negative outcome information（动作条件下的负向结果信息）。** 一条 $(s, a_{\mathrm{bad}}, s')$ 告诉模型"在这个 state 下，这个 action 之后观测到了什么后果"；而如果只有成功 demonstration $(s, a_{\mathrm{good}}, s')$，模型并不一定知道 $a_{\mathrm{bad}}$ 为什么不好。严格说 $(s, a_{\mathrm{bad}}, s')$ 只是一个 observed transition，而非一次 controlled intervention——只有在 state、action 与 confounder 都能被干预时，才谈得上严格的 intervention evidence；这里用"动作条件下的负向结果"而不是"负向干预"，正是为了不把因果结论建立在纯观察数据之上。
 
-这里需要精确一点：严格意义上的 counterfactual 是"在相同 $s$ 下如果采取另一个 $a'$ 会发生什么"，而我们观测到的只有 $(s, a_{\mathrm{bad}}, s')$，并没有同时观测到配对的 $(s, a_{\mathrm{good}}, s'')$。因此 failure trajectory 本身更准确的定位是 **counterfactual-relevant information**，而不是严格意义上的 counterfactual data——**只有当它与成功轨迹或模型预测结合起来时，才进一步具备 counterfactual learning value。** 即便如此，这种负向干预信号仍然让 failure trajectory 对 world model 和 offline RL 具有独特价值——这把"失败数据有用"从一句经验描述，提升到了一个更清晰的 learning-theoretic intuition。
+这里需要精确一点：严格意义上的 counterfactual 是"在相同 $s$ 下如果采取另一个 $a'$ 会发生什么"，而我们观测到的只有 $(s, a_{\mathrm{bad}}, s')$，并没有同时观测到配对的 $(s, a_{\mathrm{good}}, s'')$。因此 failure trajectory 本身更准确的定位是 **counterfactual-relevant information**，而不是严格意义上的 counterfactual data——**只有当它与成功轨迹或模型预测结合起来时，才进一步具备 counterfactual learning value。** 即便如此，这种动作条件下的负向结果信号仍然让 failure trajectory 对 world model 和 offline RL 具有独特价值——这把"失败数据有用"从一句经验描述，提升到了一个更清晰的 learning-theoretic intuition。
 
 ### Data Quality ≠ Data Utility
 
@@ -245,6 +253,8 @@ $$U_{\mathrm{IL}}(D) \neq U_{\mathrm{WM}}(D) \neq U_{\mathrm{offlineRL}}(D)$$
 这恰好解释了前面那个现象：一条 failure trajectory 对 imitation learning 可能是需要过滤的 noise，但对 world model 或 offline RL 却可能是 valuable signal——因为它在不同 objective 下的 utility 不同。所谓"高质量数据"，严格说应该是"对当前 objective、在当前 evaluation distribution 下高 utility 的数据"。
 
 把 quality 重新理解成 utility，也顺带解决了 curation 里一个常见的误区：不存在一份"universally 好"的数据集，只存在"对某个 $(\mathcal{L}, p_{\mathrm{eval}})$ 好"的数据集。这也是为什么 data curation 必须和 training objective、evaluation distribution 一起定义，而不能脱离目标单独谈"数据质量"。
+
+还值得补一句：严格来说，data utility 甚至还会随 **model class、当前训练状态和 compute budget** 改变——同一份数据对一个小模型可能没用、对一个大模型却非常有用；模型已经学会 A 之后再补 A 的数据价值很低，还没学会时则很有价值。因此本文的 $U$ 是一种**面向当前训练阶段的条件效用**，而不是数据的静态属性。（不过为了不让框架过度形式化，我们仍然只把它写成 $U(D \mid \mathcal{L}, p_{\mathrm{eval}})$，把 $M$、$C$ 这些依赖留在文字里。）
 
 至于 $p_{\mathrm{eval}}$ 具体是什么、为什么它是这一版最关键的补丁，我们在下一节的机器人 scaling 框架里再正式引入——那里会说明：**没有 evaluation distribution 做参照系，"coverage"其实是一句没有主语的话。**
 
@@ -290,7 +300,7 @@ $$p_{\mathrm{train}}(\tau) = T_R\big[\,p_{\mathrm{raw}}(\tau)\,\big]$$
 
 但如果只写到这里，读者会立刻发现一个 double-counting 的问题：既然 $p_{\mathrm{train}} = T_R[p_{\mathrm{raw}}]$ 已经把 recipe 折叠进了 distribution，那下一节里再让 recipe 作为独立参数出现在 $Performance = g(D_{\mathrm{effective}},\ Capacity,\ Compute,\ Recipe)$ 中，不就把它算了两次？
 
-这里必须承认：**recipe 并不只是 distribution transformation，它同时对 optimization dynamics 起作用。** 完整的关系应当写成两条并行路径：
+这里必须承认：**recipe 并不只是 distribution transformation，它同时对 optimization dynamics 起作用。** 为分析方便，我们可以把 recipe 的主要作用**粗略**分成两条并行路径（下文会看到，这条分界并不是干净的划分）：
 
 ```
               ┌── Path 1: Distribution Transformation ──►  p_train(τ) = T_R[p_raw(τ)]
@@ -306,6 +316,8 @@ Raw Data D ───┤
 ```
 
 Path 1 决定了模型"看到什么"，Path 2 决定了模型"如何把看到的东西转成参数"。二者不能被互相还原：同一份 $p_{\mathrm{train}}$，配上不同的 lr schedule、optimizer、loss weighting 或 freezing 策略，仍然会得到显著不同的 $\theta$——这不是分布变了，而是优化过程本身变了。
+
+需要提醒的是，这个"两条路径"只是**分析上的方便切分，并不是一次干净的 partition**。有些 recipe 选择同时横跨两条路径：最典型的就是 loss weighting——$L = \lambda_a L_{\text{action}} + \lambda_v L_{\text{value}}$ 既改变了不同数据/目标项的 effective weighting（Path-1 的味道），也直接改变了 optimization dynamics（Path-2）。所以我们并不声称"任何 recipe 都能被唯一地分解成这两条路径"，只是想用它来说明：recipe 的作用至少有一部分是 $p_{\mathrm{train}}$ 无法吸收的。
 
 因此，**下一节的 $g(D_{\mathrm{effective}},\ Capacity,\ Compute,\ Recipe)$ 中，$Recipe$ 保留的是 Path 2 那一段无法被 $p_{\mathrm{train}}$ 吸收的优化动力学**；Path 1 那一段已经体现在 $D_{\mathrm{effective}}$ 里。这个划分不是纯粹的记号问题——它直接决定后面"哪些手段算改数据、哪些手段算改训练"的判断，也是很多团队 recipe 差异真正难以复现的地方：论文能公开 Path 1（数据 mixture、weighting），但 Path 2 里那些"什么时候解冻 backbone、什么时候切 lr、什么时候换 loss weighting"的经验，往往不会写全。
 
@@ -419,6 +431,12 @@ evaluation distribution
 
 $$\Delta Performance \approx f\big(\Delta p_{\mathrm{train}},\ p_{\mathrm{eval}}\big)$$
 
+这里还有一个值得点破的细节：**coverage 本身并不是一个天然的标量（scalar），也不是 training distribution 的绝对属性。** 设想 Dataset A 的 task coverage 很高但 scene coverage 很低，Dataset B 相反——到底"谁 coverage 更高"？在没有参照系时这个问题根本无法回答。所以更准确的写法是把它当成一个**关系量**：
+
+$$\text{Coverage} = C\big(p_{\mathrm{train}},\ p_{\mathrm{eval}}\big),\qquad \text{而不是}\quad C(p_{\mathrm{train}})$$
+
+也就是说，我们真正关心的从来不是某个 dataset 自带的"coverage score"，而是 $p_{\mathrm{train}}$ 相对于一个指定 $p_{\mathrm{eval}}$ 的覆盖程度。把这一步点明之后，下面这个 utility 定义就不是凭空冒出来的记号，而是顺着"coverage 是关系量"这条线自然推出来的结果：
+
 这也直接把前文 utility 的定义收紧了一档：**数据效用不只是 objective-conditioned，还是 evaluation-conditioned**。
 
 $$\boxed{U(D \mid \mathcal{L},\ p_{\mathrm{eval}})}$$
@@ -475,7 +493,7 @@ Base Interaction Distribution
    └── recovery trajectories
 ```
 
-换句话说，failure 不是一个新的"分布维度"，而是在同一份 interaction distribution 上按后验标签 $m=h(\tau)$ 划出来的一个子集——它的价值在前文 Data Utility / negative intervention information 里已经讨论过，这里只是把它在 taxonomy 里放到正确的位置。
+换句话说，failure 不是一个新的"分布维度"，而是在同一份 interaction distribution 上按后验标签 $m=h(\tau)$ 划出来的一个子集——它的价值在前文 Data Utility / action-conditioned negative outcome information 里已经讨论过，这里只是把它在 taxonomy 里放到正确的位置。
 
 换句话说，"覆盖更多"必须问清楚"在哪个维度上覆盖更多、想换来哪种泛化"。增加 scene 多样性换来的是视觉/环境鲁棒性，增加 task 多样性换来的是语义泛化，扩大 behavior coverage 换来的是"在同一个 state 下见过更多种被执行过的动作"——把它们笼统地塞进一个 "diversity" 里，会让 scaling 的讨论停留在"多样性很重要"的经验层面。
 
@@ -495,9 +513,19 @@ $$Performance = g(D_{\mathrm{effective}},\;Capacity,\;Compute,\;Recipe)$$
 
 如果想更直观，可以把 $D_{\mathrm{effective}}$ 进一步写成一个概念性的乘积分解：
 
-$$D_{\mathrm{effective}} \propto N \cdot \eta_{coverage} \cdot \eta_{quality} \cdot \eta_{relevance}$$
+$$D_{\mathrm{effective}} \propto N_{\mathrm{eff}} \cdot \eta_{coverage} \cdot \eta_{quality} \cdot \eta_{relevance}$$
 
 这里刻意用 $\propto$ 而不是 $=$：等号版本会暗示"每条数据最多只贡献 1 单位 information"，但现实并不如此——一条很长、很丰富的 trajectory 携带的信息可能远远超过一条短的。若真要严谨，用 information-theoretic 的写法 $I(\tau;\theta)$ 更自然；本文选择不走到那一步，只是为了保持 conceptual decomposition 的直观性。这些 $\eta$ 是**启发式的有效系数**，用来表达"有效样本量受到多个效率因子共同调制"这一直觉，而不是一个可以直接测量的公式。它把"100 万条 trajectory"这个问题，转换成"这 100 万条里到底有多少是新的、相关的、有效的 interaction information"——这其实更贴近全文真正想表达的东西。
+
+值得注意的是，这里的 $N_{\mathrm{eff}}$ 本身也**不是 raw trajectory count**，而是一个经过相关性折算之后的 effective sample count，且
+
+$$N_{\mathrm{eff}} \leq N$$
+
+原因很具体：机器人数据有一个区别于静态 iid dataset 的特殊问题——**trajectory 内部存在强时间相关性，trajectory 之间又共享大量因素。** 一条"抓杯子"的 trajectory 有 200 个 timestep，并不等于 200 个独立样本；而 1000 条 trajectory 如果都来自同一个 operator、同一个厨房、同一个杯子、同一个 reset 分布、同一套策略，它们的 effective sample size 也可能远远小于 1000。随着重复采样增加，$N_{\mathrm{eff}}$ 的饱和速度会明显快于 raw count $N$——这恰恰解释了为什么"raw trajectory 数量"这个指标会越来越不可靠。一句话：
+
+> **10 万个高度相关的 timestep，并不等于 10 万个独立的信息单位。**
+
+（统计上确实有把时间相关性折算成有效样本量的经典直觉，形如 $N_{\mathrm{eff}} \approx N / (1 + 2\sum_k \rho_k)$；但本文刻意不在正文展开它，以免把讨论拖进"时间序列 ESS"的技术细节里。）
 
 需要强调的是，**effective data scale 与 model capacity 并非独立**，但这种耦合应当体现在 $g(\cdot)$ 内部，而不是塞进 $D_{\mathrm{effective}}$：数据多样性只有在模型具有足够 capacity 时才能被充分利用。当模型容量较小时，盲目扩大 distribution diversity 可能收益有限甚至为负；而当容量足够时，同样的多样化数据才能转化为更强的泛化能力。因此 $Performance$ 是由 $D_{\mathrm{effective}}$、$Capacity$、$Compute$ 和 $Recipe$ 共同决定的，而非任何单一变量的函数。
 
@@ -509,7 +537,7 @@ Robot Data Scaling ≠ More Trajectories
 Effective Data Scale = f(Volume, Distribution Coverage, Quality)
 ```
 
-这是一个值得验证的假设：**在 interaction distribution（而非纯 trajectory 数量）上 scaling，可能是机器人领域更有效的 scaling 方向。** 目前机器人学习还不存在像 LLM 那样公认的单一 scaling law，但已有针对数据规模的实证研究值得参考——例如关于模仿学习数据 scaling 的工作（Lin et al., 2024，*Data Scaling Laws in Imitation Learning for Robotic Manipulation*，arXiv:2410.18647）显示，数据的有效性与其环境/任务多样性高度相关，而非单纯取决于轨迹条数。
+这是一个值得验证的假设：**在 interaction distribution（而非纯 trajectory 数量）上 scaling，可能是机器人领域更有效的 scaling 方向。** 目前机器人学习还不存在像 LLM 那样公认的单一 scaling law，但已有针对数据规模的实证研究值得参考——例如关于模仿学习数据 scaling 的工作（Lin et al., 2024，*Data Scaling Laws in Imitation Learning for Robotic Manipulation*，arXiv:2410.18647）发现，策略泛化性能随**环境与物体（environments and objects）的数量**大致呈幂律关系，且环境/物体的多样性比单纯增加轨迹条数更关键——当每个环境/物体的演示数超过某个阈值后，继续堆演示带来的收益会迅速饱和。
 
 为了让这个假设的定位更清晰，可以把文章的逻辑分层如下：
 
@@ -547,9 +575,9 @@ Density scaling（提升已覆盖区域的采样密度）
 
 **Support scaling** 回答的是"我是否见到了分布中新的区域"；**density scaling** 回答的是"我在已知区域里是否采样得足够密、估计得足够准"。二者都有价值，只是服务于不同的泛化目标——高精度、接触丰富的任务往往更需要 density scaling，而开放式、多场景的任务更需要 support scaling。
 
-但这里必须给 support scaling 加一条前文 $p_{\mathrm{eval}}$ 的限定：**support expansion 本身并不是价值，只有落在 evaluation-relevant 区域内的 support expansion 才是价值。** 严格写出来就是：
+但这里必须给 support scaling 加一条前文 $p_{\mathrm{eval}}$ 的限定：**support expansion 本身并不是价值，只有落在 evaluation-relevant 区域内、且新增数据具有足够质量与可学习性的 support expansion，才有可能带来正的 marginal utility。** 换句话说，与 evaluation-relevant support 有交集只是**必要条件而非充分条件**——一条落在该区域内、但极度 noisy 的 trajectory，utility 完全可能接近 0 甚至为负。所以与其写成一个充要条件，不如把它写成一个受多因子共同调制的作用关系：
 
-$$\Delta U_{\text{support}} > 0\ \Longleftrightarrow\ \operatorname{supp}(p_{\mathrm{new}}) \cap \operatorname{supp}_{\mathrm{eval\text{-}relevant}} \neq \varnothing$$
+$$\Delta U_{\text{support}} = f\Big(\underbrace{\Delta \operatorname{Supp}_{\mathrm{eval}}}_{\text{是否扩大相关支撑}},\ \underbrace{Q}_{\text{质量}},\ \underbrace{R}_{\text{相关性}},\ \underbrace{\text{Learnability}}_{\text{可学习性}}\Big)$$
 
 判断链应当是：
 
@@ -611,19 +639,27 @@ $$\boxed{Recipe:\ p_{\mathrm{raw}}(\tau) \xrightarrow{T_R} p_{\mathrm{train}}(\t
 
 ### Marginal Data Value：把整套框架收束成一个可操作的概念
 
-前面所有的概念——interaction distribution、$p_{\mathrm{eval}}$、support/density、utility、recipe——最终都在回答同一个问题：**下一份数据值不值得采？** 这个问题值得一个正式的名字：
+前面所有的概念——interaction distribution、$p_{\mathrm{eval}}$、support/density、utility、recipe——最终都在回答同一个问题：**下一份数据值不值得采？** 这个问题值得一个正式的名字。但要先补一个 baseline：一份新增数据 $D'$ 的价值，永远是在"当前已经有什么数据 $D$"的前提下才有意义的，所以 $\Delta Performance$ 应当显式写成相对于 $D$ 的增量：
 
-$$MV(D') \;=\; \frac{\Delta Performance(D')}{Cost(D')}$$
+$$MV(D';\,D) \;=\; \frac{Performance(D \cup D') - Performance(D)}{Cost(D')}$$
 
-对单条 trajectory 也可以写：
+对单条 trajectory 也一样：
 
-$$MV(\tau) \;=\; \frac{\Delta Performance(\tau)}{Cost(\tau)}$$
+$$MV(\tau;\,D) \;=\; \frac{Performance(D \cup \{\tau\}) - Performance(D)}{Cost(\tau)}$$
+
+这个 "$D$" 上标看着只是记号，其实它把全文最核心的 distribution argument 编码进了定义里：**一份数据的价值，依赖于你已经拥有的数据。**
 
 于是全文的核心论点可以收束成一句话：
 
 > **Robot data scaling 的核心问题不是如何最大化 data volume，而是如何最大化 marginal data value。**
 
 这句话比"effective interaction-distribution coverage"更容易被记住，也更贴近工程实践——因为 volume 是一个可以盲冲的量，而 $MV$ 强迫你回答"这一份数据相对于当前 $p_{\mathrm{train}}$ 和 $p_{\mathrm{eval}}$ 究竟补了什么、代价多少"。
+
+而从 $MV(D';D)$ 这个带 baseline 的写法里，还能直接读出全文可能最核心的一个 insight：
+
+$$MV(D';\,D_t) \;\neq\; MV(D';\,D_{t+1})$$
+
+**Data value is state-dependent。** 同一条 trajectory，在数据稀缺的早期可能价值很高，等到 distribution 相关区域已经被填满之后，再采一份几乎同样的数据就可能完全没有价值。这也正是"数据集的质量不能被永久定义"的根本原因——所谓好数据，从来不是绝对的"好数据"，而是"**在当前 training state 与 evaluation gap 下具有高 marginal utility 的数据**"。到这里，Data Utility → Marginal Data Value → Data Flywheel 这三块才算真正闭合。
 
 ### 从 scaling 假设到 data flywheel
 
@@ -645,7 +681,7 @@ $$Deployment \rightarrow Failure \rightarrow Data \rightarrow Training \rightarr
 
 $$D_{t+1} = D_t + D_{\text{targeted}}$$
 
-$$D_{\text{targeted}} = \operatorname*{argmax}_{D'}\ MV(D') \;=\; \operatorname*{argmax}_{D'}\ \frac{\Delta Performance(D')}{Cost(D')}$$
+$$D_{\text{targeted}} = \operatorname*{argmax}_{D'}\ MV(D';\,D_t) \;=\; \operatorname*{argmax}_{D'}\ \frac{Performance(D_t \cup D') - Performance(D_t)}{Cost(D')}$$
 
 需要澄清一点：这里的 $\Delta Performance$ **并不假设是一个可以直接读到的 oracle**。工程上它通常通过 evaluation on a proxy distribution、failure statistics、model uncertainty estimation、offline RL 的 counterfactual proxy metric 等手段来估计。把这一点显式写出来，公式才从"漂亮 slogan"变成一个真正的研究方向——**targeted data collection 本质上是一个 estimation + optimization 问题，而不是一个先知式的 argmax。**
 
@@ -653,50 +689,49 @@ $$D_{\text{targeted}} = \operatorname*{argmax}_{D'}\ MV(D') \;=\; \operatorname*
 
 ### 全文的 capstone 流程
 
-如果把整篇文章的分析框架压成一张图，它是这样闭合的：
+到这里其实可以把全文真正的主题说清楚：它表面上在讲"data scaling"，但本质上讲的是**有限数据预算下的 distribution alignment**——在采集预算约束下，把 $p_{\mathrm{train}}$ 朝着 $p_{\mathrm{eval}}$ 对齐，并把每一单位预算花到 marginal data value 最高的缺口上。如果把整篇文章的分析框架压成一张图，它是这样闭合的——请注意 $p_{\mathrm{eval}}$ 位于顶端，是**整个系统的目标坐标系**：
 
 ```text
-                    Raw Interaction Data
-                           │
-                           ▼
-                  p_raw(τ | task, scene, embodiment)
-                           │
-                           │  Training Recipe
-                           │  (Path 1: distribution transformation
-                           │   Path 2: optimization dynamics)
-                           ▼
-                  p_train(τ | task, scene, embodiment)
-                           │
-                  ┌────────┴────────┐
-                  │                 │
-                  ▼                 ▼
-             Support           Density
-             Coverage          Estimation
-                  │                 │
-                  └────────┬────────┘
-                           ▼
-                    Data Utility
-                 U(D | L, p_eval)
-                           │
-                           ▼
-                  Effective Data Scale
-                           │
-                           ▼
-             Performance / Generalization
-                           │
-                           ▼
-                       Evaluation
-                           │
-                           ▼
-                 Failure / Gap Analysis
-                           │
-                           ▼
-              Marginal Data Value Estimation
-                           │
-                           ▼
-                  Targeted Data Collection
-                           │
-                           └──────────────→  (回到 p_train^new)
+                              p_eval
+                                ▲
+                                │  gap
+                                │
+   Raw Interaction Data         │
+          │                     │
+          ▼                     │
+ p_raw(τ | task, scene, embodiment)
+          │                     │
+          │  Training Recipe    │
+          │  (Path 1: dist. transform; Path 2: optimization dynamics)
+          ▼                     │
+ p_train(τ | task, scene, embodiment)
+          │                     │
+   ┌──────┴──────┐              │
+   ▼             ▼              │
+ Support      Density           │
+ Coverage     Estimation        │
+   │             │              │
+   └──────┬──────┘              │
+          ▼                     │
+   Data Utility / MV            │
+  U(D | L, p_eval)              │
+          │                     │
+          ▼                     │
+  Effective Data Scale          │
+          │                     │
+          ▼                     │
+  Performance / Generalization  │
+          │                     │
+          ▼                     │
+      Evaluation ───────────────┘
+          │
+          ▼
+  Failure / Gap Analysis
+          │
+          ▼
+  Targeted Data Collection
+          │
+          └──────────────→  p_raw' / p_train^new
 ```
 
 写成公式，就是这一版最终想留下的闭环：
@@ -729,10 +764,10 @@ $$\boxed{Performance \longrightarrow Evaluation\ Gap \longrightarrow Targeted\ D
 
 上述工作偏重模型与 scaling 框架。与本文"data / distribution 才是关键"这一论点更直接相关的，是以下几类聚焦数据集本身（采集规模、多样性、质量筛选、仿真—真实混合）的实证研究：
 
-- DROID: A Large-Scale In-the-Wild Robot Manipulation Dataset — Khazatsky et al., 2024, arXiv:2403.12945（大规模、多场景真机操作数据集，强调环境与任务分布的多样性）
-- SCIZOR: Self-Supervised and Composable Data Curation for Robotic Manipulation — Tian et al., 2025, arXiv:2505.22626（自监督、可组合的数据清洗/质量筛选方法）
-- Consistency Matters: Revisiting Imitation Learning with Demonstration Quality Metrics — 2024, arXiv:2412.14309（用一致性等质量指标衡量 demonstration，而非默认"人类演示 = 高质量"）
-- Efficient Data Collection for Robot Learning via Compositional Generalization — 2024, arXiv:2403.05110（通过组合式任务泛化降低数据采集成本）
+- DROID: A Large-Scale In-the-Wild Robot Manipulation Dataset — Khazatsky et al., 2024, arXiv:2403.12945（大规模、多场景真机操作数据集；它直接证明的是"数据规模与环境/任务多样性"，而非"diversity → scaling 收益"这一因果命题，后者仍是本文的假设）
+- SCIZOR: A Self-Supervised Approach to Data Curation for Large-Scale Imitation Learning — Zhang et al., 2025, arXiv:2505.22626（自监督、可组合的数据清洗/质量筛选方法）
+- Consistency Matters: Defining Demonstration Data Quality Metrics in Robot Learning from Demonstration — Sakr et al., 2024, arXiv:2412.14309（用一致性等质量指标衡量 demonstration，而非默认"人类演示 = 高质量"）
+- Efficient Data Collection for Robotic Manipulation via Compositional Generalization — Gao et al., 2024, arXiv:2403.05110（通过对场景元素的组合式泛化降低数据采集成本）
 - Sim-and-Real Co-Training: A Simple Recipe for Vision-Based Robotic Manipulation — Maddukuri et al., 2025, arXiv:2503.24361（仿真与真实数据混合训练的系统性 recipe 研究）
 
 需要说明的是，机器人学习目前尚不存在像 LLM 那样公认的单一 scaling law；本文关于 effective data scale 的框架是一个 conceptual decomposition 与可检验假设，而非既成结论。上述数据侧工作提供的是分散的实证支持，尚不足以构成对该假设的完整定量验证。
