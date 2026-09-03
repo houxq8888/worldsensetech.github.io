@@ -81,7 +81,7 @@ Generating training data in simulated environments.
 
 **Limitation:** Sim-to-real gap still exists — physical dynamics in simulation (contact mechanics, friction, deformation) don't perfectly match the real world. The distribution of simulation data and real data have mismatches, and direct use can cause policy performance degradation in real environments.
 
-NVIDIA Isaac Sim, MuJoCo, and other simulation platforms are being widely used to generate training data. But simulation data typically needs to be combined with domain randomization, system identification, or real-world fine-tuning to bridge the gap.
+NVIDIA Isaac Sim, MuJoCo (Todorov et al., IROS 2012; now open-sourced by DeepMind), and other simulation platforms are being widely used to generate training data; GPU-parallel physics simulation (e.g., Isaac Gym, Makoviychuk et al., 2021, arXiv:2108.10470) further lowers the cost of large-scale collection. But simulation data typically needs to be combined with domain randomization (Tobin et al., IROS 2017, arXiv:1703.06907), system identification, or real-world fine-tuning to bridge the gap.
 
 ### Synthetic Data: World Models as Experience Generators
 
@@ -89,9 +89,9 @@ An increasingly important direction is: **using trained world models to expand a
 
 But here two different mechanisms need to be distinguished:
 
-**Model-based RL (e.g., Dreamer):** The world model serves as a **latent experience generator**, producing imagined trajectories in latent space. Actor/critic trains in latent imagination: $z_t \rightarrow a_t \rightarrow z_{t+1}$, without needing to generate photorealistic RGB frames.
+**Model-based RL (e.g., Dreamer):** The world model serves as a **latent experience generator**, producing imagined trajectories in latent space. Actor/critic trains in latent imagination: $z_t \rightarrow a_t \rightarrow z_{t+1}$, without needing to generate photorealistic RGB frames (Dreamer, Hafner et al., 2019, arXiv:1912.01603; DreamerV3, Hafner et al., 2023, arXiv:2301.04104).
 
-**Generative world models (e.g., video-generative world models, NVIDIA Cosmos):** Further attempt to generate synthetic data (synthetic observations / videos / trajectories) close to real observations, serving as data sources for downstream training.
+**Generative world models (e.g., video-generative world models, NVIDIA Cosmos):** Further attempt to generate synthetic data (synthetic observations / videos / trajectories) close to real observations, serving as data sources for downstream training (Cosmos World Foundation Model Platform for Physical AI, NVIDIA, 2025, arXiv:2501.03575).
 
 Both are "using models to expand experience," but the data forms are completely different. The former primarily serves latent prediction, imagination, and model-based control; the latter is closer to the traditional sense of "synthetic data generation."
 
@@ -105,7 +105,7 @@ This is an easily overlooked but very important dimension: **different technical
 
 The most basic VLA training sample can be abstracted as $(o_t, l, a_{t:t+k})$, where $l$ is the language instruction and $a_{t:t+k}$ is an action chunk.
 
-But actual systems may also include: proprioception, historical observation windows, task metadata, embodiment information. Action output is also not simply $(o,l) \rightarrow a$ — modern VLAs may use action chunks, diffusion / flow action heads, discrete action tokens or continuous action, and heterogeneous action representations.
+But actual systems may also include: proprioception, historical observation windows, task metadata, embodiment information. Action output is also not simply $(o,l) \rightarrow a$ — modern VLAs may use action chunks, diffusion / flow action heads, discrete action tokens or continuous action, and heterogeneous action representations. Representative works transferring large-scale vision-language knowledge to robotic control include RT-2 (Brohan et al., CoRL 2023, arXiv:2307.15818) and π₀ (Black et al., Physical Intelligence, 2024, arXiv:2410.24164).
 
 This means VLA's core data requirement is: **high-quality observation-action pairs, covering sufficiently diverse tasks and objects, while needing to adapt to different embodiment action representations.**
 
@@ -131,7 +131,7 @@ Optional:
 
 It's important to note that **world models don't necessarily require reward.** In Dreamer, reward prediction and continuation prediction are important components needed for training actor-critic, but they belong to other modules of the overall agent architecture, not required outputs of the world model itself. The world model's core function is learning action-conditioned dynamics — predicting how future states change given action sequences.
 
-For approaches centered on latent dynamics + model-based control (such as Dreamer's RSSM, TD-MPC2), data needs to be temporally coherent, action-annotated interaction trajectories.
+For approaches centered on latent dynamics + model-based control (such as Dreamer's RSSM, TD-MPC2, Hansen et al., ICLR 2024, arXiv:2310.16828), data needs to be temporally coherent, action-annotated interaction trajectories.
 
 ### RL's Data Interface
 
@@ -152,7 +152,7 @@ Data collected on a Franka arm, due to differences in action space dimensions, o
 
 This is why cross-embodiment data is an important research direction. But terminology precision is needed: **multi-task** (same robot completing multiple tasks), **multi-embodiment** (training data from multiple robots but handled separately), and **cross-embodiment** (model generalizes to unseen robots) are three different levels of problem.
 
-TD-MPC2's multi-task / multi-domain capability is primarily achieved through task embeddings — but task conditioning ≠ embodiment conditioning. Embodiment differences involve action space, observation space, morphology, dynamics, control frequency, and multiple other dimensions, which cannot be simply solved with a task embedding. π₀ series's cross-embodiment capability comes more from large-scale diverse data training, rather than some specific conditioning mechanism.
+TD-MPC2's multi-task / multi-domain capability is primarily achieved through task embeddings — but task conditioning ≠ embodiment conditioning. Embodiment differences involve action space, observation space, morphology, dynamics, control frequency, and multiple other dimensions, which cannot be simply solved with a task embedding. π₀ series's cross-embodiment capability comes more from large-scale diverse data training, rather than some specific conditioning mechanism — Open X-Embodiment (Open X-Embodiment Collaboration, 2023, arXiv:2310.08864) is a representative example of such large-scale cross-embodiment datasets.
 
 ## Data Is Not a Dataset, It's a Distribution
 
@@ -216,7 +216,7 @@ Specifically, a complete robot training recipe may include:
 - **Offline/online mixing:** whether to combine offline pretraining and online fine-tuning
 - **Fine-tuning schedule:** learning rate, batch size, training epoch scheduling
 
-Different teams' choices in these areas can vary significantly, and these choices often have significant impact on final performance — sometimes even exceeding the choice of model architecture. This is also why training recipes are difficult to fully transmit through a single paper — they are an entire engineering practice, not a set of hyperparameters.
+Different teams' choices in these areas can vary significantly, and these choices often have significant impact on final performance — in many teams' practice, this impact may even exceed the choice of model architecture. It should be noted that this judgment currently rests more on engineering experience and case reports than on systematic, cross-task controlled quantitative experiments; for this reason, it is better treated as a hypothesis worth testing rather than an established conclusion. This is also why training recipes are difficult to fully transmit through a single paper — they are an entire engineering practice, not a set of hyperparameters.
 
 From a more abstract perspective, **a training recipe is essentially the "transfer function" from data distribution to model parameters:**
 
@@ -265,7 +265,7 @@ Here we need to distinguish two different types of sim-to-real error: **random n
 
 ## Robot Data Scaling: Not Just "More Trajectories"
 
-The LLM domain has established relatively clear scaling laws (more data + larger models + more compute → predictable performance improvement). Does a similar scaling law exist for robotics?
+The LLM domain has established relatively clear scaling laws (more data + larger models + more compute → predictable performance improvement, e.g., Kaplan et al., 2020, arXiv:2001.08361; Hoffmann et al., 2022, arXiv:2203.15556). Does a similar scaling law exist for robotics?
 
 First, an important clarification: **the formulas below are not strict scaling laws, but a conceptual decomposition for describing robot data's effective scale.** Robot data scale can be decomposed into at least three layers:
 
@@ -295,7 +295,7 @@ Robot Data Scaling ≠ More Trajectories
 Effective Data Scale = f(Volume, Distribution Coverage, Quality)
 ```
 
-This is a hypothesis worth testing: **scaling on interaction distribution (rather than pure trajectory count) may be the more effective scaling direction for robotics.**
+This is a hypothesis worth testing: **scaling on interaction distribution (rather than pure trajectory count) may be the more effective scaling direction for robotics.** Robotics does not yet have a single universally-accepted scaling law like LLMs, but there is empirical work on data scale worth referencing — for example, studies on data scaling in imitation learning (Lin et al., 2024, *Data Scaling Laws in Imitation Learning for Robotic Manipulation*, arXiv:2410.18647) show that data effectiveness correlates strongly with environmental/task diversity rather than trajectory count alone.
 
 ### Testable Predictions
 
@@ -322,6 +322,26 @@ What this article wants to say is: **data and training recipes may be becoming e
 Model architectures can be disseminated through papers and open-source code; simulation platforms are being standardized by a few players; but **high-quality robot interaction data, effective data curation processes, and repeatedly refined training recipes — these are difficult to fully transmit through a single paper.**
 
 And the core question is not "who has more data," but "who covers a broader interaction distribution $p(\tau, task, scene, embodiment)$."
+
+## References
+
+The main works referenced in the text are listed below (all searchable via arXiv ID):
+
+- RT-2: Vision-Language-Action Models Transfer Web Knowledge to Robotic Control — Brohan et al., CoRL 2023, arXiv:2307.15818
+- π₀: A Vision-Language-Action Flow Model for General Robot Control — Black et al., Physical Intelligence, 2024, arXiv:2410.24164
+- Open X-Embodiment: Robotic Learning Datasets and RT-X Models — Open X-Embodiment Collaboration, 2023, arXiv:2310.08864
+- Dream to Control: Learning Behaviors by Latent Imagination (Dreamer) — Hafner et al., 2019, arXiv:1912.01603
+- Mastering Diverse Domains through World Models (DreamerV3) — Hafner et al., 2023, arXiv:2301.04104
+- TD-MPC2: Scalable, Robust World Models for Continuous Control — Hansen et al., ICLR 2024, arXiv:2310.16828
+- Cosmos World Foundation Model Platform for Physical AI — NVIDIA, 2025, arXiv:2501.03575
+- MuJoCo: A physics engine for model-based control — Todorov, Erez & Tassa, IROS 2012, DOI:10.1109/IROS.2012.6386109
+- Isaac Gym: High Performance GPU-Based Physics Simulation for Robot Learning — Makoviychuk et al., 2021, arXiv:2108.10470
+- Domain Randomization for Transferring Deep Neural Networks from Simulation to the Real World — Tobin et al., IROS 2017, arXiv:1703.06907
+- Scaling Laws for Neural Language Models — Kaplan et al., 2020, arXiv:2001.08361
+- Training Compute-Optimal Large Language Models (Chinchilla) — Hoffmann et al., 2022, arXiv:2203.15556
+- Data Scaling Laws in Imitation Learning for Robotic Manipulation — Lin et al., 2024, arXiv:2410.18647
+
+Note that robotics does not yet have a single universally-accepted scaling law comparable to that of LLMs; the effective-data-scale framework in this article is a conceptual decomposition and a testable hypothesis, not an established conclusion.
 
 ---
 

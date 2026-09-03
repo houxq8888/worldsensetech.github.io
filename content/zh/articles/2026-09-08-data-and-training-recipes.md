@@ -81,7 +81,7 @@ robot trajectory:
 
 **局限：** sim-to-real gap 仍然存在——仿真中的物理动态（接触力学、摩擦、变形）与真实世界不完全一致。仿真数据的分布和真实数据的分布之间存在 mismatch，直接使用可能导致策略在真实环境中表现退化。
 
-NVIDIA Isaac Sim、MuJoCo 等仿真平台正在被广泛用于生成训练数据。但仿真数据通常需要配合 domain randomization、system identification 或 real-world fine-tuning 来弥合 gap。
+NVIDIA Isaac Sim、MuJoCo（Todorov et al., IROS 2012；现已由 DeepMind 开源）等仿真平台正在被广泛用于生成训练数据；GPU 并行的物理仿真（如 Isaac Gym，Makoviychuk et al., 2021，arXiv:2108.10470）进一步降低了大规模采集成本。但仿真数据通常需要配合 domain randomization（Tobin et al., IROS 2017，arXiv:1703.06907）、system identification 或 real-world fine-tuning 来弥合 gap。
 
 ### 合成数据：世界模型作为经验生成器
 
@@ -89,9 +89,9 @@ NVIDIA Isaac Sim、MuJoCo 等仿真平台正在被广泛用于生成训练数据
 
 但这里需要区分两种不同的机制：
 
-**Model-based RL（如 Dreamer）：** 世界模型作为 **latent experience generator**，在隐空间中产生 imagined trajectories。actor/critic 在 latent imagination 中训练：$z_t \rightarrow a_t \rightarrow z_{t+1}$，并不需要生成 photorealistic RGB frame。
+**Model-based RL（如 Dreamer）：** 世界模型作为 **latent experience generator**，在隐空间中产生 imagined trajectories。actor/critic 在 latent imagination 中训练：$z_t \rightarrow a_t \rightarrow z_{t+1}$，并不需要生成 photorealistic RGB frame（Dreamer，Hafner et al., 2019，arXiv:1912.01603；DreamerV3，Hafner et al., 2023，arXiv:2301.04104）。
 
-**Generative world model（如视频生成式世界模型、NVIDIA Cosmos）：** 进一步尝试生成接近真实观测的合成数据（synthetic observations / videos / trajectories），从而作为下游训练的数据来源。
+**Generative world model（如视频生成式世界模型、NVIDIA Cosmos）：** 进一步尝试生成接近真实观测的合成数据（synthetic observations / videos / trajectories），从而作为下游训练的数据来源（Cosmos World Foundation Model Platform for Physical AI，NVIDIA，2025，arXiv:2501.03575）。
 
 两者都是"用模型扩大经验"，但数据形态完全不同。前者主要服务于 latent prediction、imagination 和 model-based control；后者是更接近传统意义上的"合成数据生成"。
 
@@ -105,7 +105,7 @@ NVIDIA Isaac Sim、MuJoCo 等仿真平台正在被广泛用于生成训练数据
 
 最基本的 VLA 训练样本可以抽象为 $(o_t, l, a_{t:t+k})$，其中 $l$ 是语言指令，$a_{t:t+k}$ 是 action chunk。
 
-但实际系统还可能包含：proprioception、历史观测窗口、task metadata、embodiment information。动作输出也不只是简单的 $(o,l) \rightarrow a$——现代 VLA 可能使用 action chunk、diffusion / flow action head、discrete action token 或 continuous action，以及 heterogeneous action representation。
+但实际系统还可能包含：proprioception、历史观测窗口、task metadata、embodiment information。动作输出也不只是简单的 $(o,l) \rightarrow a$——现代 VLA 可能使用 action chunk、diffusion / flow action head、discrete action token 或 continuous action，以及 heterogeneous action representation。将大规模视觉语言知识迁移到机器人控制的代表性工作包括 RT-2（Brohan et al., CoRL 2023，arXiv:2307.15818）与 π₀（Black et al., Physical Intelligence, 2024，arXiv:2410.24164）。
 
 这意味着 VLA 对数据的核心需求是：**高质量的 observation-action 配对，覆盖足够多样的任务和物体，同时需要适配不同 embodiment 的动作表示。**
 
@@ -131,7 +131,7 @@ NVIDIA Isaac Sim、MuJoCo 等仿真平台正在被广泛用于生成训练数据
 
 需要注意的是，**世界模型本身并不必须有 reward**。在 Dreamer 中，reward prediction 和 continuation prediction 是训练 actor-critic 所需的重要组成部分，但它们属于整体 agent architecture 的其他模块，而非世界模型本身的必需输出。世界模型的核心功能是学习 action-conditioned dynamics——预测在给定动作序列后，未来状态如何变化。
 
-对于以 latent dynamics + model-based control 为核心的路线（如 Dreamer 的 RSSM、TD-MPC2），数据需要是时间上连贯的、action-annotated 的交互轨迹。
+对于以 latent dynamics + model-based control 为核心的路线（如 Dreamer 的 RSSM、TD-MPC2，Hansen et al., ICLR 2024，arXiv:2310.16828），数据需要是时间上连贯的、action-annotated 的交互轨迹。
 
 ### RL 的数据接口
 
@@ -152,7 +152,7 @@ RL 的数据需求取决于具体范式：
 
 这就是为什么 cross-embodiment data 是一个重要的研究方向。但需要注意术语的精确性：**multi-task**（同一机器人完成多种任务）、**multi-embodiment**（训练数据来自多种机器人但分别处理）、和 **cross-embodiment**（模型能泛化到未见过的机器人）是三个不同层次的问题。
 
-TD-MPC2 的 multi-task / multi-domain 能力主要通过 task embedding 实现——但 task conditioning ≠ embodiment conditioning。Embodiment 差异涉及 action space、observation space、morphology、dynamics、control frequency 等多个维度，不能简单地用一个 task embedding 来解决。π₀ 系列的 cross-embodiment 能力则更多来自大规模多样化数据的训练，而非某种特定的 conditioning 机制。
+TD-MPC2 的 multi-task / multi-domain 能力主要通过 task embedding 实现——但 task conditioning ≠ embodiment conditioning。Embodiment 差异涉及 action space、observation space、morphology、dynamics、control frequency 等多个维度，不能简单地用一个 task embedding 来解决。π₀ 系列的 cross-embodiment 能力则更多来自大规模多样化数据的训练，而非某种特定的 conditioning 机制——Open X-Embodiment（Open X-Embodiment Collaboration, 2023，arXiv:2310.08864）正是这种跨本体大规模数据集的代表。
 
 ## 数据不是 dataset，而是 distribution
 
@@ -216,7 +216,7 @@ Training recipe 不只是 hyperparameters，而是**决定什么数据、以什�
 - **Offline/online mixing：** 是否结合 offline pretraining 和 online fine-tuning
 - **Fine-tuning schedule：** 学习率、batch size、训练轮数的调度
 
-不同团队在这方面的选择可能非常不同，而这些选择往往对最终性能有显著影响——有时甚至超过模型架构的选择。这也是为什么 training recipe 很难通过一篇论文完整传递——它是一整套工程实践，而不是一组超参数。
+不同团队在这方面的选择可能非常不同，而这些选择往往对最终性能有显著影响——在许多团队的实践中，其影响甚至可能超过模型架构的选择。需要说明的是，这一判断目前更多来自工程经验与个案报告，尚缺乏跨任务的系统性定量对照实验；正因如此，它更适合作为一个值得检验的假设，而非已确立的结论。这也是为什么 training recipe 很难通过一篇论文完整传递——它是一整套工程实践，而不是一组超参数。
 
 从更抽象的角度看，**training recipe 本质上是数据分布到模型参数之间的"转换函数"**：
 
@@ -265,7 +265,7 @@ Domain adaptation
 
 ## 机器人数据 Scaling：不只是"更多轨迹"
 
-LLM 领域已经建立了相对清晰的 scaling law（更多数据 + 更大模型 + 更多计算 → 可预测的性能提升）。机器人领域是否也存在类似的 scaling law？
+LLM 领域已经建立了相对清晰的 scaling law（更多数据 + 更大模型 + 更多计算 → 可预测的性能提升，如 Kaplan et al., 2020，arXiv:2001.08361；Hoffmann et al., 2022，arXiv:2203.15556）。机器人领域是否也存在类似的 scaling law？
 
 首先需要明确：**下面的公式不是严格的 scaling law，而是一个用于描述机器人数据有效规模的 conceptual decomposition。** 机器人数据规模至少可以分解为三个层面：
 
@@ -295,7 +295,7 @@ Robot Data Scaling ≠ More Trajectories
 Effective Data Scale = f(Volume, Distribution Coverage, Quality)
 ```
 
-这是一个值得验证的假设：**在 interaction distribution（而非纯 trajectory 数量）上 scaling，可能是机器人领域更有效的 scaling 方向。**
+这是一个值得验证的假设：**在 interaction distribution（而非纯 trajectory 数量）上 scaling，可能是机器人领域更有效的 scaling 方向。** 目前机器人学习还不存在像 LLM 那样公认的单一 scaling law，但已有针对数据规模的实证研究值得参考——例如关于模仿学习数据 scaling 的工作（Lin et al., 2024，*Data Scaling Laws in Imitation Learning for Robotic Manipulation*，arXiv:2410.18647）显示，数据的有效性与其环境/任务多样性高度相关，而非单纯取决于轨迹条数。
 
 ### 可验证预测
 
@@ -322,6 +322,26 @@ Effective Data Scale = f(Volume, Distribution Coverage, Quality)
 模型架构可以通过论文和开源代码传播；仿真平台正在被少数几个玩家标准化；但**高质量的机器人交互数据、有效的数据 curation 流程、和经过反复调试的 training recipe——这些很难通过一篇论文完整传递。**
 
 而核心问题不是"谁有更多数据"，而是"谁覆盖了更广的 interaction distribution $p(\tau, task, scene, embodiment)$"。
+
+## 参考文献
+
+正文涉及的主要工作如下（均可通过 arXiv ID 检索）：
+
+- RT-2: Vision-Language-Action Models Transfer Web Knowledge to Robotic Control — Brohan et al., CoRL 2023, arXiv:2307.15818
+- π₀: A Vision-Language-Action Flow Model for General Robot Control — Black et al., Physical Intelligence, 2024, arXiv:2410.24164
+- Open X-Embodiment: Robotic Learning Datasets and RT-X Models — Open X-Embodiment Collaboration, 2023, arXiv:2310.08864
+- Dream to Control: Learning Behaviors by Latent Imagination (Dreamer) — Hafner et al., 2019, arXiv:1912.01603
+- Mastering Diverse Domains through World Models (DreamerV3) — Hafner et al., 2023, arXiv:2301.04104
+- TD-MPC2: Scalable, Robust World Models for Continuous Control — Hansen et al., ICLR 2024, arXiv:2310.16828
+- Cosmos World Foundation Model Platform for Physical AI — NVIDIA, 2025, arXiv:2501.03575
+- MuJoCo: A physics engine for model-based control — Todorov, Erez & Tassa, IROS 2012, DOI:10.1109/IROS.2012.6386109
+- Isaac Gym: High Performance GPU-Based Physics Simulation for Robot Learning — Makoviychuk et al., 2021, arXiv:2108.10470
+- Domain Randomization for Transferring Deep Neural Networks from Simulation to the Real World — Tobin et al., IROS 2017, arXiv:1703.06907
+- Scaling Laws for Neural Language Models — Kaplan et al., 2020, arXiv:2001.08361
+- Training Compute-Optimal Large Language Models (Chinchilla) — Hoffmann et al., 2022, arXiv:2203.15556
+- Data Scaling Laws in Imitation Learning for Robotic Manipulation — Lin et al., 2024, arXiv:2410.18647
+
+需要说明的是，机器人学习目前尚不存在像 LLM 那样公认的单一 scaling law；本文关于 effective data scale 的框架是一个 conceptual decomposition 与可检验假设，而非既成结论。
 
 ---
 
