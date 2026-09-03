@@ -1,7 +1,7 @@
 ---
 title: '机器人数据 Scaling：从 interaction coverage 到 marginal data value'
-slug: "2026-09-10-robot-data-scaling"
-date: 2026-09-10
+slug: "2026-09-09-robot-data-scaling"
+date: 2026-09-09
 draft: false
 categories: ["具身智能", "训练方法"]
 tags: ["具身智能", "机器人数据", "Scaling Law", "数据分布", "Coverage", "Marginal Data Value", "Data Flywheel", "offline RL", "模仿学习"]

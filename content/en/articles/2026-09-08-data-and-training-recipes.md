@@ -8,7 +8,7 @@ tags: ["Embodied Intelligence", "Robot Data", "Training Recipe", "Teleoperation"
 description: "As foundational paradigms like VLA and world models converge toward clearer mainstream routes, data distribution, data quality, and training recipes are increasingly becoming important variables determining robot performance. This post (Part 1) walks through where robot data comes from and how it enters training — sources and interfaces, why 'data is a distribution, not a dataset', how training recipes shape what the model actually sees, and the four common sim-to-real tools; Part 2 then builds the robot-data scaling framework on top of this landscape."
 toc: true
 related_articles:
-  - 2026-09-10-robot-data-scaling
+  - 2026-09-09-robot-data-scaling
   - 2026-09-06-embodied-ai-landscape
   - 2026-09-07-vla-world-models
   - 2026-09-05-vla-pi-family
@@ -18,7 +18,7 @@ related_articles:
   - 2026-08-25-dreamer-explained
 ---
 
-> This is **Part 1** of a two-post series on "the data problem in embodied AI." Part 1 focuses on the data landscape — sources, interfaces, distribution, training recipes, and sim-to-real; the theoretical scaling framework (interaction coverage, marginal data value, data flywheel, sequential data allocation) lives in [Part 2: Robot Data Scaling](/en/articles/2026-09-10-robot-data-scaling/).
+> This is **Part 1** of a two-post series on "the data problem in embodied AI." Part 1 focuses on the data landscape — sources, interfaces, distribution, training recipes, and sim-to-real; the theoretical scaling framework (interaction coverage, marginal data value, data flywheel, sequential data allocation) lives in [Part 2: Robot Data Scaling](/en/articles/2026-09-09-robot-data-scaling/).
 
 In [the previous industry landscape article](/en/articles/2026-09-06-embodied-ai-landscape/), I mentioned an increasingly obvious trend: pure model architecture differences are becoming less likely to form decisive advantages, while the importance of data scale, data diversity, and training recipes is rising.
 
@@ -223,7 +223,7 @@ Recasting quality as utility also resolves a common misconception in curation: t
 
 It is also worth adding: strictly speaking, data utility even varies with the **model class, the current training state, and the compute budget** — the same data may be useless for a small model yet very useful for a large one; once a model has already learned A, adding more A data has low value, whereas before it has learned A the same data is highly valuable. So the $U$ in this article is a **stage-conditioned utility**, not a static property of the data. (To keep the framework from becoming over-formalized, however, we still write it simply as $U(D \mid \mathcal{L}, p_{\mathrm{eval}})$ and leave the $M$ and $C$ dependencies in prose.)
 
-As for what $p_{\mathrm{eval}}$ actually is, and why it is the single most important patch in this version — we formally introduce it in [Part 2](/en/articles/2026-09-10-robot-data-scaling/) on robot scaling, where the point becomes clear: **without an evaluation distribution as a reference frame, "coverage" is really a sentence with no subject.**
+As for what $p_{\mathrm{eval}}$ actually is, and why it is the single most important patch in this version — we formally introduce it in [Part 2](/en/articles/2026-09-09-robot-data-scaling/) on robot scaling, where the point becomes clear: **without an evaluation distribution as a reference frame, "coverage" is really a sentence with no subject.**
 
 ## Training Recipes: Determining What the Model Sees
 
@@ -333,7 +333,7 @@ Here we need to distinguish two different types of sim-to-real error: **random n
 
 By this point, Part 1 has laid out several things about robot data: its **sources and interfaces** (teleoperation, simulation, autonomous exploration, synthetic generation, and the fundamental `observation ≠ state` structure), why **data is a distribution rather than a dataset** (interaction distribution, quality ≠ utility, the multiple dimensions of curation), and how **training recipes determine the distribution the model actually sees** ($p_{\mathrm{train}} = T_R[p_{\mathrm{raw}}]$, the two paths of influence, data mixture) — finally landing on the **four common sim-to-real tools**.
 
-But all of this still sits at the layer of "where data comes from, and in what form it enters training." The real scaling question — **what data should the next unit of budget add, and is it worth it** — needs a stricter framework: how an evaluation distribution gives coverage a reference frame, how support / density / distribution similarity come apart into three distinct things, how marginal data value is defined, and how the data flywheel and sequential data allocation turn this framework into an actionable problem. That is what [Part 2: Robot Data Scaling](/en/articles/2026-09-10-robot-data-scaling/) takes up.
+But all of this still sits at the layer of "where data comes from, and in what form it enters training." The real scaling question — **what data should the next unit of budget add, and is it worth it** — needs a stricter framework: how an evaluation distribution gives coverage a reference frame, how support / density / distribution similarity come apart into three distinct things, how marginal data value is defined, and how the data flywheel and sequential data allocation turn this framework into an actionable problem. That is what [Part 2: Robot Data Scaling](/en/articles/2026-09-09-robot-data-scaling/) takes up.
 
 ## References
 
@@ -358,10 +358,10 @@ More directly relevant to Part 1's thesis that "data / distribution is what matt
 - Efficient Data Collection for Robotic Manipulation via Compositional Generalization — Gao et al., 2024, arXiv:2403.05110 (reducing data collection cost by compositionally generalizing over scene elements)
 - Sim-and-Real Co-Training: A Simple Recipe for Vision-Based Robotic Manipulation — Maddukuri et al., 2025, arXiv:2503.24361 (a systematic study of recipes for mixing simulation and real data)
 
-(The classic scaling-law works — Kaplan et al., 2020, arXiv:2001.08361; Chinchilla / Hoffmann et al., 2022, arXiv:2203.15556; and the data scaling law for robotic imitation learning, Lin et al., 2024, arXiv:2410.18647 — are listed together with the scaling framework in [Part 2](/en/articles/2026-09-10-robot-data-scaling/)'s references.)
+(The classic scaling-law works — Kaplan et al., 2020, arXiv:2001.08361; Chinchilla / Hoffmann et al., 2022, arXiv:2203.15556; and the data scaling law for robotic imitation learning, Lin et al., 2024, arXiv:2410.18647 — are listed together with the scaling framework in [Part 2](/en/articles/2026-09-09-robot-data-scaling/)'s references.)
 
 Note that robotics does not yet have a single universally-accepted scaling law comparable to that of LLMs; the effective-data-scale framework across this series is a conceptual decomposition and a testable hypothesis, not an established conclusion. The data-side works above provide scattered empirical support, not yet a full quantitative validation of that hypothesis.
 
 ---
 
-*This is Part 1 of the two-post series on "the data problem in embodied AI." Part 2, [Robot Data Scaling: From Interaction Coverage to Marginal Data Value](/en/articles/2026-09-10-robot-data-scaling/), advances this data landscape into a discussable scaling framework.*
+*This is Part 1 of the two-post series on "the data problem in embodied AI." Part 2, [Robot Data Scaling: From Interaction Coverage to Marginal Data Value](/en/articles/2026-09-09-robot-data-scaling/), advances this data landscape into a discussable scaling framework.*

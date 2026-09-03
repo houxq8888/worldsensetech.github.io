@@ -1,7 +1,7 @@
 ---
 title: "Robot Data Scaling: From Interaction Coverage to Marginal Data Value"
-slug: "2026-09-10-robot-data-scaling"
-date: 2026-09-10
+slug: "2026-09-09-robot-data-scaling"
+date: 2026-09-09
 draft: false
 categories: ["Embodied Intelligence", "Training Methods"]
 tags: ["Embodied Intelligence", "Robot Data", "Scaling Law", "Data Distribution", "Coverage", "Marginal Data Value", "Data Flywheel", "Offline RL", "Imitation Learning"]

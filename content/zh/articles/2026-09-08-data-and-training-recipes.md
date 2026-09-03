@@ -8,7 +8,7 @@ tags: ["具身智能", "机器人数据", "训练 Recipe", "遥操作", "合成�
 description: "随着 VLA、世界模型等基础范式逐渐出现较清晰的主流路线，数据分布、数据质量和 training recipe 正越来越成为决定机器人性能的重要变量。本篇（上篇）梳理机器人数据的来源与接口、为什么'数据不是 dataset 而是 distribution'、training recipe 如何决定模型真正看到的分布，以及 sim-to-real 的四类常见工具；下篇将在此基础上讨论机器人数据 scaling 的理论框架。"
 toc: true
 related_articles:
-  - 2026-09-10-robot-data-scaling
+  - 2026-09-09-robot-data-scaling
   - 2026-09-06-embodied-ai-landscape
   - 2026-09-07-vla-world-models
   - 2026-09-05-vla-pi-family
@@ -18,7 +18,7 @@ related_articles:
   - 2026-08-25-dreamer-explained
 ---
 
-> 这是"具身智能的数据问题"两篇系列中的**上篇**。上篇聚焦数据全景——来源、接口、distribution、training recipe 与 sim-to-real；关于机器人数据 scaling 的理论框架（interaction coverage、marginal data value、data flywheel、sequential data allocation）放在[下篇：机器人数据 Scaling](/zh/articles/2026-09-10-robot-data-scaling/)。
+> 这是"具身智能的数据问题"两篇系列中的**上篇**。上篇聚焦数据全景——来源、接口、distribution、training recipe 与 sim-to-real；关于机器人数据 scaling 的理论框架（interaction coverage、marginal data value、data flywheel、sequential data allocation）放在[下篇：机器人数据 Scaling](/zh/articles/2026-09-09-robot-data-scaling/)。
 
 在[前面的行业地图](/zh/articles/2026-09-06-embodied-ai-landscape/)中，我提到过一个越来越明显的趋势：单纯的模型架构差异正在变得不那么容易形成决定性优势，而数据规模、数据多样性和训练 recipe 的重要性正在上升。
 
@@ -223,7 +223,7 @@ $$U_{\mathrm{IL}}(D) \neq U_{\mathrm{WM}}(D) \neq U_{\mathrm{offlineRL}}(D)$$
 
 还值得补一句：严格来说，data utility 甚至还会随 **model class、当前训练状态和 compute budget** 改变——同一份数据对一个小模型可能没用、对一个大模型却非常有用；模型已经学会 A 之后再补 A 的数据价值很低，还没学会时则很有价值。因此本文的 $U$ 是一种**面向当前训练阶段的条件效用**，而不是数据的静态属性。（不过为了不让框架过度形式化，我们仍然只把它写成 $U(D \mid \mathcal{L}, p_{\mathrm{eval}})$，把 $M$、$C$ 这些依赖留在文字里。）
 
-至于 $p_{\mathrm{eval}}$ 具体是什么、为什么它是这一版最关键的补丁，我们在[下篇](/zh/articles/2026-09-10-robot-data-scaling/)的机器人 scaling 框架里再正式引入——那里会说明：**没有 evaluation distribution 做参照系，"coverage"其实是一句没有主语的话。**
+至于 $p_{\mathrm{eval}}$ 具体是什么、为什么它是这一版最关键的补丁，我们在[下篇](/zh/articles/2026-09-09-robot-data-scaling/)的机器人 scaling 框架里再正式引入——那里会说明：**没有 evaluation distribution 做参照系，"coverage"其实是一句没有主语的话。**
 
 ## Training Recipe：决定模型看到什么
 
@@ -333,7 +333,7 @@ Domain adaptation
 
 到这里，上篇把机器人数据的几件事讲清楚了：它的**来源与接口**（teleoperation、simulation、autonomous exploration、synthetic generation，以及 observation ≠ state 这个根本结构）、为什么**数据不是 dataset 而是 distribution**（interaction distribution、quality ≠ utility、curation 的多个维度），以及 **training recipe 如何决定模型真正看到的分布**（$p_{\mathrm{train}} = T_R[p_{\mathrm{raw}}]$、两条作用路径、data mixture），最后落到 **sim-to-real 的四类工具**上。
 
-但这些都还停在"数据从哪里来、以什么形式进入训练"这一层。真正的 scaling 问题——**下一单位预算应该增加什么数据、它值不值**——需要一套更严格的框架：evaluation distribution 如何给 coverage 提供参照系、support / density / distribution similarity 三者如何分开、marginal data value 如何定义、data flywheel 与 sequential data allocation 如何把这套框架变成可操作的问题。这些放在[下篇：机器人数据 Scaling](/zh/articles/2026-09-10-robot-data-scaling/)。
+但这些都还停在"数据从哪里来、以什么形式进入训练"这一层。真正的 scaling 问题——**下一单位预算应该增加什么数据、它值不值**——需要一套更严格的框架：evaluation distribution 如何给 coverage 提供参照系、support / density / distribution similarity 三者如何分开、marginal data value 如何定义、data flywheel 与 sequential data allocation 如何把这套框架变成可操作的问题。这些放在[下篇：机器人数据 Scaling](/zh/articles/2026-09-09-robot-data-scaling/)。
 
 ## 参考文献
 
@@ -358,10 +358,10 @@ Domain adaptation
 - Efficient Data Collection for Robotic Manipulation via Compositional Generalization — Gao et al., 2024, arXiv:2403.05110（通过对场景元素的组合式泛化降低数据采集成本）
 - Sim-and-Real Co-Training: A Simple Recipe for Vision-Based Robotic Manipulation — Maddukuri et al., 2025, arXiv:2503.24361（仿真与真实数据混合训练的系统性 recipe 研究）
 
-（关于 scaling law 的经典工作——Kaplan et al., 2020, arXiv:2001.08361；Chinchilla / Hoffmann et al., 2022, arXiv:2203.15556；以及机器人模仿学习的 data scaling law——Lin et al., 2024, arXiv:2410.18647——随 scaling 框架一并放在[下篇](/zh/articles/2026-09-10-robot-data-scaling/)的参考文献里。）
+（关于 scaling law 的经典工作——Kaplan et al., 2020, arXiv:2001.08361；Chinchilla / Hoffmann et al., 2022, arXiv:2203.15556；以及机器人模仿学习的 data scaling law——Lin et al., 2024, arXiv:2410.18647——随 scaling 框架一并放在[下篇](/zh/articles/2026-09-09-robot-data-scaling/)的参考文献里。）
 
 需要说明的是，机器人学习目前尚不存在像 LLM 那样公认的单一 scaling law；本系列关于 effective data scale 的框架是一个 conceptual decomposition 与可检验假设，而非既成结论。上述数据侧工作提供的是分散的实证支持，尚不足以构成对该假设的完整定量验证。
 
 ---
 
-*本篇是"具身智能的数据问题"两篇系列的上篇。下篇[《机器人数据 Scaling：从 interaction coverage 到 marginal data value》](/zh/articles/2026-09-10-robot-data-scaling/)将把这里的数据全景推进为一套可讨论的 scaling 框架。*
+*本篇是"具身智能的数据问题"两篇系列的上篇。下篇[《机器人数据 Scaling：从 interaction coverage 到 marginal data value》](/zh/articles/2026-09-09-robot-data-scaling/)将把这里的数据全景推进为一套可讨论的 scaling 框架。*
