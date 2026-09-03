@@ -5,7 +5,7 @@ date: 2026-09-10
 draft: false
 categories: ["Embodied AI", "Training Methods"]
 tags: ["Embodied AI", "Sim-to-Real", "Domain Randomization", "System Identification", "Differentiable Simulation", "Residual Physics", "World Model", "Domain Adaptation", "Robot Data"]
-description: "Sim-to-real is usually presented as a single transfer trick, but it is really a closed-loop resource-allocation problem. This post reframes the reality gap as a policy-conditioned, multi-source mismatch, uses weighted sensitivities and marginal utility to turn 'error-budget allocation' into a solvable framework, walks through the four orthogonal intervention axes (system identification, domain randomization, domain adaptation, real-world fine-tuning) and their failure boundaries, disentangles world models, residual physics, and sim-and-real co-training, and finally answers a question that is usually dodged: when is the optimal move to not do sim-to-real at all?"
+description: 'Sim-to-real is usually presented as a single transfer trick, but it is really a closed-loop resource-allocation problem. This post reframes the reality gap as a policy-conditioned, multi-source mismatch, turns "error-budget allocation" into an estimable, iteratively refineable decision framework via weighted sensitivities and empirical marginal utility, walks through the mechanisms and failure boundaries of four relatively independent intervention axes (system identification, domain randomization, domain adaptation, real-world fine-tuning), disentangles world models, residual physics, and sim-and-real co-training, and finally answers a question usually dodged: when is the optimal move to not do sim-to-real at all?'
 toc: true
 related_articles:
   - 2026-09-09-robot-data-scaling
@@ -16,95 +16,97 @@ related_articles:
   - 2026-08-25-dreamer-explained
 ---
 
-> This is the sequel to [Part 1 of the data problem](/en/articles/2026-09-08-data-and-training-recipes/) and [Part 2 on data scaling](/en/articles/2026-09-09-robot-data-scaling/). In Part 1 I sketched sim-to-real as four families of tools in a single diagram, but that was only a taxonomy. The question this post actually wants to answer can be compressed into one sentence —
+> This piece follows [Data Sources and Interfaces](/en/articles/2026-09-08-data-and-training-recipes/) and [Data Scaling for Robots](/en/articles/2026-09-09-robot-data-scaling/). The first article used a single diagram to split sim-to-real into four tool families, but that was only a taxonomy. The question this article actually wants to answer can be compressed into one sentence—
 
-> **When your simulation data falls far short of the real world along several evaluation-relevant directions, where should the next unit of budget — engineering time, compute, or robot-hours — be spent: calibrating the simulator, widening the training distribution, aligning representations, or simply collecting real data?**
+> **When your simulation data falls short of the real world along several evaluation-relevant directions, which lever should the next unit of budget (engineering time, compute, or robot-hours) go to: calibrating the simulator, widening the training distribution, aligning representations, or just going out and collecting real data?**
 
-This reads like engineering intuition, but it is really a closed-loop resource-allocation problem: given several budgets that are not interconvertible, you keep asking "where does the next dollar buy the most real-world performance gain?" What this post tries to do is push that intuition from a nice metaphor all the way to a framework with marginal utility. In real projects what actually blocks people is rarely "I didn't know these methods existed," but "I don't know whether this method does anything for *my kind* of gap, or which kind of budget it will consume."
+That question looks like engineering intuition, but it is really a closed-loop resource-allocation problem: given several budgets that are not interchangeable, you keep asking "where does the next dollar buy the most real-world performance." What this article wants to do is push that intuition from a metaphor into a decision framework with marginal utility. In a real project, what stalls teams is usually not "not knowing these methods exist," but "not knowing whether this method works for my kind of gap, and which budget it will eat."
 
-## The Reality Gap: Not a Scalar, but a Policy-Conditioned Mismatch
+First, disambiguate the "error budget" in the title: it does **not** mean pre-assigning each error term a fixed quota ($\Delta J=\sum_k \Delta_k$, paying each line item separately). It means spending the budget on **intervention actions**, using sequential allocation to progressively push down whichever mismatch is currently most valuable. Errors are the thing we compress; budget is the thing we allocate.
 
-Sim-to-real is usually narrated as "train a policy, then transfer it from simulation to reality." A more rigorous starting point is **two distributions**: the simulator induces $p_{\mathrm{sim}}(\tau)$, the real world induces $p_{\mathrm{real}}(\tau)$, and in general
+## Reality Gap: not a scalar, but a policy-conditioned mismatch
 
-$$p_{\mathrm{sim}}(\tau) \;\neq\; p_{\mathrm{real}}(\tau)$$
+Sim-to-real is usually narrated as "train a policy in simulation and transfer it to reality." A more rigorous starting point is **two distributions**: a fixed policy $\pi$ interacting with each environment induces trajectory distributions $p_{\mathrm{sim}}^{\pi}(\tau)$ and $p_{\mathrm{real}}^{\pi}(\tau)$, which are generally not equal:
 
-But what we actually care about is not this distribution difference per se — it is its **consequence** on a given task: the performance gap of the same policy $\pi_\theta$ across the two:
+$$p_{\mathrm{sim}}^{\pi}(\tau) \;\neq\; p_{\mathrm{real}}^{\pi}(\tau)$$
 
-$$\Delta J(\pi) \;=\; J_{\mathrm{real}}(\pi) \;-\; J_{\mathrm{sim}}(\pi)$$
+The trajectory distribution is **policy-induced** — it changes when $\pi$ changes; it is not an intrinsic property of the environment. What we actually care about is not the distributional gap itself but its **consequence on a task**: the performance gap of the same $\pi$ in the two worlds,
 
-Two things must be kept apart here: **distribution mismatch is not performance gap.** $p_{\mathrm{sim}} \neq p_{\mathrm{real}}$ does not automatically imply a large $\Delta J$, because different policies have wildly different sensitivity to the distributional difference. A policy relying only on coarse geometry may be almost unchanged if you re-model the friction coefficient; a fine-assembly policy that depends on high-frequency force feedback can be killed by the very same difference.
+$$\boxed{\;\delta_J(\pi) \;=\; J_{\mathrm{real}}(\pi) \;-\; J_{\mathrm{sim}}(\pi)\;}$$
 
-So $\Delta J(\pi)$ is a **task- and policy-dependent observable consequence** that depends on at least four things:
+I call this the **transfer delta**, keeping the sign: if $J$ is success rate and reality is in fact better (e.g., the simulator is more conservative, or noise inside sim is harsher than in reality), $\delta_J$ is positive and it is not intuitive to call that a "gap." So I reserve the magnitude
+
+$$G_J(\pi) \;=\; \big|\,\delta_J(\pi)\,\big|$$
+
+as **performance gap**. When we talk sensitivity below, $G_J$ is the semantics we use, so we do not get tangled with sign.
+
+Note **distribution mismatch is not the same as performance gap**: $p_{\mathrm{sim}}^{\pi} \neq p_{\mathrm{real}}^{\pi}$ does not automatically mean a large $\delta_J$, because different policies have very different sensitivities to the distributional gap. A policy that only relies on coarse geometry may barely change performance when you swap the friction model; a fine assembly policy that leans on high-frequency force feedback can be broken by the same distributional gap.
+
+$\delta_J(\pi)$ is a **task-relevant, policy-relevant observable consequence**, and it depends on at least four things simultaneously:
 
 $$\text{Reality gap} \;=\; \mathrm{Gap}\big(\pi,\ p_{\mathrm{sim}},\ p_{\mathrm{real}},\ \mathcal{E}\big)$$
 
-where $\mathcal{E}$ is the set of evaluation assumptions: observation / action interface, initial-state distribution, horizon, reward and constraints. **The same simulator can have a small gap for a position-control policy and a huge one for a force-sensitive manipulation policy.** So "our simulator is very accurate" is never a meaningful claim on its own — the reality gap is not an intrinsic property of the simulator but of this four-tuple.
+$\mathcal{E}$ is the set of evaluation assumptions — it fixes the protocol (which initial states, horizon, reward, constraints you score under) — whereas $p_{\mathrm{sim}},p_{\mathrm{real}}$ are the **mechanisms that generate data**; sim-vs-real inconsistency in the observation model belongs to the latter, while "we agreed to evaluate on the same set of initial states" belongs to the former, and the two should not be conflated. So "our simulator is very accurate" is never a meaningful claim on its own: the same simulator may induce a small gap for a position-control policy and a huge gap for a force-sensitive manipulation policy. Reality gap is a property of the four-tuple, not of the simulator alone.
 
-One easily-conflated point to clear up: $\mathcal{E}$ and $p_{\mathrm{sim}},p_{\mathrm{real}}$ have different roles. $\mathcal{E}$ **specifies the evaluation protocol** (under what initial states, horizon, and reward you score), whereas $p_{\mathrm{sim}},p_{\mathrm{real}}$ are the **data-generating mechanisms** (how dynamics, observation, and actuation evolve). The sim-vs-real difference in the observation model belongs to the latter; the convention "we evaluate both from the same set of initial states" belongs to the former — they should not be mixed.
+### Where exactly the gap sits: reality mismatch vs. task-specification mismatch
 
-### Where exactly is the gap: a five-layer mismatch decomposition
-
-The first step is to split the multi-source gap. A coarse but engineering-useful decomposition has five layers, which **differ in nature, in how parameterizable they are, and — crucially — in how much it costs to remediate each**:
+The first move is to unpack the multi-source gap — it actually has **two big families of causes**, and they cannot all be shoved under the word "reality":
 
 ```
-Reality mismatch
-├── Dynamics / contact        friction, contact, deformables, compliance
-├── Observation / estimation  sensor physics, calibration, noise, occlusion, latency, state estimation
-├── Actuation / timing        motor dynamics, control frequency, actuator delay, comms jitter
-├── Initial-state / env.      reset distribution, scene layout, long-tail, initial conditions
-└── Objective / constraint    reward definition, safety constraints, success criteria
+Sim-to-real / task mismatch
+├── Reality mismatch (physical layer)
+│   ├── Dynamics / contact        friction, contact, deformables, compliant structures
+│   ├── Observation / estimation  sensor physics, calibration, noise, occlusion, latency, state estimation
+│   ├── Actuation / timing        motor dynamics, control rate, actuator lag, comms jitter
+│   └── Initial-state / env.      reset distribution, scene layout, long tail, initial conditions
+└── Task-specification mismatch
+    └── Objective / constraint    reward definition, safety constraints, success criterion
 ```
 
-**Observation / state-estimation** deserves to stand on its own rather than be buried in "perception gap." The reason is concrete: what a robot actually executes is
+The two families have different sources and should not be simply added: reality mismatch is "simulation and reality are not the same world," while task-specification mismatch is "the objective you optimize and the objective you deploy are not the same task at all."
+
+**Observation and state estimation** deserve their own layer rather than being folded into "perception gap." The robot actually executes
 
 $$a_t = \pi(o_t), \qquad o_t = h(x_t) + \epsilon$$
 
-and in the real world, camera calibration error, depth bias, occlusion, proprioception drift, force-sensor bias, state-estimator latency and imperfect synchronization are **not simply "the image looks different"** — they make the **state estimate the policy actually sees inconsistent with the state the simulator assumes is available**. In manipulation and locomotion this "state-estimation gap" often hurts performance more than the appearance gap:
+and in reality camera calibration error, depth bias, occlusion, proprioception drift, force-sensor bias, and state-estimator latency are **not just "the picture looks different"** — they cause **the state the policy actually sees to be inconsistent with the state the simulator assumed to be available**. In manipulation and locomotion, this "state-estimation gap" often hurts performance more than the appearance gap.
 
-```
-Observation / Estimation
- ├─ sensor physics     the imaging / ranging physical process
- ├─ calibration        intrinsic/extrinsic, hand-eye calibration
- ├─ noise              exposure, quantization, random noise
- ├─ occlusion          occlusion and partial observability
- ├─ latency            sensing and synchronization delay
- └─ state estimation   error in inferring s from o
-```
+**Initial state** and **task objective** must also be split, since they belong to different families:
 
-The **task / initial-state** layer has to be split in two, because they are really two problems:
+- **Initial-state / environment shift (belongs to reality mismatch):** $p_{\mathrm{train}}(s_0) \neq p_{\mathrm{eval}}(s_0)$ — reset distribution and scene layout do not match; this is a distribution problem inside the simulation.
+- **Objective / task shift (belongs to task-specification mismatch):** $R_{\mathrm{train}} \neq R_{\mathrm{eval}}$ — sim only requires grasp success, reality also requires collision avoidance; sim tolerates larger penetration, but hardware safety does not.
 
-- **Environment / initial-state shift:** $p_{\mathrm{train}}(s_0) \neq p_{\mathrm{eval}}(s_0)$ — the reset distribution or scene layout does not match; this is a distribution problem inside simulation and belongs to the reality gap.
-- **Objective / task shift:** $R_{\mathrm{train}} \neq R_{\mathrm{eval}}$ — simulation only requires grasp success, while reality also requires collision avoidance; simulation tolerates large penetration, while real hardware safety does not.
+Strictly speaking, the latter **is already not a reality gap but an objective mismatch**: no matter how accurately the simulator models physics, if the reward / constraints do not match the real objective, you are not looking at "transfer failure" but at "you never evaluated the same task in the first place." Below, when discussing gap compression, we assume objective is already aligned; objective mismatch has to be handled separately via reward shaping / constraint modeling.
 
-The latter is, strictly speaking, **no longer a reality gap but an objective mismatch**: no matter how faithfully the simulator models physics, if the reward / constraints are not the same object as the real target, it is not "transfer failed" but "you were never evaluating the same task." Everywhere below, when I talk about closing gaps I assume the objective is already aligned; objective mismatch requires separate handling via reward shaping / constraint modeling and is out of range for these tools.
+## Writing "error-budget allocation" as an estimable, iteratively refineable decision framework
 
-## Making "Error-Budget Allocation" Something You Can Solve
+Once the sources are unpacked, the intuition from the opening needs a mathematical landing. What follows is **conceptual, not a strict theorem**: error terms interact strongly — the simulator assumes perfect proprioception, reality has latency; neither alone is fatal, together they can destabilize a controller. So a more careful move is to first admit an unknown coupling function $F$:
 
-Having split the gap into sources of different kinds, we can give the opening intuition a mathematical footing. The treatment here is **conceptual, not a strict theorem**: these error terms interact strongly — for example, the simulator assumes exact proprioception while reality has latency; neither latency alone nor dynamics mismatch alone is fatal, but the two combined can directly destabilize the controller. So the safer move is to first admit an unknown coupling function $F$:
+$$\boxed{\;\delta_J \;=\; F\big(\Delta_{\mathrm{model}},\ \Delta_{\mathrm{obs}},\ \Delta_{\mathrm{ctrl}},\ \Delta_{\mathrm{dist}}\big)\;}$$
 
-$$\Delta J \;=\; F\big(\Delta_{\mathrm{model}},\ \Delta_{\mathrm{obs}},\ \Delta_{\mathrm{ctrl}},\ \Delta_{\mathrm{dist}},\ \Delta_{\mathrm{opt}}\big)$$
+**This version removes $\Delta_{\mathrm{opt}}$ (optimization / learning error) from reality gap.** Different levels: for **the same fixed policy**, if simulation, observation, and dynamics are all accurate but RL has not converged, $\delta_J$ is actually small (both sides score about the same) while the policy is bad. "Policy is not well trained" ≠ "sim-to-real gap is large" — stuffing $\Delta_{\mathrm{opt}}$ into $F$ blurs the two back together. The right move is to keep them conceptually separate (rather than forced-additive):
 
-Only near a working point, for engineering attribution, do we locally approximate it as a weighted sum — and the weights $w_k$ are precisely **task/policy-dependent** sensitivities, which echoes the previous section's point that the gap is policy-conditioned:
+$$\underbrace{J_{\mathrm{real}}(\pi_{\mathrm{train}}) - J_{\mathrm{sim}}(\pi_{\mathrm{train}})}_{\text{transfer gap}}\qquad \underbrace{J_{\mathrm{real}}(\pi^{*}_{\mathrm{real}}) - J_{\mathrm{real}}(\pi_{\mathrm{train}})}_{\text{learning / optimization gap}}$$
 
-$$\Delta J \;\approx\; \sum_{k} w_k\, \Delta_k$$
+$$\text{deployment loss} \;=\; \text{transfer gap} \;+\; \text{learning / optimization gap}$$
 
-With this approximation we can define a useful quantity: **the sensitivity of real performance to the $k$-th mismatch**
+The first answers "how much does the simulator mislead the already-trained policy"; the second answers "how well did the policy itself learn." This distinction also cleans up the positioning of fine-tuning later on.
 
-$$S_k \;=\; \left|\frac{\partial J_{\mathrm{real}}}{\partial \Delta_k}\right|$$
+Only for near-operating-point engineering attribution do we locally approximate $F$ as a weighted sum — and the weights $w_k$ are precisely the **task / policy dependent** sensitivities, which echoes the previous section's claim that "gap is policy-conditioned":
 
-It answers "is this kind of gap worth caring about at all." Each $\Delta_k$ can in turn be pushed down by some intervention at some cost; write the efficiency of intervention $k$ as $\partial \Delta_k / \partial C_k$. Then "which block to fix first" gets a clean priority:
+$$\delta_J \;\approx\; \sum_{k} w_k\, \Delta_k, \qquad S_k \;=\; \left|\frac{\partial J_{\mathrm{real}}}{\partial \Delta_k}\right|$$
 
-$$\text{priority}_k \;\propto\; S_k \cdot \frac{\partial \Delta_k}{\partial C_k}$$
+$S_k$ answers "is this class of gap worth caring about." Each $\Delta_k$ can be pushed down by some intervention at some cost; write the efficiency as $\partial \Delta_k / \partial C_k$, giving a clean priority $\text{priority}_k \propto S_k \cdot \partial\Delta_k / \partial C_k$ — **fix first the class of gap that is both most task-relevant and cheapest to shrink.**
 
-In plain language: **prioritize the gap that is both most sensitive for the task and cheapest to push down.**
+But here we need to downgrade the mathematical narrative a notch: $\Delta_k$ are not three free knobs (dynamics error / latency / observation error); $\Delta_{\mathrm{model}}$ and $\Delta_{\mathrm{ctrl}}$ can even compensate each other unidentifiably (if the actuator gain is wrong in sim, the policy can quietly re-tune it via a different command distribution). So $S_k$ (and next section's $MV$) **should not be read as quantities analytically computable from the simulator; they are decision statistics estimated via sensitivity experiments / ablation / small-scale real evaluation.** Admitting this makes the framework stronger, not weaker: it is not "an analytically solvable optimization formula" but "an allocation procedure whose marginal returns are estimated by sequential experiments."
 
-### Real "allocation": distribute the budget across axes, not pick one method
+### Real "allocation": spend on intervention actions, not pick one from a shelf of methods
 
-So far this is still "choosing a method." For "error-budget allocation" to earn its name, the budget must be distributed **continuously** across the intervention axes. Split the total budget into a vector $b=(b_1,\dots,b_K)$, where $b_k$ is the amount spent on intervention $k$ — $b_{\mathrm{SI}}=2\text{h}$, $b_{\mathrm{DR}}=10^6$ sim steps, $b_{\mathrm{real}}=4\text{h}$ real — rather than a 0/1 "use SI or not" choice. The objective is to maximize real performance:
+So far this is still "picking a method." To make "budget allocation" literal, we must let budget flow **continuously** onto each intervention axis: split the total budget into a vector $b=(b_1,\dots,b_K)$, where $b_k$ is the amount spent on intervention $k$ — $b_{\mathrm{SI}}=2\text{h}$, $b_{\mathrm{DR}}=10^6$ sim steps, $b_{\mathrm{real}}=4\text{h}$ real robot — not a 0/1 choice like "SI or not." The objective is to maximize real-world performance:
 
 $$\max_{b}\quad J_{\mathrm{real}}\big(\pi_b\big)$$
 
-The key is that budgets in a robotics project are **not the same currency**. You may have nearly unlimited GPU but very little robot time; or you may have machine time but almost no engineering manpower. So the correct form is a **multi-budget constraint**, not a scalar $B$ with everything folded into it:
+The key point is that budget in a robotics project is **not one currency**: GPU may be near unlimited but real robot-hours are scarce; you may have machine time but no engineering headcount. So the correct writing is a **multi-budget constraint**, not collapsing everything into a scalar $B$:
 
 $$\begin{aligned}
 C_{\mathrm{real}}(b) &\le B_{\mathrm{real}}\\
@@ -112,141 +114,149 @@ C_{\mathrm{compute}}(b) &\le B_{\mathrm{compute}}\\
 C_{\mathrm{eng}}(b) &\le B_{\mathrm{eng}}
 \end{aligned}$$
 
-Once the budget is a vector, **marginal value** emerges naturally:
+Once the budget is a vector, the decision variable should shift from "gap" to "intervention." An engineer cannot buy "two percentage points of $\Delta_{\mathrm{model}}$"; what they can buy is: 30 minutes of SI, another $10^6$ sim steps, 100 real trajectories, a camera calibration, a latency-randomization pass, a residual-model training run. So the more natural formulation is to define marginal utility on interventions $m$ — **an intervention does not directly touch $\Delta_k$; it changes the policy through the training process**:
 
-$$MV_k \;=\; \frac{\partial J_{\mathrm{real}}}{\partial C_k}$$
+$$\boxed{\;\pi_{b+m} \;=\; \operatorname{Train}\big(D_{\mathrm{sim}},\ D_{\mathrm{real}};\ m\big)\;}$$
 
-This is the real core sentence of the whole post: **the next unit of budget should go to whichever intervention axis currently has the highest marginal real-world utility.** And $MV_k$ usually diminishes — which explains a very common phenomenon: **"spending 2 hours on SI is worth it; spending another 20 is not necessarily."** The few parameters that are easiest to identify and matter most were already calibrated in the first 2 hours, so the marginal return falls off fast; those same 18 hours spent on DR or real collection may pay back more.
+Then "where does the next dollar go" becomes a quantity defined on interventions that must be estimated sequentially in the real world:
 
-Mapping each intervention to the term it primarily buys down, and to which budget it primarily consumes, gives this table — note the cost column is now split along the **budget vector**, because lumping everything into "sim cost" hides the truth (most of system identification's cost is real excitation experiments + parameter estimation + instrumentation + simulator engineering + optimization compute, not some "simulator fidelity cost"):
+$$\boxed{\;m^{*} \;=\; \operatorname*{arg\,max}_{m}\; \frac{\mathbb{E}\big[\,J_{\mathrm{real}}(\pi_{b+m}) - J_{\mathrm{real}}(\pi_{b})\,\big]}{C(m)}\;}$$
+
+This ratio is not analytically solvable from the simulator; it must be **sequentially estimated** via pilot experiments / ablation / few-shot real evaluation. It is naturally a **sequential empirical decision** (close to bandit / active experimentation), and it reconnects with the previous article's sequential data allocation. Since $MV$ typically diminishes with spend, we also get the intuition for why **the first 2 hours of SI feel worth it but another 20 hours may not**: the parameters that are easiest to identify and matter most are already calibrated in the first 2 hours, and the remaining 18 are often better spent on DR or real data collection.
+
+Mapping each intervention to its primary compressed term and primary budget gives us this table — cost is broken along the **budget vector** (SI's bulk is actually real excitation + parameter estimation + instrumentation + simulator engineering + optimization compute, not "simulator fidelity cost"):
 
 | Intervention | Primary term compressed | Primary budget |
 | --- | --- | --- |
-| System Identification | $\Delta_{\mathrm{model}}$ | $C_{\mathrm{eng}}$ + $C_{\mathrm{compute}}$ + some $C_{\mathrm{real}}$ |
+| System Identification | $\Delta_{\mathrm{model}}$ | $C_{\mathrm{eng}}$ + $C_{\mathrm{compute}}$ + a little $C_{\mathrm{real}}$ |
 | Domain Randomization | $\Delta_{\mathrm{model}} + \Delta_{\mathrm{dist}}$ | $C_{\mathrm{compute}}$ (sample efficiency) |
 | Residual physics | $\Delta_{\mathrm{model}}$ (residual part) | $C_{\mathrm{real}}$ + $C_{\mathrm{compute}}$ |
-| Domain Adaptation | $\Delta_{\mathrm{obs}}$ | $C_{\mathrm{real}}$ (unlabeled data) + $C_{\mathrm{compute}}$ |
-| Real-world fine-tuning | residual $\Delta J$ (incl. $\Delta_{\mathrm{opt}}$) | $C_{\mathrm{real}}$ (wear / safety) |
-| World model | changes the model source | $C_{\mathrm{real}}$ + $C_{\mathrm{compute}}$ |
-| Sim-and-real co-training | changes $p_{\mathrm{train}}$ (mostly $\Delta_{\mathrm{dist}}$) | mixed data ($C_{\mathrm{real}}+C_{\mathrm{compute}}$) |
+| Domain Adaptation | $\Delta_{\mathrm{obs}}$ (appearance subset) | $C_{\mathrm{real}}$ (unlabeled) + $C_{\mathrm{compute}}$ |
+| Real-world fine-tuning | transfer residual + task-learning gap | $C_{\mathrm{real}}$ (wear / safety) |
+| World model | change model source | $C_{\mathrm{real}}$ + $C_{\mathrm{compute}}$ |
+| Sim-and-real co-training | change $p_{\mathrm{train}}$ (mostly $\Delta_{\mathrm{dist}}$) | mixed data ($C_{\mathrm{real}}+C_{\mathrm{compute}}$) |
 
-With $MV_k$, the whole post stops being "which of four methods is best" and becomes a loop: **first localize which layer's $\Delta_k$ dominates, then use $S_k$ to judge how sensitive it is for the current task, then invest the next unit of budget along the axis with the highest marginal utility, and finally measure on real evaluation how much $J_{\mathrm{real}}$ that budget actually bought, to decide the next one.** This connects straight back to Part 2's evaluation-aware distribution allocation — only here the thing being allocated is engineering budget between simulation and reality.
+With this writing, the whole article is not "which of four methods wins" but a loop: locate the dominant $\Delta_k$, use sensitivity to judge how much it matters, spend a slice of budget on the intervention with the highest estimated $MV$, measure how much $J_{\mathrm{real}}$ bought back, then decide the next slice. That closes the loop with the previous article's evaluation-aware distribution allocation — only this time the object being allocated is engineering budget across simulation and reality.
 
-## Four Intervention Axes (Not Four Mutually Exclusive Methods)
+## Four intervention axes (more precisely, four relatively independent intervention dimensions)
 
-With the framework in place, let's examine the tools one by one. First a structural point: system identification, domain randomization, domain adaptation, and real-world fine-tuning are **not categories at the same level of abstraction** — SI is model calibration, DR is training-distribution manipulation, DA is representation alignment, fine-tuning is an optimization strategy. Lining them up as "four methods" wrongly implies you must pick one. They are in fact **four mutually orthogonal intervention axes** that can be freely combined:
+With the framework, look at the tools. First, set up a structure: SI, DR, DA, and real-world fine-tuning **are not peer categories at the same level of abstraction** — SI is model calibration, DR is training distribution manipulation, DA is representation alignment, fine-tuning is an optimization strategy. Presenting them as four parallel methods misleads people into picking one; they are actually **four relatively independent intervention dimensions** that compose:
 
 $$\boxed{\text{Model} \times \text{Data} \times \text{Representation} \times \text{Optimization}}$$
 
-Precisely because they are orthogonal, "combination" is the natural thing — you can swap means within one axis and push on several axes at once.
+But honestly add: the "$\times$" here denotes a **combinatorial space**, not orthogonality in the mathematical sense. DR randomizes physics, vision, initial state, and delay, simultaneously touching Model / Observation / Distribution; DA can act on input / feature / latent dynamics / policy / output — "DA = representation axis" is also an abstraction, not a strict definition. The honest phrasing is "**relatively independent, composable dimensions**," not "mutually orthogonal axes."
 
-**The test for choosing a tool is not "systematic error goes to SI, random error goes to DR."** That mnemonic is fine, but what SI actually does is estimate
+**The tool-selection rule is not "systematic goes to SI, random goes to DR."** That aphorism is fine as memory, but SI actually estimates
 
 $$\hat\phi \;=\; \operatorname*{arg\,min}_{\phi}\; D\big(p_{\mathrm{sim}}(\tau \mid \phi),\; p_{\mathrm{real}}(\tau)\big)$$
 
-what it addresses is **identifiable, parameterizable model mismatch** — not "anything systematic belongs to it" (actuator gain, latency, friction, and mass can themselves be stochastic processes rather than deterministic systematic bias). Likewise, what DR addresses is **uncertainty that can be represented by a training distribution**. So the more useful partition is a triple test:
-
-> **Can this mismatch be expressed by a trustworthy parameterized model (parameterizable)? Can it be identified from a limited amount of real-robot data (identifiable)? If it cannot be identified, can it be covered by widening the training distribution (coverable)?**
+which addresses **identifiable, parameterizable model mismatch**, not "everything systematic belongs to it" (actuator gain, latency, friction, and mass may be stochastic processes rather than deterministic biases). Symmetrically, DR addresses **uncertainty that a training distribution can express**. So the more useful partition is not a binary but a continuous spectrum "point estimate → posterior → robust randomization":
 
 | Nature of the mismatch | More natural tool |
 | --- | --- |
-| Parameterizable + identifiable | System Identification |
+| Parameterizable + identifiable | System Identification (point estimate $\hat\phi$) |
+| Parameterizable but only a posterior is available | Bayesian / posterior SI → posterior-guided DR |
 | Parameterizable but hard to identify / high uncertainty | Domain Randomization |
-| Not parameterizable but with residual structure | Residual learning |
+| Not parameterizable but has residual structure | Residual learning |
 | Observation / appearance mismatch | Domain Adaptation |
-| Policy still has systematic residual in the target domain | Fine-tuning |
+| Policy still has systematic residual on target domain | Fine-tuning |
 
-### Axis A — Model: system identification, differentiable simulation, and residual physics
+The key is: **"not precisely identifiable" and "no knowledge at all" are not the same thing.** Once you have a posterior $p(\phi \mid D_{\mathrm{real}})$, the natural move is not "since it is uncertain, do uniform DR" but $\phi \sim p(\phi \mid D_{\mathrm{real}})$ for **posterior-guided randomization** — this stitches SI and DR into a continuous spectrum, and fits the article's allocation theme.
 
-This axis handles $\Delta_{\mathrm{model}}$, and internally there are three **orthogonal** questions, routinely collapsed into vague phrases like "differentiable simulation = more powerful SI":
+### Axis A — Model: system identification, differentiable simulation, residual physics
 
-$$f_{\mathrm{real}}(x,a) \;=\; \underbrace{f_{\mathrm{physics}}(x,a;\phi)}_{\text{parameterizable physics}} \;+\; \underbrace{r_\theta(x,a)}_{\text{residual}} \;+\; \epsilon$$
+This axis handles $\Delta_{\mathrm{model}}$ and internally contains three **distinct levels** of question, usually conflated under "differentiable simulation is stronger SI":
 
-- **Differentiable simulation answers "how do we optimize the model"** — it provides the optimization interface $\partial f/\partial\phi$; DiffTaichi (Hu et al., 1910.00935) and Interactive Differentiable Simulation (Heiden et al., ICRA 2021, 1905.10706) make parameter estimation gradient-based.
-- **System identification answers "which parameters do we optimize"** — the $\phi$ above. Classical SI sweeps parameters and fits trajectories; differentiable simulation instead updates $\phi$ by backpropagation like network weights. The actual workflow is moreover often **real → identify → sim → train → real**, so a more accurate name is **real-to-sim-to-real**.
-- **Residual physics answers "who explains the part the model didn't explain"** — instead of hard-calibrating $\phi$, let a network learn a residual $r_\theta$ to absorb the difference.
+$$x_{t+1} \;=\; \underbrace{f_{\mathrm{physics}}(x_t,a_t;\phi)}_{\text{parameterizable physics}} \;+\; \underbrace{r_\theta(x_t,a_t)}_{\text{residual}} \;+\; \epsilon_t$$
 
-There is a decisive point here, precisely the one most easily masked by the word "differentiable": **differentiability solves the optimization interface, not the model-class correctness.** If the simulator's contact model does not represent some real phenomenon at all, then however precisely you take gradients with respect to that wrong model, you can only obtain "the optimal parameters *under the wrong model*." Differentiable simulation lets you estimate $\phi$ more accurately, but will not write the functional form of $f_{\mathrm{physics}}$ correctly for you; the part it can't write, you hand to a residual, or you abandon the premise of "build a trustworthy sim first" (see world model). The three are orthogonal, and bundling them into a single "advanced differentiable simulation" narrative is exactly what hides the model-class problem that actually decides success or failure.
+- **Differentiable simulation answers "how to optimize the model"** — it supplies the optimization interface $\partial f/\partial\phi$; DiffTaichi (Hu et al., ICLR 2020, 1910.00935) and Interactive Differentiable Simulation (Heiden et al., arXiv 2019, 1905.10706) turn parameter estimation into a gradient-based procedure.
+- **System identification answers "which parameter to optimize"** — namely $\phi$. Classical SI scans parameters and fits trajectories; differentiable simulation updates $\phi$ via backprop like weights. The real workflow is often **real → identify → sim → train → real**, so a more accurate name is **real-to-sim-to-real**.
+- **Residual physics answers "who explains the part the model did not explain"** — instead of forcing a calibration of $\phi$, let a network learn $r_\theta$ to fill the gap.
 
-SI has two further, subtler but very real traps. **First, $p_{\mathrm{real}}(\tau)$ is almost never directly accessible in reality** — we only have finitely many real trajectories $\{\tau_i^{\mathrm{real}}\}_{i=1}^N$, so that $\arg\min_\phi D(\cdot)$ above actually runs on an empirical estimate: $\hat\phi=\arg\min_\phi \sum_i \ell\big(\tau_i^{\mathrm{sim}}(\phi),\tau_i^{\mathrm{real}}\big)$, where $p_{\mathrm{real}}$ is approximated by the empirical distribution of the finite real trajectories. **Second, the parameters existing $\neq$ the parameters being identifiable** — identifiability also depends on excitation and sensor observability: mass, damping, and stiffness can produce nearly identical observable trajectories under certain excitation regimes and cannot be estimated independently. Being able to write a parameter into the simulator never means it can be uniquely estimated from a finite amount of real-robot data.
+Here $r_\theta$ is just a **unified notation**: the actual residual need not sit directly on $f$; it can be defined on state transition, force, acceleration, contact impulse, deformation field, or other simulator latents — the soft-robot paper, for example, learns a residual force applied to the whole simulated mesh.
 
-Residual physics also deserves its boundary tightened: it is **not automatically applicable "because the functional form of the physics model is wrong."** Its sweet spot is "an existing physics model explains most of the structure, and the remaining error has a stable, learnable structure," i.e. at least on the target distribution $\|r_\theta\|\ll\|f_{\mathrm{physics}}\|$; if $f_{\mathrm{physics}}$ is entirely wrong, then $f_{\mathrm{physics}}+r_\theta$ may still fit in principle, but the residual network degrades into carrying the whole dynamics and loses the physics inductive bias — at which point you might as well learn a model directly. This route is most useful in settings like soft robots (Michelis et al., 2402.01086) and buoyancy-based legged robots (Chae et al., 2303.09597), where "the backbone physics still counts, but the local friction / contact / deformation has a stable residual."
+There is a make-or-break point that is easily hidden behind the word "differentiable": **differentiability solves the optimization interface, not model class correctness.** If the simulator's contact model simply does not express a real phenomenon, then differentiating through that wrong model as precisely as you like still gives "the optimum under a wrong model." Differentiable simulation lets you estimate $\phi$ better; it does not write $f_{\mathrm{physics}}$ correctly for you — the parts it cannot get right are handed to the residual, or you abandon the premise "first build a trustworthy sim" (see world model).
+
+SI also has two smaller but practical pitfalls. **First, $p_{\mathrm{real}}(\tau)$ is essentially not directly accessible** — you only have a finite set of real trajectories $\{\tau_i^{\mathrm{real}}\}_{i=1}^N$, so the $\arg\min_\phi D(\cdot)$ above is actually run on an empirical estimate: $\hat\phi=\arg\min_\phi \sum_i \ell\big(\tau_i^{\mathrm{sim}}(\phi),\tau_i^{\mathrm{real}}\big)$. **Second, parameters existing ≠ parameters identifiable** — identifiability depends on excitation and sensor observability: mass, damping, and stiffness can produce nearly identical observable trajectories under some excitations and cannot be estimated separately.
+
+Residual physics also needs a narrower boundary: it is **not automatically applicable whenever the physics function form is wrong.** A common sweet spot is residual being relatively bounded on the target distribution ($\|r_\theta\| \ll \|f_{\mathrm{physics}}\|$), but the real question is not whether the residual must be "small" — it is whether $f_{\mathrm{physics}}$ still provides a **useful structural inductive bias** — inductive bias, state representation, constraints, extrapolation prior. Conversely, if $f_{\mathrm{physics}}$ is completely wrong and the residual has to carry the entire dynamics alone, you are better off just learning a model. It works best in settings like soft robots (Gao et al., RA-L 2024, 2402.01086) and buoyancy-assisted legged robots (Sontakke et al., 2023, 2303.09597) where the "trunk physics still counts, and the local friction / contact / deformation has a stable residual."
 
 ### Axis B — Data distribution: domain randomization and its family
 
-This axis does not chase some "most accurate" $p_{\mathrm{real}}$; instead it makes the policy robust to a family of parameters $\{\phi\}$: randomize physics, vision, initial state, and delay during training, so that as long as the real system lands inside the family's support, the policy holds up. Tobin (1703.06907) used pure visual randomization to move sim-trained grasp detection onto a real robot; Peng (1710.06537) pushed randomization into dynamics; OpenAI's in-hand manipulation (Akkaya et al., 1808.00177) is almost a maximalist demonstration of DR — **relying not on precise calibration but on "the randomization range being wide enough" to absorb most of the difference.**
+This axis does not chase some "most accurate" $p_{\mathrm{real}}$; instead it makes the policy robust to a family of parameters $\{\phi\}$: randomize physics, vision, initial state, and delay during training, and as long as reality falls inside that family, the policy holds up. Tobin (1703.06907) used pure visual randomization to bring sim grasp detection to the real table; Peng (1710.06537) pushed randomization into dynamics; OpenAI's in-hand manipulation (Akkaya et al., 1808.00177) nearly took DR to its extreme — **absorb difference not by precise calibration but by "wide enough randomization range."**
 
-A commonly mis-stated intuition: DR is not an "implicit ensemble." It trains a **single** shared policy $\pi_\theta$, with an objective roughly
+A commonly mis-written intuition: DR is not an "implicit ensemble." It trains **a single** shared policy $\pi_\theta$, with roughly the objective
 
 $$\max_{\theta}\; \mathbb{E}_{\phi \sim p(\phi)}\big[J(\pi_\theta;\phi)\big]$$
 
-whereas an ensemble in the usual sense is multiple models $\{\pi_1,\dots,\pi_K\}$. The accurate statement is: **DR is population-level optimization over a family of environment models, not optimization against a single simulator.** Intuitively it resembles ensemble training (the policy is forced to do well across a whole family of dynamics), but the result is one shared policy, not an ensemble of policies.
+whereas a classic ensemble is a set of models $\{\pi_1,\dots,\pi_K\}$. A more accurate phrasing is: **DR is a population-level optimization over a family of environment models, not an optimization against a single simulator** — intuitively it resembles ensemble training, but the outcome is one shared policy, not an aggregation of many.
 
-The condition for DR to work also needs to be stated precisely: merely "widening the range" is not enough — what is really required is that **the real parameter distribution be covered by the support of DR and actually trained in the high-density region**, loosely written $p_{\mathrm{real}}(\phi) \ll p_{\mathrm{DR}}(\phi)$. If $\phi_{\mathrm{real}}$ lies inside $\mathrm{support}(p_{\mathrm{DR}})$ but happens to fall in an extremely low-probability tail where the policy was almost never trained, it will still perform badly. So too narrow misses and too diffuse dilutes; the crux again returns to allocation — **whether the randomization distribution is aligned with the evaluation distribution and objective.** Overly wide or task-irrelevant randomization lowers sample efficiency and forces the policy to compromise across many conflicting dynamics, making it look overly conservative; but under some robust / adversarial settings, widening the uncertainty set can instead improve robustness — so "wider range means more conservative" is not a universal rule; alignment is what matters.
+The condition for DR to work also has to be written carefully: "widening the range" is not enough; you generally need the real parameter distribution to be supported by DR and trained in high-density regions — approximately $p_{\mathrm{real}}(\phi) \ll p_{\mathrm{DR}}(\phi)$; if $\phi_{\mathrm{real}}$ technically falls inside the support but lands in an extremely low-probability tail, the policy was essentially never trained there and will still fail. What matters more, however, is: **for policy transfer, what really has to be covered is not the marginal support of parameter space but the state-action / contact occupancy $d_{\mathrm{real}}^{\pi}(s,a)$ the policy actually visits under evaluation** — parameter coverage ≠ deployment trajectory coverage, and **joint correlations** across parameters are hard to reproduce by independent per-dimension randomization. So the question returns to allocation: **is the randomization distribution aligned with the evaluation distribution and the objective.** Overly wide or task-irrelevant randomization lowers sample efficiency and forces the policy to compromise across conflicting dynamics; but in some robust / adversarial settings, widening the uncertainty set actually helps — so "wider is more conservative" is not a universal rule; alignment is what matters.
 
-"Adaptive / Automatic DR" is not a single method either but a family worth spreading out: curriculum over randomization (widening the range as training progresses), adversarial domain randomization (sampling the parameters that most break the current policy), automatic domain randomization (adapting and contracting the range with performance), posterior-based sampling (sampling from an identified posterior), and performance-driven range adaptation. Their mechanisms differ; they share one aim — **avoid over-randomizing at the start.**
+"Adaptive / Automatic DR" is also not one method but a family: curriculum over randomization, adversarial DR (sample parameters that break the current policy), automatic DR (adapt the sampling distribution based on training performance or real feedback), posterior-based sampling, performance-driven range adaptation — mechanisms vary (some widen, some narrow, some specifically hunt hard domains), but the common thread is **avoiding over-randomization from the start**.
 
 ### Axis C — Representation: domain adaptation and observation translation
 
-This axis handles $\Delta_{\mathrm{obs}}$; it neither calibrates physics nor randomizes, but aligns sim and real at the **representation level**: a feature-level adapter, image translation (GAN / diffusion), or a randomized-to-canonical translation network such as RCAN (James et al., CVPR 2019, 1812.07252), which "translates" randomized sim images back into an approximately canonical clean image before feeding the downstream policy — neatly **stitching DR from Axis B onto this axis** to offset the performance loss of overly wide randomization. It handles the portion of the gap where "the physics is actually close, but it just looks nothing alike."
+This axis handles $\Delta_{\mathrm{obs}}$: it neither calibrates physics nor randomizes, but aligns sim and real **at the representation level** — feature-level adapters, image translation (GAN / diffusion), or the randomized-to-canonical translation network RCAN (James et al., CVPR 2019, 1812.07252) which "translates" randomized sim images back to something like a canonical clean image before feeding a downstream policy, and neatly **stitches Axis B's DR to this axis**. It handles that part of the gap where "physics is actually pretty close, but things just look nothing alike."
 
-But one failure mode is specific to DA and worth calling out: **for policy learning, domain invariance is not the goal; task-relevant invariance is.** Merely aligning the two features ($z_{\mathrm{sim}}\approx z_{\mathrm{real}}$) is not enough — the ideal is **to shrink the domain difference while preserving task information**: keep $I(z;y_{\mathrm{task}})$ high while making $D(z_{\mathrm{sim}},z_{\mathrm{real}})$ low. In other words, alignment is not "the stronger the better," but "align only the task-irrelevant variation." This is the same thing as the previous section's "overly wide DR erases task signal," seen from the representation side.
+But two boundaries need to be written precisely: **First, DA is only a subset of observation mismatch** — especially good for appearance / representation shift, while camera intrinsics/extrinsics, temporal sync, sensor bias, depth distortion, and state estimation are better handled by calibration / SI / sensor modeling; otherwise readers will form a new wrong aphorism, "observation gap → DA." **Second, for policy learning, domain invariance is not the goal — task-relevant invariance is.** Aligning $z_{\mathrm{sim}}\approx z_{\mathrm{real}}$ alone is not enough; ideally you keep $I(z;y_{\mathrm{task}})$ high while pushing $D(z_{\mathrm{sim}},z_{\mathrm{real}})$ low, i.e., align only those variations irrelevant to the task. This is really the same statement as "overly wide DR washes out the task signal," seen from the representation layer.
 
 ### Axis D — Optimization / adaptation: real-world fine-tuning
 
-This axis handles "the residual $\Delta J$ left after the first three axes have done their work" — pre-train at scale in simulation to learn structure, then hand off to real-robot data. But two regimes have completely different cost structures, and a single phrase "fine-tune with RL or imitation" blurs them:
+This axis handles what is left after the first three — large-scale pre-training in sim to learn structure, then real data as the relay. Picking up the earlier distinction, fine-tuning compresses two things at once: **transfer residual** and **task-learning gap (policy itself not trained enough)** — do not describe it just as "closing reality gap." And the two regimes have completely different cost structures; do not fudge them together as "RL or imitation fine-tuning":
 
-- **Offline / imitation:** $D_{\mathrm{real}} \to \theta$; the main cost is **data collection** (one-off, offline, reusable).
-- **Online RL:** $\pi_\theta \to a \to$ a real transition $\to \theta'$; the main cost is **interaction + safety + hardware wear + exploration** (every step consumes physical resources).
+- **Offline / imitation:** $D_{\mathrm{real}} \to \theta$, main cost is **data collection** (one-shot, offline, reusable).
+- **Online RL:** $\pi_\theta \to a \to$ real transition $\to \theta'$, main cost is **interaction + safety + hardware wear + exploration** (every step consumes physical resources).
 
-This distinction decides "is fine-tuning worth it": for real-robot learning, comparing methods cannot stop at the final success rate — you must also look at **how much real-robot interaction budget it takes to reach a target performance**. So a pragmatic metric that should enter the $C_{\mathrm{real}}$ above is
+So comparing methods cannot just look at final success rate; it must also consider **the real interaction budget needed to hit target performance**. A commonly cited rough indicator is
 
 $$\eta_{\mathrm{real}} \;=\; \frac{\Delta J_{\mathrm{real}}}{\text{robot-hours}} \qquad \text{or}\qquad \frac{\Delta J_{\mathrm{real}}}{N_{\mathrm{real}}}$$
 
-The same +5 points, if one route needs 2 robot-hours and another 40, are simply not the same thing physically. The risks are not limited to "catastrophic forgetting / false prior"; more common is **distribution narrowing** — real fine-tuning data is usually much narrower than the sim distribution ($D_{\mathrm{sim}} \to D_{\mathrm{real}}^{\mathrm{narrow}}$), so after fine-tuning the policy may be better on the target deployment slice yet *less* robust overall — trading **generalization for specialization**. If the real data only covers one narrow slice, fine-tuning pulls a robust policy back into a deployment-specific one.
+but this is only a **rough indicator**: it depends on baseline (5%→10% and 80%→85% are both +5%, with completely different meanings), and it is not real marginal efficiency. What you should actually look at is the learning curve, real samples to reach target, AULC, and marginal gain per 100 trajectories,
 
-## Two Newer Routes That Loosen the "Two Given Distributions" Assumption
+$$MV_{\mathrm{real}} \;\approx\; \frac{J(N+\Delta N)-J(N)}{\Delta N}$$
 
-The four axes above share an implicit premise: **$p_{\mathrm{sim}}$ and $p_{\mathrm{real}}$ are two given distributions**, and what you do is calibrate, cover, align, or relay. The two routes below loosen that premise itself — they are not "a fifth or sixth transfer trick" but a reformulation of the whole problem.
+— only that connects with the article-wide $MV$ framework. Risks are also not limited to "catastrophic forgetting / wrong priors": more common is **distribution narrowing** — real fine-tune data is often much narrower than sim ($D_{\mathrm{sim}} \to D_{\mathrm{real}}^{\mathrm{narrow}}$), so after fine-tuning the policy looks better on the target slice but its robustness can drop, which is **trading generalization for specialization**.
 
-### World model: not removing the simulator, but replacing its source
+## Two new routes that loosen the "two given distributions" assumption
 
-[Part 2 on data scaling](/en/articles/2026-09-09-robot-data-scaling/) discussed the relation between world models and data utility. Placed in the sim-to-real context, a positioning misreading has to be corrected: **a world model does not inherently belong to sim-to-real.** The causal directions of classical sim-to-real and the world-model route differ:
+The four axes above share an implicit premise: **$p_{\mathrm{sim}}$ and $p_{\mathrm{real}}$ are two given distributions**, and your job is to calibrate, cover, align, or relay. The two routes below loosen this premise itself — they are not "the fifth and sixth transfer tricks" but a reformulation of the whole problem.
+
+### World model: not cancelling the simulator, but replacing the simulator's source
+
+The [Data Scaling for Robots](/en/articles/2026-09-09-robot-data-scaling/) article already discussed world models and data utility. Placed into sim-to-real, first correct a positioning misreading: **world model does not naturally belong to sim-to-real** — the two routes have different causal directions:
 
 ```
-Classical sim-to-real:   sim dynamics → train policy → deploy real
-World-model route:       real interaction → learn dynamics → imagine → optimize policy
+Classic sim-to-real:  sim dynamics → train policy → deploy real
+World model route:    real interaction → learn dynamics → imagine → optimize policy
 ```
 
-A point to state precisely: a world model **does not remove the simulator** — it replaces the simulator's role from "a hand-specified physics model" to "a predictive model learned from interaction data":
+To say it precisely: world model **does not cancel the simulator** — it swaps the simulator's role from "hand-specified physics model" to "predictive model learned from interaction data":
 
 $$f_{\mathrm{hand\text{-}designed}} \;\longrightarrow\; f_{\mathrm{learned}}$$
 
-What genuinely changes is the **model source**. Dreamer (1912.01603) and TD-MPC2 (2310.16828) embody this route. So when the **artificial simulator's model bias is too large — too large to be worth fixing the sim first** — the world model offers **a rewrite of the sim-to-real problem itself**, not a transfer technique under it.
+What really changes is the **model source**. Dreamer (1912.01603) and TD-MPC2 (2310.16828) embody this route. When **the model bias of a hand-crafted simulator is too large to be worth fixing first**, world model offers a rewrite of the sim-to-real problem itself, not a transfer technique under it.
 
-DayDreamer (2206.14176) is often mis-cited as a "sim pre-train → real fine-tune" example, but its key contribution is precisely the opposite: a world model learned directly from real-robot interaction, with policy improvement carried out in latent imagination, relying almost entirely on no hand-built sim. Still, let's be clear: **not depending on a hand-built physics simulator does not mean model-free.** World-model learning is itself full of assumptions — representation, model architecture, action space, reward, exploration, real-data quality; it merely moves the inductive bias from an explicit physics simulator into a learned world model.
+DayDreamer (2206.14176) is often misread as "sim pretraining → real fine-tune," but its point is actually the opposite — the world model learns directly from real interaction and does policy improvement inside latent imagination, barely relying on hand-crafted sim. But be careful: **not relying on an explicit physics simulator does not mean model-free**; world-model learning still eats its share of assumptions (representation, architecture, action space, reward, exploration, real data quality), it merely shifts inductive bias from "explicit physics simulator" to "learned world model."
 
-An honest boundary: "learn dynamics from real data" **does not mean it is inherently better than simulation.** It trades "hand-modeling cost" for "real-collection cost + model-capacity cost"; and in contact-rich, long-tail, high-sensor-noise settings, the learned model very often produces **confident but wrong imagination** in out-of-distribution regions it never saw, and the policy will confidently plan into that error. So it is just **yet another trade-off** between "hand-built sim" and "direct real-robot RL," not an endgame.
+The honest boundary: "learning dynamics from real data" **does not mean it is naturally better than simulation**. It swaps "modeling cost" for "real collection + model capacity cost"; in contact-rich, long-tail, sensor-noisy settings, learned models often produce **confidently wrong imagination** out of distribution, and the policy will happily plan along that error. So this is **another trade-off** between "handcrafted sim" and "direct real-world RL," not the end state.
 
-### Sim-and-real co-training: rewriting "transfer" as a data mixture
+### Sim-and-real co-training: reframing "transfer" as data mixture
 
-The Sim-and-Real Co-Training of Maddukuri et al. (2503.24361) is a pragmatic route. **What the paper actually reports** is: mixing sim and real datasets within the same training run, and observing average performance gains across two robot platforms and multiple tasks; it does no one-way sim→real transfer, instead letting a single recipe decide the ratio and schedule between the two sources.
+Maddukuri et al. (RSS 2025, 2503.24361) proposed Sim-and-Real Co-Training as a pragmatic direction. **What the paper actually reports**: mixing sim and real datasets inside one training run yields about 38% (precisely 37.9%) average performance improvement across two robot platforms and six tasks; it is not one-way sim→real transfer but a recipe that fixes the ratio and schedule.
 
-**This post's interpretation (not a conclusion proven by the paper)** is to read it further as a **data-mixture problem**: once reframed that way, DR and real data are no longer substitutes but two sources feeding the same $T_R[p_{\mathrm{raw}}]$ sampling distribution (echoing Part 1's "$p_{\mathrm{train}} = T_R[p_{\mathrm{raw}}]$ — the recipe is the transformation from raw data to the distribution the model actually sees"). To state it precisely: co-training **does not require modifying the simulator itself, nor introducing a separate sim→real adapter**; it mainly changes the policy's optimization distribution by changing the training-data mixture — $p_{\mathrm{train}}=\lambda\, p_{\mathrm{sim}}+(1-\lambda)\, p_{\mathrm{real}}$ (of course the policy parameters $\theta$ still update). This is also why it is orthogonal to the four axes above: it changes neither the sim nor the tools, only the mixture.
+**This article's reading (not the paper's conclusion)** is to push it one step further into a **data-mixture problem**: once reframed that way, DR and real data are no longer substitutes but two sources of $T_R[p_{\mathrm{raw}}]$ on the same sampling distribution (echoing the previous article's "$p_{\mathrm{train}} = T_R[p_{\mathrm{raw}}]$"). To write it precisely: co-training's **primary intervention variable is the training mixture** — $p_{\mathrm{train}}=\lambda\, p_{\mathrm{sim}}+(1-\lambda)\, p_{\mathrm{real}}$ — not simulator calibration and not an explicit deployment-time adapter. But do not reduce it to "only the data-distribution axis": follow-up mechanistic analyses in 2026 (Lei et al., arXiv 2026, 2604.13645) show that changing the mixture induces **structured representation alignment and importance reweighting**. So this is a route where "mixture is the primary lever, but the effects cut across multiple dimensions," not a fifth axis strictly orthogonal to the previous four.
 
-The **mechanism** of this route is now itself under scrutiny: a 2026 follow-up (A Mechanistic Analysis of Sim-and-Real Co-Training, arXiv:2604.13645) proposes two mechanisms for why co-training works — structured representation alignment and importance reweighting. "Mixing works" is turning from an empirical phenomenon into a research object with candidate explanations.
+## Evaluation: how do you know you actually closed the gap?
 
-## Evaluation: How Do You Know You've Closed the Gap?
+A dangerous practice is reporting performance only on sim benchmarks — that measures consistency between your policy and your simulator, not between your policy and the real world. A more credible evaluation should at least do the following:
 
-A dangerous practice is reporting performance only on a sim benchmark — that measures the consistency between the policy and *your own* simulator, not between it and the real world. A more credible evaluation should at least do the following:
+- Report **zero-shot transfer** (no real fine-tuning) to the real system, plus curves after **few-shot / N-shot** adaptation;
+- Test on a set of **held-out physical systems** (different calibration, cameras, contact surfaces), not just "that one deployed robot";
+- Explicitly declare whether **task, initial state, and evaluation distribution** match between sim and real — otherwise comparisons are simply not fair (which is why objective mismatch must be aligned first);
+- Do **failure attribution**: which layer of $\Delta_k$ dominates? Sensitivity and remediation cost differ wildly across layers; get attribution wrong and the budget goes to the wrong place.
 
-- report **zero-shot transfer** (no real fine-tuning at all) performance on the real system, plus the curve after **few-shot / N-shot**;
-- test against a set of **held-out physical systems** (different calibration, different cameras, different contact surfaces), not just "that one deployment robot";
-- explicitly state whether sim and real share the same **task, initial-state, and evaluation distribution** — otherwise the comparison is simply unfair (this is exactly why the objective mismatch must be aligned first);
-- do **failure attribution**: which layer's $\Delta_k$ dominates? Their sensitivities $S_k$ and remediation costs differ by orders of magnitude, and a wrong attribution sends the budget to the wrong place;
-- record **$\eta_{\mathrm{real}}$**: for routes that use real data, report "performance per unit of real-robot wear."
-
-Following "sim is a proxy for the real world," there is a question more fundamental than numerical agreement: **can the simulator correctly predict which policy is better?** Consider:
+Following "the simulator is a proxy for the real world," there is a question more fundamental than numerical alignment: **can the simulator correctly predict which policy is better?** Consider:
 
 | Policy | Sim | Real |
 | --- | ---: | ---: |
@@ -254,61 +264,65 @@ Following "sim is a proxy for the real world," there is a question more fundamen
 | B | 80 | 70 |
 | C | 70 | 65 |
 
-On sim it looks like $A > B > C$; on the real robot it is $B > C > A$. Here the simulator does not merely have a calibration error — it has **lost model-selection utility**: you would use it to pick out the worst policy. So **when the simulator is used for policy / model selection**, a metric more direct than absolute numerical error is rank correlation:
+In sim it looks like $A > B > C$; on the real robot it flips to $B > C > A$. Here the simulator is not just carrying calibration error — it has **lost model-selection utility** — you would use it to pick out the worst policy. So **when the simulator is used for policy / model selection**, a more direct metric than absolute numerical error is rank correlation $\rho_{\mathrm{rank}} = \mathrm{Spearman}\big(J_{\mathrm{sim}}(\pi_i),\ J_{\mathrm{real}}(\pi_i)\big)$.
 
-$$\rho_{\mathrm{rank}} \;=\; \mathrm{Spearman}\big(J_{\mathrm{sim}}(\pi_i),\ J_{\mathrm{real}}(\pi_i)\big)$$
+But Spearman is still not the most direct. What engineering really dreads is "I trusted sim, and it picked the wrong top-1." So also add a policy-selection regret:
 
-This is a **conditional metric**, specific to the "use sim to pick policies" use case — it is not the sole standard for judging a simulator. Sim has many uses that do not require ranking a whole policy family: representation pretraining, exploration, curriculum, safety filtering, controller initialization, rare-event generation, and so on. But for "screening / comparing an entire candidate policy family," a sim that underestimates every score by 20 points yet ranks them perfectly consistently is still a good tool, whereas a sim whose numbers are close but whose rankings flip often may be more dangerous than having none. This also means: when assessing simulator fidelity you should not fixate on a single policy but evaluate against the **candidate policy family**, i.e. write it as $U_{\mathrm{sim}}=U(D_{\mathrm{sim}}\mid \Pi_{\mathrm{candidate}},\,p_{\mathrm{eval}}^{\mathrm{real}})$.
+$$\pi_{\mathrm{sim}} = \operatorname*{arg\,max}_{\pi \in \Pi} J_{\mathrm{sim}}(\pi), \qquad R_{\mathrm{select}} = J_{\mathrm{real}}\big(\pi^{*}_{\mathrm{real}}\big) - J_{\mathrm{real}}\big(\pi_{\mathrm{sim}}\big)$$
 
-## Combination, Decision — and a Question Usually Dodged
+For example, Spearman = 0.95 but the top-1 pick is wrong is still an engineering disaster; conversely, Spearman = 0.7 but top-1 rarely misses is enough for "pick one deployable policy." So **when the simulator is used for policy selection, look at rank correlation together with top-1 / top-k selection regret.** Both are **conditional metrics**, only for "using sim to pick a policy"; sim has many other uses that do not require ranking the whole policy family (representation pretraining, exploration, curriculum, safety filtering, controller initialization, rare-event generation, and so on). Judging simulator fidelity also should not focus on a single policy but on a **candidate policy family**, writing $U_{\mathrm{sim}}=U(D_{\mathrm{sim}}\mid \Pi_{\mathrm{candidate}},\,p_{\mathrm{eval}}^{\mathrm{real}})$.
 
-With a priority in hand, "which one, when" should not be a fixed pipeline but a lookup table. Real projects usually have several conditions holding at once, so a **gap × parameterizability × real-data-budget** matrix is more useful (the "Real data" column maps directly onto the budget vector $B$):
+## Composition, decision, and a question usually dodged
 
-| Gap | Parameterizable / identifiable? | Real data | Recommended |
+With a priority order, "when to use which" should not be a fixed pipeline but a lookup table. Real projects often satisfy multiple conditions at once, so a more useful shape is a **gap × modellability × real-budget** decision matrix (the "Real data" column directly corresponds to the budget vector $B$ above):
+
+| Gap | Parameterizable / identifiable? | Real data | Recommendation |
 | --- | --- | ---: | --- |
-| dynamics bias | high | little | SI |
-| dynamics uncertainty | medium | little | DR |
-| dynamics residual | low (but structured) | some | Residual learning |
-| visual appearance | high | none / little | DA / DR |
-| actuator latency | high | little | SI + DR |
-| unknown long-tail, simulatable | low | little | targeted simulation / DR |
-| unknown long-tail, sim untrustworthy | low | some | real data |
-| model unknown | low | a lot | world model |
-| mixed | mixed | mixed | sim-and-real co-training as a backstop |
+| dynamics bias | high | scarce | SI |
+| dynamics uncertainty | medium | scarce | DR (or posterior-guided DR) |
+| dynamics residual | low (but structured) | medium | Residual learning |
+| visual appearance | high | none / scarce | DA / DR |
+| actuator latency | high | scarce | SI + DR |
+| unknown long-tail, simulatable | low | scarce | targeted simulation / DR |
+| unknown long-tail, sim untrustworthy | low | medium | real data |
+| model class uncertain | low | abundant | learned world model (if real is scarce, prefer physics prior + residual / DR) |
+| mixed | mixed | mixed | co-training candidate (verify positive transfer first: mixture ratio and cross-domain alignment) |
 
-A very common combination is **SI → DR → DA → co-training / fine-tune**: SI calibrates a sim that is "80% right," DR widens the family along directions that are "hard to pin down but enumerable," DA handles the visual domain difference, and a little real data closes the residual. **But the arrows here are not a fixed workflow, only an illustrative combination** — the actual order should be set by the current dominant gap and the marginal value of each intervention: if real data is already plentiful, doing SI first may not pay; if vision dominates, DA should come earlier; if only very little data is available for SI, doing a rough DR first to get a runnable policy and then returning to calibration is often more sensible.
+The second-to-last row: "model unknown" alone does not imply world model. The real criterion is **model uncertainty × real-data budget** — learned world model is a reasonable candidate only when the model class is uncertain **and** real interaction is abundant; when real data is scarce, keeping physics prior + residual / DR is often safer. The last row is the same: "co-training as a safety net" clashes with the article's allocation stance — when sim quality is bad, real data is scarce, and the two sides disagree on action space / task semantics, co-training can produce negative transfer; positive-transfer conditions must be verified first.
 
-Following this logic, we can answer a question the whole post has otherwise dodged but which the framework itself permits: **when is the optimal move to not do sim-to-real at all?**
+A common combo is **SI → DR → DA → co-training / fine-tune**: SI calibrates a "80% right" sim, DR widens the family along "hard to name but enumerable" directions, DA handles visual domain shift, and a bit of real data closes it out. **But the arrows are not a fixed workflow — just a schematic.** The real order is determined by the currently dominant gap and by each intervention's marginal utility: when real data is abundant, doing SI first may not be worth it; when vision dominates, DA should move earlier; when SI has very little data, doing a coarse DR first to get a running policy and coming back to calibrate is often better.
 
-- **When real data is already cheap enough that $C_{\mathrm{SI}}+C_{\mathrm{DR}} > C_{\mathrm{real}}$** — e.g. a mature collection rig, a task that safely allows repeated runs — training directly on real data may be less trouble than fixing the simulation.
-- **When the simulator's model class itself is poor ($\Delta_{\mathrm{model}}$ dominant and hard to parameterize)** — soft bodies, fluids, complex contact — the cost of fixing the sim is so high that its marginal utility is tiny, and it is better to go to a world model or real-data learning.
-- **When the deployment distribution is very fixed** — you simply do not need large-scale DR to cover a whole family — a little targeted real fine-tuning is often more cost-effective.
+Following this logic lets us finally answer the counter-question the whole article has been tiptoeing around but the framework explicitly allows: **when is the optimal move to not do sim-to-real at all?**
 
-Being willing to admit "sometimes the optimal move is to not do sim-to-real" is exactly what an allocation framing should look like: **it does not take the side of "simulation"; it only takes the side of "the next unit of budget that buys the most real-world performance."**
+- **When real data is already so cheap that $C_{\mathrm{SI}}+C_{\mathrm{DR}} > C_{\mathrm{real}}^{\mathrm{effective}}$** — here $C_{\mathrm{real}}^{\mathrm{effective}}$ is the **effective real-robot cost**, not just collection: safety, operator, reset, hardware wear, failure recovery, deployment diversity, and reproducibility are all in there. Only when those are added does a "4 real hours vs 20 sim hours" comparison stop being distorted across labs.
+- **When the simulator's model class itself is bad** ($\Delta_{\mathrm{model}}$ dominates and is hard to parameterize) — soft bodies, fluids, complex contact — fixing sim has such low marginal utility that going to a world model or learning directly on real data is often cheaper.
+- **When the deployment distribution is very fixed** — you simply do not need large-scale DR to cover a whole family; a bit of targeted real fine-tuning is usually more cost-effective.
 
-## What Does This Mean? A Loop, Not a Switch
+Being willing to admit "sometimes the optimal move is not doing sim-to-real" is exactly what the allocation framing should look like: **it does not take the "simulation" team; it takes the "next unit of budget buys the most real-world performance" team.**
 
-The core sentence of [Part 2 on data scaling](/en/articles/2026-09-09-robot-data-scaling/) is evaluation-aware distribution allocation: under a limited budget, spend every unit wherever marginal data value is highest. Applying that principle back to sim-to-real yields a natural corollary — **the utility of simulation data is never an intrinsic property of the simulator, but a property relative to the real evaluation distribution:**
+## What this means: a loop, not a switch
+
+The core sentence of [Data Scaling for Robots](/en/articles/2026-09-09-robot-data-scaling/) is evaluation-aware distribution allocation: under a limited budget, put each unit where the marginal data value is highest. Applied back to sim-to-real, a natural corollary falls out — **the utility of simulation data is never an internal property of the simulator; it is a property relative to the real evaluation distribution:**
 
 $$U\big(D_{\mathrm{sim}} \mid \mathcal{L},\ p_{\mathrm{eval}}^{\mathrm{real}}\big)$$
 
-This explains a common frustration: why "piling on more sim data" is sometimes useless. But state it precisely — more sim data can indeed bring wider coverage, more diverse objects, and higher rare-event frequency. So the claim is **conditional**:
+This explains a common frustration: why "adding more sim data" sometimes does not help. But to say it precisely: more sim data can also bring wider coverage, more diverse objects, higher rare-event frequency; so the claim is **conditional** —
 
-> **When the dominant bottleneck happens to be the support / fidelity mismatch between the simulator and the real evaluation distribution, the marginal value of adding more same-distribution simulation samples falls off quickly; at that point increasing $N$ mainly raises sampling density within the existing simulation distribution, and cannot automatically create missing support or correct model bias.**
+> **When the dominant bottleneck happens to be a support / fidelity mismatch between the simulator and the real evaluation distribution, the marginal value of adding same-distribution simulation samples drops quickly; adding $N$ at that point mostly raises sampling density, and cannot automatically create missing support or correct model bias.**
 
-It improves density, while what is really missing is support and the fidelity of $\Delta_{\mathrm{model}}$. So rather than asking "how good is my sim," ask the opening question: **"Along which evaluation-relevant directions is my sim actually close to reality, and along which is it far off? For the far-off directions, how high is the sensitivity $S_k$, and which budget pushes them down most cheaply?"**
+It improves density, while what is missing is support and $\Delta_{\mathrm{model}}$ fidelity. So instead of "how good is my sim," ask the opening question: **"In which evaluation-relevant directions is my sim close to reality and in which does it fall short? For the ones it falls short on, how sensitive are they, and which budget pushes each most cheaply?"**
 
-Walking that line to its end, sim-to-real stops being a "does transfer succeed or not" switch and becomes a closed loop:
+Walk that line through and sim-to-real stops being a "did the transfer succeed" switch and becomes this loop:
 
 $$\boxed{\text{mismatch} \rightarrow \text{sensitivity} \rightarrow \text{intervention} \rightarrow \text{marginal utility} \rightarrow \text{budget allocation} \rightarrow \text{real evaluation}}$$
 
-To close in one sentence: **sim-to-real is not a transfer technique but a closed-loop problem of constrained allocation among model fidelity, training diversity, representation alignment, real interaction, and engineering cost.** This is the same thing as Part 2's claim that "robot data scaling is a sequential data allocation problem" — only this time the allocation happens between simulation and reality.
+But this chain is not something you analytically run through the simulator to get an answer — it is a **sequential empirical decision framework**: sensitivity and marginal return are estimated via small experiments on real evaluation, and each round decides where the next slice of budget goes. One-sentence wrap-up: **sim-to-real is not a transfer trick; it is a constrained, iteratively estimable allocation problem across model fidelity, training diversity, representation alignment, real interaction, and engineering cost.** That is the same thing as the previous article's "robot data scaling is a sequential data allocation problem" — only this time, the allocation happens between simulation and reality.
 
 ---
 
 ## References
 
-The main works referenced in the text are listed below (all searchable via arXiv ID):
+The following are the main works referenced in the text (all searchable via arXiv ID):
 
 - Domain Randomization for Transferring Deep Neural Networks from Simulation to the Real World — Tobin et al., IROS 2017, arXiv:1703.06907
 - Sim-to-Real Transfer of Robotic Control with Dynamics Randomization — Peng et al., ICRA 2018, arXiv:1710.06537
@@ -316,17 +330,17 @@ The main works referenced in the text are listed below (all searchable via arXiv
 - Learning Dexterous In-Hand Manipulation — Akkaya et al. (OpenAI), 2019, arXiv:1808.00177
 - Sim-to-Real via Sim-to-Sim: Data-efficient Robotic Grasping via Randomized-to-Canonical Adaptation Networks — James et al., CVPR 2019, arXiv:1812.07252
 - DiffTaichi: Differentiable Programming for Physical Simulation — Hu et al., ICLR 2020, arXiv:1910.00935
-- Interactive Differentiable Simulation — Heiden et al., ICRA 2021, arXiv:1905.10706
-- Residual Physics Learning and System Identification for Sim-to-real Transfer of Policies on Buoyancy Assisted Legged Robots — Chae et al., 2023, arXiv:2303.09597
-- Sim-to-Real of Soft Robots with Learned Residual Physics — Michelis et al., 2024, arXiv:2402.01086
+- Interactive Differentiable Simulation — Heiden et al., arXiv 2019, arXiv:1905.10706 (the same group also has NeuralSim: Augmenting Differentiable Simulators with Neural Networks, ICRA 2021, which is a separate paper)
+- Residual Physics Learning and System Identification for Sim-to-real Transfer of Policies on Buoyancy Assisted Legged Robots — Sontakke et al., 2023, arXiv:2303.09597
+- Sim-to-Real of Soft Robots with Learned Residual Physics — Gao et al., IEEE RA-L 2024, pp. 8523–8530, arXiv:2402.01086
 - Dream to Control: Learning Behaviors by Latent Imagination (Dreamer) — Hafner et al., 2019, arXiv:1912.01603
 - DayDreamer: World Models for Physical Robot Learning — Hafner et al., CoRL 2022, arXiv:2206.14176
 - TD-MPC2: Scalable, Robust World Models for Continuous Control — Hansen et al., ICLR 2024, arXiv:2310.16828
-- Sim-and-Real Co-Training: A Simple Recipe for Vision-Based Robotic Manipulation — Maddukuri et al., 2025, arXiv:2503.24361
-- A Mechanistic Analysis of Sim-and-Real Co-Training in Generative Robot Policies — 2026, arXiv:2604.13645 (author and publication metadata per the arXiv page)
+- Sim-and-Real Co-Training: A Simple Recipe for Vision-Based Robotic Manipulation — Maddukuri et al., RSS 2025, arXiv:2503.24361
+- A Mechanistic Analysis of Sim-and-Real Co-Training in Generative Robot Policies — Lei et al. (Yu Lei, Minghuan Liu, Abhiram Maddukuri, Zhenyu Jiang, Yuke Zhu), arXiv 2026, arXiv:2604.13645
 
-It should be noted that sim-to-real currently has no accepted "which method is stronger" cross-task quantitative comparison — across different tasks, hardware, and fidelity ceilings, conclusions may reverse entirely. The works above mainly provide samples of the form "for this kind of gap, this method is viable," rather than an ordering that extrapolates across scenarios. In this post, the orthogonal decomposition into four intervention axes, the constrained-allocation formalization of the error budget, the definitions of sensitivity $S_k$ and marginal utility $MV_k$, and the reading of co-training as a data-mixture view are all **a conceptual framework and the author's interpretation, not conclusions proven by controlled experiments.**
+A caveat: there is not yet a widely accepted cross-task quantitative comparison saying "this method is stronger" in sim-to-real — across different tasks, hardware, and fidelity ceilings, conclusions can flip entirely; the works above are more like "this method is workable for this kind of gap" samples than a ranking that transfers across settings. The decomposition into four intervention dimensions, the constrained-allocation formalization of the error budget, and the definitions of $S_k$ and $MV$ are **conceptual framework and author's reading**: $S_k$ and $MV$ are decision statistics to be estimated via sensitivity experiments / ablation / small-scale real evaluation, **not** quantities analytically obtainable from the simulator; reading co-training as data-mixture and world model as model-source replacement is likewise an interpretation, not a theorem proven by controlled experiments.
 
 ---
 
-*This post is the sequel to the two-part "Data Problem" series: Part 1 covered data sources and interfaces, Part 2 covered the data-scaling framework; this one pulls the camera onto sim-to-real, reframing it from "a pile of transfer tricks" into a closed-loop allocation problem with marginal utility — so that it reconnects to Part 2's main thread of sequential data allocation.*
+*This article continues the two-part "data problem for embodied AI" series: the first part covered data sources and interfaces, the second covered the data scaling framework; here the camera pans to sim-to-real, reframing it from "a pile of transfer tricks" into a closed-loop allocation problem with empirical marginal utility — so it can reattach to the previous article's sequential data allocation thread.*
