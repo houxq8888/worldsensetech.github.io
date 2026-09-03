@@ -1,11 +1,11 @@
 ---
-title: "The Data Problem in Embodied AI: As Architectures Converge, What Determines Performance?"
+title: "The Data Problem in Embodied AI: As Foundational Paradigms Stabilize, What Determines Performance?"
 slug: "2026-09-08-data-and-training-recipes"
 date: 2026-09-08
 draft: false
 categories: ["Embodied Intelligence", "Training Methods"]
 tags: ["Embodied Intelligence", "Robot Data", "Training Recipe", "Teleoperation", "Synthetic Data", "Sim-to-Real", "Data Curation", "VLA", "World Model", "Scaling Law"]
-description: "As foundation model architectures gradually converge, data distribution, data quality, and training recipes are increasingly becoming important variables determining robot performance. But robot data is not simply 'the more the better' — what robotics truly needs to scale is not just trajectory count, but interaction distribution."
+description: "As foundational paradigms like VLA and world models gradually form relatively stable technical approaches, data distribution, data quality, and training recipes are increasingly becoming important variables determining robot performance. But robot data is not simply 'the more the better' — what robotics truly needs to scale is not just trajectory count, but interaction distribution."
 toc: true
 related_articles:
   - 2026-09-06-embodied-ai-landscape
@@ -19,7 +19,9 @@ related_articles:
 
 In [the previous industry landscape article](/en/articles/2026-09-06-embodied-ai-landscape/), I mentioned an increasingly obvious trend: pure model architecture differences are becoming less likely to form decisive advantages, while the importance of data scale, data diversity, and training recipes is rising.
 
-This article wants to expand on that problem. The core thesis is: **as foundation model architectures gradually converge, data distribution, data quality, and training recipes are increasingly becoming important variables determining robot performance.** But "data matters more" doesn't mean "more data is better" — what robotics truly needs to scale is not just trajectory count, but interaction distribution.
+This article wants to expand on that problem. The core thesis is: **as foundational paradigms like VLA and world models gradually form relatively stable technical approaches, it is becoming increasingly difficult to gain performance advantages solely through model architecture differences. Data distribution, data quality, and training recipes are increasingly becoming important variables determining robot performance.** But "data matters more" doesn't mean "more data is better" — what robotics truly needs to scale is not just trajectory count, but interaction distribution.
+
+Let me define interaction distribution upfront: **it refers to the joint distribution of tasks, states, environments, actions, failure modes, and embodiments that the model actually sees during training — $p(\tau, task, scene, embodiment)$ — not just trajectory count.** This concept will run through the entire article.
 
 ## Why Robot Data Is Not Like Internet Data
 
@@ -75,7 +77,7 @@ But in current robot RL practice, pure online RL is not the only paradigm. Incre
 
 Generating training data in simulated environments.
 
-**Advantage:** Can be大规模 parallelized, precisely controlled environment parameters, automatic annotation; can generate extreme scenario data difficult to obtain in real environments.
+**Advantage:** Can be massively parallelized, precisely controlled environment parameters, automatic annotation; can generate extreme scenario data difficult to obtain in real environments.
 
 **Limitation:** Sim-to-real gap still exists — physical dynamics in simulation (contact mechanics, friction, deformation) don't perfectly match the real world. The distribution of simulation data and real data have mismatches, and direct use can cause policy performance degradation in real environments.
 
@@ -91,9 +93,9 @@ But here two different mechanisms need to be distinguished:
 
 **Generative world models (e.g., video-generative world models, NVIDIA Cosmos):** Further attempt to generate synthetic data (synthetic observations / videos / trajectories) close to real observations, serving as data sources for downstream training.
 
-Both are "using models to expand experience," but the data forms are completely different. The former is a planning and training interface in latent space; the latter is closer to the traditional sense of "synthetic data generation."
+Both are "using models to expand experience," but the data forms are completely different. The former primarily serves latent prediction, imagination, and model-based control; the latter is closer to the traditional sense of "synthetic data generation."
 
-The "world model" here includes two related but different concepts: dynamics models for latent planning / imagination, and generative world models for generating or predicting visual worlds.
+The "world model" here includes two related but different concepts: dynamics models for latent prediction / imagination / control, and generative world models for generating or predicting visual worlds.
 
 ## Data Interfaces for Different Paradigms
 
@@ -107,14 +109,24 @@ But actual systems may also include: proprioception, historical observation wind
 
 This means VLA's core data requirement is: **high-quality observation-action pairs, covering sufficiently diverse tasks and objects, while needing to adapt to different embodiment action representations.**
 
+There is a deeper problem here: **action representation itself is part of data interface design.** $a_{t:t+k}$ is not just "action" — it could be joint position, joint velocity, end-effector delta pose, absolute pose, gripper command, discretized tokens, continuous flow, or even latent action. Therefore, the core problem of cross-embodiment is not simply "putting data from different robots into the same dataset," but finding a sufficiently general observation/action representation that enables experiences from different embodiments to be shared in the same learning space.
+
 ### World Model's Data Interface
 
 The world model's core interface is:
 
 ```
-Input: (o_{≤t}, a_{≤t})
-Output: predicted future latent / observation
-Optional: reward / termination / task outcome
+Input: observation history + action history
+
+Core output:
+  future latent state / transition distribution
+  e.g., p(z_{t+1} | z_t, a_t)
+
+Optional:
+  reconstructed observation (p(o_t | z_t))
+  reward
+  termination
+  task outcome
 ```
 
 It's important to note that **world models don't necessarily require reward.** In Dreamer, reward prediction and continuation prediction are important components needed for training actor-critic, but they belong to other modules of the overall agent architecture, not required outputs of the world model itself. The world model's core function is learning action-conditioned dynamics — predicting how future states change given action sequences.
@@ -126,7 +138,7 @@ For approaches centered on latent dynamics + model-based control (such as Dreame
 RL's data requirements depend on the specific paradigm:
 
 - **On-policy** (e.g., PPO): needs data produced by the current policy; data "freshness" matters
-- **Off-policy** (e.g., SAC): can reuse historical data, but needs sufficient diversity to avoid overfitting
+- **Off-policy** (e.g., SAC): can reuse historical replay data, thus more data-efficient; but replay buffer distribution and coverage affect policy generalization and stability
 - **Offline RL**: relies entirely on pre-collected datasets; extremely high requirements for data distribution coverage
 - **Imitation + RL**: first pre-train with demonstrations, then fine-tune with online interaction
 
@@ -146,7 +158,7 @@ TD-MPC2's multi-task / multi-domain capability is primarily achieved through tas
 
 "Data volume" is an easily quantified metric, but in embodied AI, **data's effective scale cannot be simply measured by trajectory count.**
 
-### Data Quality > Data Quantity
+### Data Volume Is Not Effective Data Scale
 
 A common observation is that high-quality demonstrations combined with large-scale vision-language pre-training can significantly improve robot policy generalization. But "quality" needs a more precise definition — systematic suboptimal behavior or erroneous actions in demonstrations will change the behavior policy's target distribution; without filtering or weighting mechanisms, these patterns may be learned by the model.
 
@@ -161,6 +173,8 @@ Data diversity and curriculum learning are two orthogonal dimensions:
 
 If training data only covers one type of cup, one lighting condition, one table surface, the policy will fail when encountering variation — this is insufficient diversity. Curriculum learning (simple to complex) is a training strategy that affects the optimization path, not coverage itself. **Diversity determines coverage; curriculum determines optimization path.**
 
+Here we also need to distinguish diversity from coverage: **Diversity describes how different samples are from each other; coverage describes how much of the target task distribution has been covered.** For example: data of 1000 different cups → high diversity; but if all are "desktop cup grasping" tasks, task coverage may still be very low.
+
 ### Data Curation: From Trend to Technical
 
 "More data" doesn't automatically equal "better performance." Data curation can be broken into several operational dimensions:
@@ -171,7 +185,7 @@ Curation = Quality + Diversity + Coverage + Deduplication + Relevance + Balance
 
 For robot data, each dimension has specific technical challenges:
 
-- **Quality:** success rate, action smoothness (jerk), collision-free, action consistency
+- **Quality:** success rate, trajectory smoothness (velocity/acceleration/jerk and other kinematic metrics), collision-free, action consistency
 - **Diversity:** scene diversity, object variety, lighting variation
 - **Coverage:** task coverage, failure mode coverage, edge case coverage
 - **Deduplication:** deduplicate similar trajectories to avoid overfitting
@@ -179,6 +193,8 @@ For robot data, each dimension has specific technical challenges:
 - **Balance:** data ratios across different tasks and scenes
 
 These problems currently have no standardized solutions, but are becoming an independent technical direction.
+
+An important point needs emphasis here: **Curation does not mean simply deleting failure trajectories.** For imitation learning, clearly erroneous demonstrations may need filtering; but for world models, offline RL, or recovery policies, failure and boundary trajectories themselves may have very high informational value. For example: grasping failures, object slippage, collisions, grasp recovery, occlusion, unexpected contact — these may be the data most needed for policy robustness. Successful trajectories tell the model "doing this leads to success," while failure trajectories may tell the model "in this state, this action leads to what consequences." What truly needs to be optimized is data relevance to the target objective, not simply maximizing success rate.
 
 ## Training Recipes: Determining What the Model Sees
 
@@ -201,6 +217,24 @@ Specifically, a complete robot training recipe may include:
 - **Fine-tuning schedule:** learning rate, batch size, training epoch scheduling
 
 Different teams' choices in these areas can vary significantly, and these choices often have significant impact on final performance — sometimes even exceeding the choice of model architecture. This is also why training recipes are difficult to fully transmit through a single paper — they are an entire engineering practice, not a set of hyperparameters.
+
+From a more abstract perspective, **a training recipe is essentially the "transfer function" from data distribution to model parameters:**
+
+$$D \rightarrow Training\ Recipe \rightarrow \theta$$
+
+Given the same dataset $D$, changing the sampling / weighting / objective / schedule ($R_1 \neq R_2$) can yield $\theta_1 \neq \theta_2$. This elevates the "recipe as moat" argument from empirical observation to a clearer technical framework.
+
+### Data Mixture: How to Mix Data?
+
+An easily overlooked but extremely critical question is: **how are different data sources mixed?**
+
+```
+Internet VLM data        ── 70%
+Robot demonstrations      ── 20%
+Synthetic / simulation    ── 10%
+```
+
+What truly matters may not be "how much robot data do we have?" but rather: **what proportion does robot data occupy in the overall training mixture? When is it introduced? With what loss is it trained?** This is precisely the core manifestation of training recipe as "transfer function" — the same data, with different mixture ratios and scheduling strategies, can produce markedly different model capabilities.
 
 ## Sim-to-Real: Four Different Strategies
 
@@ -227,15 +261,19 @@ Domain adaptation
 
 These four strategies are typically not mutually exclusive — practical systems often combine them.
 
+Here we need to distinguish two different types of sim-to-real error: **random noise** (e.g., sensor noise, small physical parameter fluctuations) and **systematic simulation bias** (e.g., friction coefficient long-term bias, actuator delay, contact model errors, deformable object dynamics errors, camera latency, calibration error). Random noise can be addressed through domain randomization to enhance robustness; while systematic bias is what policies may systematically learn incorrectly, requiring system identification to calibrate the simulator itself. In other words: **domain randomization addresses robustness, system identification addresses simulator bias.**
+
 ## Robot Data Scaling: Not Just "More Trajectories"
 
 The LLM domain has established relatively clear scaling laws (more data + larger models + more compute → predictable performance improvement). Does a similar scaling law exist for robotics?
 
-Robot data scale has at least 5 dimensions:
+First, an important clarification: **the formulas below are not strict scaling laws, but a conceptual decomposition for describing robot data's effective scale.** Robot data scale can be decomposed into at least three layers:
 
-```
-D = (D_trajectory, D_task, D_environment, D_embodiment, D_quality)
-```
+**Data volume:** $N_{\text{steps}}$ (total interaction steps)
+
+**Distribution dimensions:** $task, scene, embodiment, state, action$ (distribution dimensions)
+
+**Data quality:** $Q$ (data quality)
 
 Therefore, robotics' scaling law may not be:
 
@@ -243,19 +281,32 @@ $$Performance = f(N)$$
 
 but rather:
 
-$$Performance = f(N_{steps}, N_{tasks}, N_{scenes}, N_{embodiments}, Q)$$
+$$D_{\mathrm{effective}} = f(N,\;Coverage,\;Diversity,\;Q)$$
 
-This means: **what robotics truly needs to scale is not just data volume, but interaction distribution.**
+$$Performance = g(D_{\mathrm{effective}})$$
+
+This means: **what robotics truly needs to scale is not just data volume, but effective data scale — i.e., effective coverage of the interaction distribution.**
 
 LLMs can roughly ask "how many tokens do I have?"; robotics should rather ask "how many tasks, states, environments, actions, failure modes, and embodiments have I covered?"
 
 ```
 Robot Data Scaling ≠ More Trajectories
 
-Data Scaling = Volume × Quality × Diversity × Coverage × Embodiment
+Effective Data Scale = f(Volume, Distribution Coverage, Quality)
 ```
 
 This is a hypothesis worth testing: **scaling on interaction distribution (rather than pure trajectory count) may be the more effective scaling direction for robotics.**
+
+### Testable Predictions
+
+If this hypothesis holds, then under fixed training compute and model scale, the following testable predictions can be made:
+
+- The returns from adding repeated trajectories should diminish rapidly;
+- The returns from adding new tasks / scenes / embodiments should be more persistent;
+- Targeted data addressing failure modes should be more effective than randomly adding data;
+- Changes to data mixture and sampling recipes should produce reproducible performance differences.
+
+These predictions are in principle experimentally verifiable, rather than remaining at the level of "data matters" as empirical observation.
 
 ## What Does This Mean?
 
@@ -270,7 +321,7 @@ What this article wants to say is: **data and training recipes may be becoming e
 
 Model architectures can be disseminated through papers and open-source code; simulation platforms are being standardized by a few players; but **high-quality robot interaction data, effective data curation processes, and repeatedly refined training recipes — these are difficult to fully transmit through a single paper.**
 
-And the core question is not "who has more data," but "who covers a broader interaction distribution."
+And the core question is not "who has more data," but "who covers a broader interaction distribution $p(\tau, task, scene, embodiment)$."
 
 ---
 

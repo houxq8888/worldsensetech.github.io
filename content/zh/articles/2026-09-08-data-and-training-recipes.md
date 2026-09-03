@@ -1,11 +1,11 @@
 ---
-title: '具身智能的数据问题：当架构逐渐收敛，什么在决定性能？'
+title: '具身智能的数据问题：当基础范式逐渐稳定，什么在决定性能？'
 slug: "2026-09-08-data-and-training-recipes"
 date: 2026-09-08
 draft: false
 categories: ["具身智能", "训练方法"]
 tags: ["具身智能", "机器人数据", "训练 Recipe", "遥操作", "合成数据", "Sim-to-Real", "数据 Curation", "VLA", "世界模型", "Scaling Law"]
-description: "随着基础模型架构逐渐收敛，数据分布、数据质量和 training recipe 正越来越成为决定机器人性能的重要变量。但机器人数据不是'越多越好'——机器人领域真正需要 scaling 的不只是 trajectory 数量，而是 interaction distribution。"
+description: "随着 VLA、世界模型等基础范式逐渐形成相对稳定的技术路线，数据分布、数据质量和 training recipe 正越来越成为决定机器人性能的重要变量。但机器人数据不是'越多越好'——机器人领域真正需要 scaling 的不只是 trajectory 数量，而是 interaction distribution。"
 toc: true
 related_articles:
   - 2026-09-06-embodied-ai-landscape
@@ -19,7 +19,9 @@ related_articles:
 
 在[前面的行业地图](/zh/articles/2026-09-06-embodied-ai-landscape/)中，我提到过一个越来越明显的趋势：单纯的模型架构差异正在变得不那么容易形成决定性优势，而数据规模、数据多样性和训练 recipe 的重要性正在上升。
 
-这篇文章想把这个问题展开来讲。核心论点是：**随着基础模型架构逐渐收敛，数据分布、数据质量和 training recipe 正越来越成为决定机器人性能的重要变量。** 但"数据更重要"不等于"数据越多越好"——机器人领域真正需要 scaling 的，不只是 trajectory 数量，而是 interaction distribution。
+这篇文章想把这个问题展开来讲。核心论点是：**随着 VLA、world model 等基础范式逐渐形成相对稳定的技术路线，单纯依靠模型架构差异形成性能优势正在变得更加困难，数据分布、数据质量和 training recipe 正越来越成为决定机器人性能的重要变量。** 但"数据更重要"不等于"数据越多越好"——机器人领域真正需要 scaling 的，不只是 trajectory 数量，而是 interaction distribution。
+
+这里先给出 interaction distribution 的定义：**它指模型在训练阶段实际看到的任务、状态、环境、动作、失败模式和 embodiment 的联合分布 $p(\tau, task, scene, embodiment)$，而不只是 trajectory 数量。** 这个概念会贯穿全文。
 
 ## 为什么机器人数据和互联网数据不是一回事
 
@@ -91,9 +93,9 @@ NVIDIA Isaac Sim、MuJoCo 等仿真平台正在被广泛用于生成训练数据
 
 **Generative world model（如视频生成式世界模型、NVIDIA Cosmos）：** 进一步尝试生成接近真实观测的合成数据（synthetic observations / videos / trajectories），从而作为下游训练的数据来源。
 
-两者都是"用模型扩大经验"，但数据形态完全不同。前者是在隐空间中的 planning 和 training interface；后者是更接近传统意义上的"合成数据生成"。
+两者都是"用模型扩大经验"，但数据形态完全不同。前者主要服务于 latent prediction、imagination 和 model-based control；后者是更接近传统意义上的"合成数据生成"。
 
-这里的"世界模型"包含两个相关但不同的概念：用于 latent planning / imagination 的 dynamics model，以及用于生成或预测视觉世界的 generative world model。
+这里的"世界模型"包含两个相关但不同的概念：用于 latent prediction / imagination / control 的 dynamics model，以及用于生成或预测视觉世界的 generative world model。
 
 ## 不同范式的数据接口
 
@@ -107,14 +109,24 @@ NVIDIA Isaac Sim、MuJoCo 等仿真平台正在被广泛用于生成训练数据
 
 这意味着 VLA 对数据的核心需求是：**高质量的 observation-action 配对，覆盖足够多样的任务和物体，同时需要适配不同 embodiment 的动作表示。**
 
+这里有一个更深层的问题：**action representation 本身就是数据接口设计的一部分。** $a_{t:t+k}$ 不只是"动作"——它可能是 joint position、joint velocity、end-effector delta pose、absolute pose、gripper command、discretized tokens、continuous flow、甚至 latent action。因此，cross-embodiment 的核心问题并不只是"把不同机器人的数据放进同一个 dataset"，而是寻找一个足够通用的 observation/action representation，使不同 embodiment 的经验能够在同一个学习空间中共享。
+
 ### 世界模型的数据接口
 
 世界模型的核心接口是：
 
 ```
-输入：(o_{≤t}, a_{≤t})
-输出：predicted future latent / observation
-可选：reward / termination / task outcome
+输入：observation history + action history
+
+核心输出：
+  future latent state / transition distribution
+  如 p(z_{t+1} | z_t, a_t)
+
+可选：
+  reconstructed observation (p(o_t | z_t))
+  reward
+  termination
+  task outcome
 ```
 
 需要注意的是，**世界模型本身并不必须有 reward**。在 Dreamer 中，reward prediction 和 continuation prediction 是训练 actor-critic 所需的重要组成部分，但它们属于整体 agent architecture 的其他模块，而非世界模型本身的必需输出。世界模型的核心功能是学习 action-conditioned dynamics——预测在给定动作序列后，未来状态如何变化。
@@ -126,7 +138,7 @@ NVIDIA Isaac Sim、MuJoCo 等仿真平台正在被广泛用于生成训练数据
 RL 的数据需求取决于具体范式：
 
 - **On-policy**（如 PPO）：需要当前策略产生的数据，数据"新鲜度"很重要
-- **Off-policy**（如 SAC）：可以复用历史数据，但需要足够的 diversity 避免 overfitting
+- **Off-policy**（如 SAC）：可以复用历史 replay data，因此数据效率更高；但 replay buffer 的分布和覆盖度会影响策略的泛化与稳定性
 - **Offline RL**：完全依赖预收集的 dataset，对数据分布覆盖度要求极高
 - **Imitation + RL**：先用 demonstration 预训练，再用 online interaction fine-tune
 
@@ -146,7 +158,7 @@ TD-MPC2 的 multi-task / multi-domain 能力主要通过 task embedding 实现�
 
 "数据量"是一个容易被量化的指标，但在具身智能中，**数据的有效规模不能简单用 trajectory 数量衡量。**
 
-### 数据质量 > 数据数量
+### 数据量不是有效数据规模
 
 一个普遍观察是，高质量 demonstration 与大规模视觉语言预训练结合，可以显著提升机器人策略的泛化能力。但"质量"需要更精确的定义——demonstration 中的系统性次优行为或错误 action 会改变行为策略的目标分布；如果没有 filtering 或 weighting 机制，这些模式可能被模型学习。
 
@@ -161,6 +173,8 @@ TD-MPC2 的 multi-task / multi-domain 能力主要通过 task embedding 实现�
 
 如果训练数据只覆盖一种杯子、一种光照、一种桌面，策略在遇到变化时就会失败——这是 diversity 不足。而课程学习（从简单到复杂）是一种训练策略，影响的是优化路径而非覆盖面本身。**Diversity 决定覆盖面，curriculum 决定优化路径。**
 
+这里还需要区分 diversity 和 coverage：**Diversity 描述样本之间有多不同，coverage 描述目标任务分布被覆盖了多少。** 例如：1000 个不同杯子的数据 → diversity 很高；但如果全部都是"桌面抓取杯子"这一个任务，task coverage 可能仍然很低。
+
 ### 数据 Curation：从趋势到技术
 
 "更多数据"不自动等于"更好性能"。数据 curation 可以拆成几个可操作的维度：
@@ -171,7 +185,7 @@ Curation = Quality + Diversity + Coverage + Deduplication + Relevance + Balance
 
 对于机器人数据，每个维度都有特定的技术挑战：
 
-- **Quality：** success rate、action smoothness（jerk）、collision-free、action consistency
+- **Quality：** success rate、trajectory smoothness（velocity/acceleration/jerk 等运动学指标）、collision-free、action consistency
 - **Diversity：** scene diversity、object variety、lighting variation
 - **Coverage：** task coverage、failure mode coverage、edge case coverage
 - **Deduplication：** 相似轨迹去重，避免 overfitting
@@ -179,6 +193,8 @@ Curation = Quality + Diversity + Coverage + Deduplication + Relevance + Balance
 - **Balance：** 不同任务、不同场景的数据比例
 
 这些问题目前还没有标准化的解决方案，但正在成为独立的技术方向。
+
+这里需要特别强调一点：**Curation 并不意味着简单删除失败轨迹。** 对 imitation learning 而言，明显错误的 demonstration 可能需要过滤；但对于 world model、offline RL 或 recovery policy，失败和边界轨迹本身可能具有很高的信息价值。例如：抓取失败、物体滑落、碰撞、grasp recovery、occlusion、unexpected contact——这些可能是 policy robustness 最需要的数据。成功轨迹告诉模型"这样做可以成功"，而失败轨迹可能告诉模型"在这个状态下，这种 action 会导致什么后果"。真正需要优化的是数据对目标 objective 的 relevance，而不是简单最大化 success rate。
 
 ## Training Recipe：决定模型看到什么
 
@@ -201,6 +217,24 @@ Training recipe 不只是 hyperparameters，而是**决定什么数据、以什�
 - **Fine-tuning schedule：** 学习率、batch size、训练轮数的调度
 
 不同团队在这方面的选择可能非常不同，而这些选择往往对最终性能有显著影响——有时甚至超过模型架构的选择。这也是为什么 training recipe 很难通过一篇论文完整传递——它是一整套工程实践，而不是一组超参数。
+
+从更抽象的角度看，**training recipe 本质上是数据分布到模型参数之间的"转换函数"**：
+
+$$D \rightarrow Training\ Recipe \rightarrow \theta$$
+
+相同 dataset $D$，换一个 sampling / weighting / objective / schedule（$R_1 \neq R_2$），就可能得到 $\theta_1 \neq \theta_2$。这把"recipe 是壁垒"的观点从经验判断提升到了一个更清晰的技术框架。
+
+### Data Mixture：数据怎么混？
+
+一个容易被忽略但极其关键的问题是：**不同数据源怎么混合？**
+
+```
+Internet VLM data        ── 70%
+Robot demonstrations      ── 20%
+Synthetic / simulation    ── 10%
+```
+
+真正关键的可能不是"我们有多少机器人数据？"，而是：**机器人数据在整个 training mixture 中占多少？什么时候加入？以什么 loss 训练？** 这恰好是 training recipe 作为"转换函数"的核心体现——相同的数据，不同的 mixture 比例和调度策略，可能产生截然不同的模型能力。
 
 ## Sim-to-Real：四种不同的策略
 
@@ -227,15 +261,19 @@ Domain adaptation
 
 这四种策略通常不是互斥的，实际系统中往往组合使用。
 
+这里需要区分两种不同类型的 sim-to-real 误差：**随机噪声**（如传感器噪声、微小物理参数波动）和 **systematic simulation bias**（如摩擦系数长期偏差、actuator delay、contact model 误差、deformable object dynamics 误差、camera latency、calibration error）。随机噪声可以通过 domain randomization 来增强鲁棒性；而 systematic bias 是策略可能系统性学错的东西，需要通过 system identification 来校准仿真器本身。换句话说：**domain randomization 解决的是 robustness，system identification 解决的是 simulator bias。**
+
 ## 机器人数据 Scaling：不只是"更多轨迹"
 
 LLM 领域已经建立了相对清晰的 scaling law（更多数据 + 更大模型 + 更多计算 → 可预测的性能提升）。机器人领域是否也存在类似的 scaling law？
 
-机器人数据规模至少有 5 个维度：
+首先需要明确：**下面的公式不是严格的 scaling law，而是一个用于描述机器人数据有效规模的 conceptual decomposition。** 机器人数据规模至少可以分解为三个层面：
 
-```
-D = (D_trajectory, D_task, D_environment, D_embodiment, D_quality)
-```
+**Data volume：** $N_{\text{steps}}$（总交互步数）
+
+**Distribution dimensions：** $task, scene, embodiment, state, action$（分布维度）
+
+**Data quality：** $Q$（数据质量）
 
 因此机器人领域的 scaling law 可能不是：
 
@@ -243,19 +281,32 @@ $$Performance = f(N)$$
 
 而更像：
 
-$$Performance = f(N_{steps}, N_{tasks}, N_{scenes}, N_{embodiments}, Q)$$
+$$D_{\mathrm{effective}} = f(N,\;Coverage,\;Diversity,\;Q)$$
 
-这意味着：**机器人领域真正需要 scaling 的，不只是 data volume，而是 interaction distribution。**
+$$Performance = g(D_{\mathrm{effective}})$$
+
+这意味着：**机器人领域真正需要 scaling 的，不只是 data volume，而是 effective data scale——即 interaction distribution 的有效覆盖。**
 
 LLM 可以粗略问"我有多少 token？"；机器人更应该问"我覆盖了多少种任务、状态、环境、动作、失败模式和 embodiment？"
 
 ```
 Robot Data Scaling ≠ More Trajectories
 
-Data Scaling = Volume × Quality × Diversity × Coverage × Embodiment
+Effective Data Scale = f(Volume, Distribution Coverage, Quality)
 ```
 
 这是一个值得验证的假设：**在 interaction distribution（而非纯 trajectory 数量）上 scaling，可能是机器人领域更有效的 scaling 方向。**
+
+### 可验证预测
+
+如果这个假设成立，那么在固定训练 compute 和模型规模下，可以做出以下可验证预测：
+
+- 增加重复 trajectory 的收益应该快速递减；
+- 增加新的 task / scene / embodiment 的收益应该更持久；
+- 针对 failure mode 的 targeted data 应该比随机增加数据更有效；
+- data mixture 和 sampling recipe 的改变应该产生可重复的性能差异。
+
+这些预测原则上可以通过实验验证，而不是停留在"数据重要"的经验判断层面。
 
 ## 这意味着什么？
 
@@ -270,7 +321,7 @@ Data Scaling = Volume × Quality × Diversity × Coverage × Embodiment
 
 模型架构可以通过论文和开源代码传播；仿真平台正在被少数几个玩家标准化；但**高质量的机器人交互数据、有效的数据 curation 流程、和经过反复调试的 training recipe——这些很难通过一篇论文完整传递。**
 
-而核心问题不是"谁有更多数据"，而是"谁覆盖了更广的 interaction distribution"。
+而核心问题不是"谁有更多数据"，而是"谁覆盖了更广的 interaction distribution $p(\tau, task, scene, embodiment)$"。
 
 ---
 
