@@ -25,7 +25,7 @@ $$Performance \neq f(\#trajectory)$$
 
 $$Performance = f(interaction\ distribution,\ data\ quality,\ recipe)$$
 
-That is: **as foundational paradigms like VLA and world models are converging toward clearer mainstream approaches (although concrete architectures are still evolving rapidly — diffusion / flow / autoregressive action heads, latent vs video world models, and action representations are all still unsettled), it is becoming increasingly difficult to gain performance advantages solely through model architecture differences. What increasingly determines performance is the interaction distribution the model sees, the quality of the data, and the training recipe that converts data into parameters.** But "data matters more" doesn't mean "more data is better" — **the core hypothesis of this article is: what robotics truly deserves to scale is not just trajectory count, but the effective coverage of the interaction distribution relative to an evaluation distribution.**
+That is: **as foundational paradigms like VLA and world models converge toward a few mainstream routes (although concrete architectures are still evolving rapidly — diffusion / flow / autoregressive action heads, latent vs video world models, and action representations are all still unsettled), the difficulty of gaining a stable performance edge from local architecture innovation alone may be rising. What increasingly determines performance is the interaction distribution the model sees, the quality of the data, and the training recipe that converts data into parameters.** (This does not claim architecture is unimportant, or that it has already converged — only that the source of competitive advantage may be shifting.) But "data matters more" doesn't mean "more data is better" — **the core hypothesis of this article is: what robotics truly deserves to scale is not just trajectory count, but the effective coverage of the interaction distribution relative to an evaluation distribution.**
 
 Let me define interaction distribution upfront, since it runs through the entire article: **the interaction distribution referred to here is the trajectory distribution jointly determined by conditions such as task, scene, and embodiment in the training data,** written as
 
@@ -232,11 +232,11 @@ The preceding text repeatedly used words like quality, relevance, success, diver
 
 Let's first fully separate the two concepts:
 
-- **Quality** describes a trajectory's *intrinsic properties* — smoothness, consistency, collision-free, sensor quality, annotation correctness. These properties are fixed the moment the data is collected, and do not depend on what you later decide to train.
-- **Utility** describes the data's *conditioned contribution* to **a specific training objective and a specific evaluation distribution** — IL utility, world-model utility, offline-RL utility, recovery utility, or even utility on one particular eval task. The same trajectory can have wildly different utility under different objectives and different evaluation distributions.
+- **Quality** describes a trajectory's *measurable properties / quality indicators* — smoothness, consistency, collision-free, sensor quality, annotation correctness. Most of these can be computed the moment the data is collected, so they *look* like intrinsic attributes; but strictly speaking even the quality indicators carry objective dependence: smoothness that matters for precision manipulation is not necessarily good for aggressive locomotion or recovery maneuvers (a sudden jerk may be exactly the right behavior), and collision-free is a quality signal for a normal policy but the collision itself is what you want to learn in a collision-recovery dataset.
+- **Utility** describes the *conditioned contribution* those properties are converted into under **a specific training objective and a specific evaluation distribution** — IL utility, world-model utility, offline-RL utility, recovery utility, or even utility on one particular eval task. The same trajectory can have wildly different utility under different objectives and different evaluation distributions.
 
 ```
-Quality (intrinsic)               Utility (conditioned)
+Quality (measurable)              Utility (conditioned)
   smoothness                        IL utility
   consistency                       WM utility
   collision-free                    RL utility
@@ -292,9 +292,9 @@ In distributional language, we can view the recipe $R$ as a transformation opera
 
 $$p_{\mathrm{train}}(\tau) = T_R\big[\,p_{\mathrm{raw}}(\tau)\,\big]$$
 
-This step is crucial because it mathematically connects the article's two core concepts — **data distribution** and **training recipe**: performance depends on the $p_{\mathrm{train}}(\tau)$ the model actually experiences, not the static $p_{\mathrm{raw}}(\tau)$ sitting in storage; and $p_{\mathrm{train}}$ is precisely the result of the recipe resampling, reweighting, and reordering the raw distribution.
+In other words, performance depends on the $p_{\mathrm{train}}(\tau)$ the model actually experiences, not the static $p_{\mathrm{raw}}(\tau)$ sitting in storage; $p_{\mathrm{train}}$ is precisely the result of the recipe resampling, reweighting, and reordering the raw distribution. Given the same dataset $D$, changing the sampling / weighting / objective / schedule ($R_1 \neq R_2$) can yield different $p_{\mathrm{train}}$ and hence $\theta_1 \neq \theta_2$ — which elevates the "recipe as moat" argument from empirical observation to a clearer technical framework.
 
-Given the same dataset $D$, changing the sampling / weighting / objective / schedule ($R_1 \neq R_2$) can yield different $p_{\mathrm{train}}$ and hence $\theta_1 \neq \theta_2$. This elevates the "recipe as moat" argument from empirical observation to a clearer technical framework.
+One caveat, though: writing $p_{\mathrm{train}}$ as a distribution fixed by a recipe only really holds for **offline / fixed-dataset training**. In **online RL or continuous closed-loop data systems**, $p_{\mathrm{train},t} \rightarrow \theta_t \rightarrow \pi_t \rightarrow p_{\mathrm{collect},t+1}$ is itself a **feedback loop** — the policy update changes the distribution of subsequently collected data. To keep the notation clean this article omits the time subscript $t$ where it is not essential, but in online / closed-loop settings the reader should read $p_{\mathrm{train}}$ as $p_{\mathrm{train},t}$.
 
 ### Recipe's Two Paths of Influence
 
@@ -317,7 +317,7 @@ Raw Data D ───┤
 
 Path 1 determines what the model *sees*; Path 2 determines how the model *turns what it sees into parameters*. The two cannot be reduced to each other: given the same $p_{\mathrm{train}}$, different lr schedules, optimizers, loss weightings, or freezing strategies still yield significantly different $\theta$ — this is not the distribution changing, it is the optimization process itself changing.
 
-A caveat is in order: this "two paths" framing is only an **analytical convenience, not a clean partition.** Some recipe choices straddle both paths at once — the most typical being loss weighting: $L = \lambda_a L_{\text{action}} + \lambda_v L_{\text{value}}$ both changes the effective weighting of different data/objective terms (a Path-1 flavor) and directly changes the optimization dynamics (Path 2). So we do not claim that "any recipe can be uniquely decomposed into these two paths"; we only use the picture to make the point that part of the recipe's effect cannot be absorbed by $p_{\mathrm{train}}$ at all.
+A caveat is in order: this "two paths" framing is only an **analytical convenience, not a clean partition.** Some recipe choices straddle both paths at once — the most typical being loss weighting: $L = \lambda_a L_{\text{action}} + \lambda_v L_{\text{value}}$ both changes the effective weighting of different data/objective terms (a Path-1 flavor) and directly changes the optimization dynamics (Path 2). Likewise, operations such as image augmentation, action tokenization, temporal-window / observation stacking, action-chunk construction, hindsight relabeling, and reward / label construction affect both the effective distribution and the optimization target. We deliberately do **not** promote these into a formal "Path 3" — that would only fragment the taxonomy further; the point is that precisely because such operations span both sides, the "two paths" picture is itself a coarse-graining. So we do not claim that "any recipe can be uniquely decomposed into these two paths"; we only use the picture to make the point that part of the recipe's effect cannot be absorbed by $p_{\mathrm{train}}$ at all.
 
 Therefore, in the next section's $g(D_{\mathrm{effective}},\ Capacity,\ Compute,\ Recipe)$, the $Recipe$ argument specifically retains the **Path 2 component that cannot be absorbed by $p_{\mathrm{train}}$** — the optimization dynamics — while Path 1 has already been folded into $D_{\mathrm{effective}}$. This split is not a notational nicety: it directly determines which interventions count as "changing the data" vs "changing the training," and it is exactly where many teams' recipe differences become hard to reproduce. Papers can publish Path 1 (data mixture, weighting), but Path 2 knowledge — when to unfreeze the backbone, when to switch the lr, when to change loss weighting — is often left out.
 
@@ -370,11 +370,7 @@ The LLM domain has accumulated a fairly mature scaling-law empirical framework (
 
 Before talking about scaling, we need to separate two questions that are often conflated.
 
-**Data acquisition** answers "how do I get more data?" — teleoperation, simulation, autonomous exploration, and synthetic generation are all *acquisition methods*. What the first half of this article discussed ("where data comes from") is essentially an acquisition-level question.
-
-**Data scaling** answers "what data should I add in order to keep improving performance?" — support expansion, density improvement, failure targeting, and embodiment expansion are *scaling strategies*.
-
-The two are entirely different things: no matter how strong your acquisition methods are, they do not automatically answer the scaling question. And since this article's title really asks "what determines performance," the second half should shift its center of gravity from "where data comes from" to "what data is worth continuing to add" — which is exactly what the scaling framework below tries to answer.
+**Data acquisition** answers "where does data come from?" (teleoperation, simulation, autonomous exploration, and synthetic generation are all *acquisition methods* — what the first half of this article discussed), while **Data scaling** answers "what data should I add next, per unit of budget?" (support expansion, density improvement, failure targeting, and embodiment expansion are *scaling strategies*). One is a generation mechanism, the other an allocation problem — no matter how strong your acquisition methods are, they do not automatically answer the scaling question. The second half therefore shifts its center of gravity from "where data comes from" to "what data is worth continuing to add," which is exactly what the framework below tries to answer.
 
 First, an important clarification: **the formulas below are not strict scaling laws, but a conceptual decomposition for describing robot data's effective scale.** Robot data scale can be decomposed into at least three layers:
 
@@ -418,6 +414,8 @@ evaluation distribution
  p_eval(τ)
 ```
 
+Two limits are worth stating once here, so they need not be repeated later. First, abstracting $p_{\mathrm{eval}}$ as a **trajectory-level** distribution is only for unified notation; in a concrete benchmark it is often more naturally defined over **contexts** $c=(task, scene, initial\ state, \ldots)$ — written $p_{\mathrm{eval}}(c)$ — and only *induces* a trajectory distribution once the policy acts within each context. Second, writing $p_{\mathrm{eval}}$ as a **fixed** reference distribution is mainly to give coverage a coordinate system; in **closed-loop / online RL**, the state / trajectory distribution actually visited at evaluation time is itself shaped by the current policy (i.e. $d^{\pi_\theta}$), so strictly speaking $p_{\mathrm{eval}}$ may also be **policy-dependent**. This article absorbs that feedback effect into the evaluation distribution rather than developing a full policy-induced distribution analysis.
+
 Once $p_{\mathrm{eval}}$ is written down explicitly, many previously fuzzy intuitions become sharp. Consider two datasets:
 
 - **Dataset A:** covers 100 tasks × 100 scenes × 10 embodiments, but with only a handful of trajectories in each cell.
@@ -437,6 +435,8 @@ $$\text{Coverage} = C\big(p_{\mathrm{train}},\ p_{\mathrm{eval}}\big),\qquad \te
 
 That is, what we really care about has never been some "coverage score" a dataset carries on its own, but the degree to which $p_{\mathrm{train}}$ covers a *specified* $p_{\mathrm{eval}}$. Making this step explicit is also what turns the utility definition just below from a notation that seems to appear out of nowhere into a result derived naturally along the line "coverage is a relation."
 
+One line should be drawn immediately: **coverage ≠ distribution similarity.** The $C(p_{\mathrm{train}},p_{\mathrm{eval}})$ above actually points at three different things — **support coverage** (have we seen the evaluation-relevant region yet), **density** (how much have we sampled within it), and **distribution alignment** (how similar the two distributions are overall). They rank Dataset A / B differently: measured by support coverage, A — which fills the whole evaluation support — clearly wins; measured by an overall distance such as $D_{KL}(p_{\mathrm{eval}}\,\|\,p_{\mathrm{train}})$, B — which densely covers 80% of the region — may actually score lower; and if the evaluation metric is especially sensitive to one core region, high-density B may again be better. So this article's support / density decomposition is **not equivalent to "finding a single distribution distance and minimizing it"** — it deliberately keeps "have we seen it" and "do the two look alike" as separate questions.
+
 This also tightens the earlier utility definition by one notch: **data utility is not only objective-conditioned — it is evaluation-conditioned.**
 
 $$\boxed{U(D \mid \mathcal{L},\ p_{\mathrm{eval}})}$$
@@ -449,13 +449,13 @@ Here is a very simple example. Suppose the evaluation is "grasp a cup under vary
 - A new robot embodiment → not necessarily valuable (a morphology change does not by itself change the evaluation)
 - A new task like "fold laundry" → nearly worthless (falls outside the support of $p_{\mathrm{eval}}$)
 
-The conclusion is direct: **"new data" has no absolute value — only value relative to an evaluation distribution.** This single sentence runs through the rest of the discussion on support scaling, density scaling, and targeted data collection; it is the crucial patch that rescues the whole framework from naive "more data is better" intuitions.
+The conclusion is direct: **"new data" has no absolute value — only value relative to an evaluation distribution.** This is the crucial patch that rescues the whole framework from naive "more data is better" intuitions.
 
 ### What Does Coverage Actually Cover: Different Dimensions Serve Different Generalization
 
 The phrase "increase distribution coverage" is still too vague if not further decomposed. A more accurate statement is: **different distribution dimensions are responsible for different generalization problems, and they cannot be lumped together.**
 
-They can be written respectively as conditional distributions:
+They can be written respectively as conditional distributions (note: these conditional distributions are only a **lens for analyzing coverage**, not a complete trajectory generative factorization — in reality $s$ depends on history, $a$ depends on the policy / observation / embodiment, embodiment in turn shapes the action space, and $s$ and $a$ co-determine each other over time):
 
 $$p(task)\quad(\text{task semantic space})$$
 
@@ -469,7 +469,11 @@ $$p(embodiment)\quad(\text{robot morphology and action space})$$
 
 The formula $p(a \mid s)$ needs an explicit caveat here, otherwise it is very easy to misread. In imitation-learning / offline datasets, what we actually observe is the **behavior-policy distribution** $p_D(a \mid s)$ — it does not necessarily cover all *feasible* actions at a given state; it may concentrate on the successful / slightly-suboptimal sliver, while catastrophic and recovery actions are severely undersampled. So strictly speaking this dimension is not "action coverage" but **behavior / intervention coverage**: it measures how many kinds of *actually executed behaviors / interventions* we have seen in the data, not "all physically executable actions." A narrow distribution may be tolerable for imitation learning, but for world models, offline RL, and recovery policies, narrow behavior coverage directly limits what the model can learn about "what would happen if a different action were taken."
 
+One more caveat closes the loop with the earlier $o_t \neq s_t$: in real robot data, $s$ is often **not directly observable** at all, so $p_D(a \mid s)$ is more accurately read as a behavior distribution conditioned on a *latent / inferred* behavioral state. In practice it can only be approximated through observation history, proprioception, or a learned representation.
+
 $$\text{behavior / intervention coverage: } p_D(a \mid s)\ \text{not}\ p_{\mathrm{feasible}}(a \mid s)$$
+
+What this dimension really pins down is the concept the whole article keeps circling back to: **the mismatch that actually hurts performance is, at bottom, distribution shift / covariate shift** — the policy, once deployed, steers itself into states its training distribution never covered. In offline RL this takes a sharper form: if the evaluation policy visits $(s,a)$ regions the behavior dataset barely covers, the value estimate is forced to extrapolate, and support mismatch becomes the dominant failure mode. So the operative question is never "is the dataset diverse," but "is the *evaluation-relevant state-action support* adequately covered by the behavior distribution" — which connects straight back to $p_D(a \mid s)$ above.
 
 Mapping them to the generalization abilities they are responsible for:
 
@@ -525,6 +529,22 @@ The reason is concrete: robot data has a special problem that distinguishes it f
 
 > **100,000 highly correlated timesteps do not equal 100,000 independent units of information.**
 
+And the attrition is not single-layer but multi-layer: raw counts lose value at every level of abstraction.
+
+```text
+100,000 timesteps
+      ↓
+ 10,000 trajectories
+      ↓
+  1,000 unique scene–object configurations
+      ↓
+    100 meaningful behavioral regions
+      ↓
+     10 truly distinct failure modes
+```
+
+So robot data scaling contends with **both sample redundancy and distribution redundancy** at once: temporal correlation erodes timestep-level independence, shared scenes and operators erode trajectory-level independence, and repeated tasks and repeated failure modes erode distribution-level novelty. This is precisely why $N_{\mathrm{eff}}$ has to stand as its own quantity and cannot simply be replaced by $N$.
+
 (Statistically, there is a classic intuition for folding temporal correlation into an effective sample size, of the form $N_{\mathrm{eff}} \approx N / (1 + 2\sum_k \rho_k)$; this article deliberately keeps it out of the main text so as not to drag the discussion into the technical details of "time-series ESS.")
 
 It should be emphasized that **effective data scale and model capacity are not independent**, but this coupling belongs inside $g(\cdot)$ rather than being stuffed into $D_{\mathrm{effective}}$: data diversity can only be fully exploited when the model has enough capacity. When model capacity is small, blindly enlarging distribution diversity may yield limited or even negative returns; only when capacity is sufficient can the same diverse data be converted into stronger generalization. So $Performance$ is jointly determined by $D_{\mathrm{effective}}$, $Capacity$, $Compute$, and $Recipe$, rather than being a function of any single variable.
@@ -549,11 +569,11 @@ To make the positioning of this hypothesis clearer, the article's logic can be l
 
 ### Support Scaling vs Density Scaling
 
-Simply saying "duplicate data has diminishing returns while diverse data yields more" can easily be shot down by counterexamples. Consider a high-precision manipulation task, such as precisely inserting a very small connector — here a large number of highly similar trajectories can be very valuable, because what the model must learn is not coverage but precision, control stability, contact dynamics, sub-millimeter correction, and action-noise tolerance. For such a task, $10000$ highly similar but high-quality trajectories may be more useful than $1000$ highly diverse ones.
+Simply saying "duplicate data has diminishing returns while diverse data yields more" can easily be shot down by counterexamples. Consider a high-precision manipulation task, such as precisely inserting a very small connector — here a large number of highly similar trajectories can be very valuable. But what they teach is *not* merely "estimate the same distribution density a bit more precisely." Plugging and unplugging the same connector ten thousand times is also how the model comes to learn tiny contact variations, force response, actuator noise, timing, micro-corrections, and where the failure boundary actually lies — alongside variance reduction and optimization stability. For such a task, $10000$ highly similar but high-quality trajectories may be more useful than $1000$ highly diverse ones.
 
 So a more accurate framework splits the marginal value of new data into two parts:
 
-$$\Delta U(D) = \Delta U_{\text{support}} + \Delta U_{\text{estimation}}$$
+$$\Delta U(D) = \Delta U_{\text{support}} + \Delta U_{\text{density}}$$
 
 corresponding to the two basic modes of robot data scaling:
 
@@ -570,10 +590,10 @@ Density scaling (raise sampling density in already-covered regions)
   more trajectories
   more repetitions
   more demonstrations
-  → in regions already known, better estimate known behaviors
+  → in regions already known, sharpen estimation, reduce variance, and learn contact / force / noise / timing structure
 ```
 
-**Support scaling** answers "have I seen new regions of the distribution?"; **density scaling** answers "within regions I already know, have I sampled densely enough and estimated accurately enough?" Both are valuable, but they serve different generalization goals — high-precision, contact-rich tasks often need density scaling more, while open-ended, multi-scene tasks need support scaling more.
+**Support scaling** answers "have I seen new regions of the distribution?"; **density scaling** answers "within regions I already know, have I sampled densely enough?" Density scaling is often doing several things at once — improving local distribution estimation, but also reducing variance, hardening robustness, and stabilizing optimization — so it should not be collapsed into "estimation" alone. Both are valuable, but they serve different generalization goals — high-precision, contact-rich tasks often need density scaling more, while open-ended, multi-scene tasks need support scaling more.
 
 But we must add a $p_{\mathrm{eval}}$-relative qualifier to support scaling here: **support expansion is not valuable in itself; only support expansion that both falls inside the evaluation-relevant region and is of sufficient quality and learnability can plausibly yield positive marginal utility.** In other words, intersecting the evaluation-relevant support is a **necessary but not sufficient condition** — a single trajectory that lands inside that region but is extremely noisy may have utility near zero, or even negative. So rather than writing a biconditional, it is more accurate to express it as a relation modulated jointly by several factors:
 
@@ -661,6 +681,12 @@ $$MV(D';\,D_t) \;\neq\; MV(D';\,D_{t+1})$$
 
 **Data value is state-dependent.** The same trajectory may be very valuable in the early, data-scarce phase, yet nearly worthless once the relevant regions of the distribution have already been filled in. This is precisely the root reason why "a dataset's quality cannot be permanently defined" — good data was never absolutely "good data," but "**data with high marginal utility under the current training state and evaluation gap.**" It is here that Data Utility → Marginal Data Value → Data Flywheel finally close into a loop.
 
+The natural consequence is that the optimal collection policy cannot be a *static* one. If $MV(D';D_t) \neq MV(D';D_{t+1})$, then which data to collect next must itself depend on the current dataset, the evaluation target, and the model's current parameters:
+
+$$D'_t = \pi_{\mathrm{data}}(D_t,\ p_{\mathrm{eval}},\ \theta_t)$$
+
+The flywheel is therefore not simply "collect data → train → collect again," but *learning a data-collection policy that keeps changing as the state changes.* Put as a single line: **robot data scaling is not a static dataset construction problem; it is a sequential data allocation problem.**
+
 ### From Scaling Hypothesis to Data Flywheel
 
 What this article wants to say is: **data and training recipes may be becoming embodied AI's most underestimated competitive advantage.**
@@ -685,7 +711,9 @@ $$D_{\text{targeted}} = \operatorname*{argmax}_{D'}\ MV(D';\,D_t) \;=\; \operato
 
 One clarification is needed: the $\Delta Performance$ here is **not assumed to be a directly readable oracle**. In practice it is typically estimated through evaluation on a proxy distribution, failure statistics, model uncertainty estimation, or offline-RL counterfactual proxy metrics. Making this explicit is what turns the formula from a pretty slogan into an actual research direction — **targeted data collection is fundamentally an estimation + optimization problem, not an oracle-style argmax.**
 
-This step genuinely connects the **data flywheel** to **effective data scale**: the point of the flywheel turning is not that $N$ grows, but that each round prioritizes filling the gap in $p(\tau \mid task, scene, embodiment)$ that has the highest utility-per-cost relative to $p_{\mathrm{eval}}$. In other words, **the strongest data flywheel is not "keep collecting data," but "keep discovering where the current distribution falls short of the evaluation, and refill in a targeted way."**
+Pushing one level deeper: what a real system optimizes is never $MV$ itself but an estimate $\widehat{MV} = MV + \epsilon$, where $\epsilon$ comes from the finite evaluation set, noisy failure labels, imperfect uncertainty estimates, simulator bias, offline-proxy bias, and training variance. This quietly reframes the whole loop — **choosing which data to collect next is itself an active-learning / decision-making-under-uncertainty problem**: a better $\widehat{MV}$ yields better-targeted data, which in turn yields a better $\widehat{MV}$. The flywheel is thus not just accumulating data, but progressively sharpening its own estimate of where data is worth collecting.
+
+The flywheel thereby ties directly back to **effective data scale**: the point of the loop turning is not that $N$ grows, but that each round prioritizes filling the gap in $p(\tau \mid task, scene, embodiment)$ that has the highest utility-per-cost relative to $p_{\mathrm{eval}}$. In other words, **the strongest data flywheel is not "keep collecting data," but "keep discovering where the current distribution falls short of the evaluation, and refill in a targeted way."**
 
 ### The Capstone Flow of the Whole Article
 
@@ -709,7 +737,7 @@ At this point we can name the article's real subject: on the surface it talks ab
    ┌──────┴──────┐              │
    ▼             ▼              │
  Support      Density           │
- Coverage     Estimation        │
+ Coverage     Scaling           │
    │             │              │
    └──────┬──────┘              │
           ▼                     │
