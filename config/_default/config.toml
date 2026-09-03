@@ -79,6 +79,14 @@ defaultContentLanguageInSubdir = true
     style = "dracula"
     lineNos = false
     guessSyntax = true
+  # 数学公式：让 $$...$$ / $...$ / \[...\] / \(...\) 原样透传，交给前端 KaTeX 渲染
+  [markup.goldmark]
+    [markup.goldmark.extensions]
+      [markup.goldmark.extensions.passthrough]
+        enable = true
+        [markup.goldmark.extensions.passthrough.delimiters]
+          block = [['$$', '$$'], ['\[', '\]']]
+          inline = [['$', '$'], ['\(', '\)']]
 
 # 相关设置
 [related]
