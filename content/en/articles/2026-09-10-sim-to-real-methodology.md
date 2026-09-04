@@ -38,6 +38,8 @@ Sim-to-real is usually narrated as "train a policy in simulation and transfer it
 
 $$p_{\mathrm{sim}}^{\pi}(\tau) \;\neq\; p_{\mathrm{real}}^{\pi}(\tau)$$
 
+**"The same $\pi$" carries a precondition** — sim and real must **share one policy interface**: observation schema (keys / shape / units / normalization), action schema (continuous vs discrete, torque / velocity / position, clamping), control frequency and action-hold semantics, and timing / delay assumptions. If the interfaces differ, $\pi$ is not the same function and $\delta_J$ loses its definition — this assumption is not restated later.
+
 The trajectory distribution is itself **policy-induced** — it changes with $\pi$; it is not an intrinsic property of the environment. What we actually care about is not the distributional difference but its **manifest consequence on the task** — the performance difference of the same $\pi$ in the two worlds:
 
 Terminology is split into three strict levels to keep later ontology clean: **(a) trajectory / distribution mismatch** $D(p_{\mathrm{sim}}^\pi,\ p_{\mathrm{real}}^\pi)$, a process-level distributional difference; **(b) transfer delta**,
@@ -89,7 +91,7 @@ With the sources unpacked, the opening intuition needs a mathematical landing. T
 
 $$\boxed{\;\delta_J \;=\; F\big(\Delta_{\mathrm{model}},\ \Delta_{\mathrm{obs}},\ \Delta_{\mathrm{ctrl}},\ \Delta_{\mathrm{dist}}\big)\;}$$
 
-**Each $\Delta_k$ here is a mismatch descriptor — potentially scalar, vector, distribution, or set-valued.** The stochasticity / occupancy / model-class uncertainty discussed later do not fit a single scalar "error magnitude," so this equation is schematic and does not presuppose a common scalar metric.
+**Each $\Delta_k$ here is a mismatch descriptor — potentially scalar, vector, distribution, or set-valued.** The stochasticity / occupancy / model-class uncertainty discussed later do not fit a single scalar "error magnitude," so this equation is schematic and does not presuppose a common scalar metric. **$F$ is not an estimable predictive model either** — it only marks "there is some un-unfolded dependency"; the actual engineering work is probing local response via sensitivity experiments and ablation, not fitting $F$.
 
 **This version takes $\Delta_{\mathrm{opt}}$ (optimization / learning error) out of the reality gap**: they live at different levels — for the same fixed policy, if the simulated dynamics and observations are both accurate but RL never converged, $\delta_J$ is small while the policy is bad; they should be split into **two diagnostic quantities**:
 
@@ -107,32 +109,33 @@ $$\hat S_k^{\mathrm{int}} \;\approx\; \frac{J_{\mathrm{real}}\big(\pi;\,\xi_k{+}
 
 ### The real "allocation": spend on intervention actions, not pick one method off a shelf
 
-For budget allocation to be literal, the budget must be split **continuously** across the intervention axes: decompose the total budget into a vector $b=(b_1,\dots,b_K)$, where $b_k$ is the amount spent on intervention $k$ — $b_{\mathrm{SI}}=2\text{h}$, $b_{\mathrm{DR}}=10^6$ sim steps, $b_{\mathrm{real}}=4\text{h}$ real robot — not a 0/1 choice like "use SI or not." The objective is to maximize real-world performance:
+For budget allocation to be literal, the budget must be split **continuously** across the intervention axes: decompose the total budget into a vector $b=(b_1,\dots,b_K)$, where $b_k$ is the amount spent on intervention $k$ — $b_{\mathrm{SI}}=2\text{h}$, $b_{\mathrm{DR}}=10^6$ sim steps, $b_{\mathrm{real}}=4\text{h}$ real robot — not a 0/1 choice like "use SI or not." **The deployment objective cannot be written as mean only**: a policy with mean success 90% + catastrophic failure 1% vs one with mean 88% + tail ≈ 0 is often **not the same deployment decision** on a real robot, so the full form is **mean-plus-tail with a safety constraint**:
 
-$$\max_{b}\quad J_{\mathrm{real}}\big(\pi_b\big)$$
+$$\max_{b}\quad \mathbb{E}\big[J_{\mathrm{real}}(\pi_b)\big] \quad \text{s.t.}\quad \Pr\big[\text{unsafe} \mid \pi_b\big] \le \alpha$$
 
 In robotics projects the budget is **not one currency**: GPU may be near unlimited while real robot-hours are scarce; you may have machine time but no engineering headcount — so the correct writing is **multi-budget constraints**, not a collapse into a scalar $B$:
 
 $$\begin{aligned}
 C_{\mathrm{real}}(b) &\le B_{\mathrm{real}}\\
 C_{\mathrm{compute}}(b) &\le B_{\mathrm{compute}}\\
-C_{\mathrm{eng}}(b) &\le B_{\mathrm{eng}}\\
-C_{\mathrm{risk}}(b) &\le B_{\mathrm{risk}} \quad\text{(safety budget: e-stop count / hardware-fault tolerance / operator-intervention ceiling)}
+C_{\mathrm{eng}}(b) &\le B_{\mathrm{eng}}
 \end{aligned}$$
+
+**Safety does not belong in the same cost / budget layer** — it is a **chance constraint** $\Pr[\text{unsafe} \mid \pi_b] \le \alpha$ (with $\alpha$ set by the project's e-stop tolerance / hardware-fault ceiling), not a discountable soft budget like $C_{\mathrm{risk}}(b) \le B_{\mathrm{risk}}$. Risk and compute have different semantics; putting them in the same set invites the wrong intuition that "spending a bit more risk buys a bit more compute.\"
 
 Once the budget is a vector, the decision variable should shift from "gap" to "intervention": an engineer cannot buy "two percentage points of $\Delta_{\mathrm{model}}$"; what they can buy is 30 minutes of SI, $10^6$ sim steps, 100 real trajectories, a camera calibration, a residual model. It is more natural to define marginal utility on an intervention $m$ — **an intervention does not directly change $\Delta_k$; it changes the policy through the training process**:
 
 $$\boxed{\;\pi_{b+m} \;=\; \operatorname{Train}\big(D_{\mathrm{sim}},\ D_{\mathrm{real}};\ m\big)\;}$$
 
-So "where does the next dollar go" becomes a quantity defined on interventions that must be estimated step by step in the real world. **The core decision formula of this article is $MV$, not $w_k$ or $\hat S_k^{\mathrm{int}}$** ($MV$ is more accurately named **cost-normalized marginal value**). Written rigorously, an intervention is a pair $m = (\text{type},\ \Delta b_m)$ where $\Delta b_m$ is the resource increment consumed by that intervention, and executing it yields $b' = b + \Delta b_m$; the expectation is **explicitly conditional on the current evidence $\mathcal{D}$** (existing real evaluations, pilot results, and current calibration state):
+So "where does the next dollar go" becomes a quantity defined on interventions that must be estimated step by step in the real world. **The core decision formula of this article is $MV$, not $w_k$ or $\hat S_k^{\mathrm{int}}$** ($MV$ = **cost-normalized marginal value**). Written rigorously, an intervention is a pair $m = (\text{type},\ \Delta b_m)$, executing it yields $b' = b + \Delta b_m$, and the expectation is **explicitly conditional on evidence $\mathcal{D}$** (existing real evaluations, pilots, and current calibration). Because multi-budgets are not interchangeable, cost itself is a **vector** $\Delta C(m) = (\Delta C_{\mathrm{real}},\ \Delta C_{\mathrm{compute}},\ \Delta C_{\mathrm{eng}})$ — collapsing to a scalar uses **shadow prices $\lambda$** (the marginal value of each binding budget, from LP / KKT or empirical calibration): $C_\lambda(m) = \lambda^\top \Delta C(m)$. Core decision rule:
 
-$$\boxed{\;MV(m \mid b,\pi,\mathcal{D}) \;=\; \frac{\mathbb{E}\big[\,J_{\mathrm{real}}(\pi_{b'}) - J_{\mathrm{real}}(\pi_{b}) \;\big|\; \mathcal{D}\,\big]}{C(m)}\;}$$
+$$\boxed{\;MV(m \mid b,\pi,\mathcal{D};\lambda) \;=\; \frac{\mathbb{E}\big[\,J_{\mathrm{real}}(\pi_{b'}) - J_{\mathrm{real}}(\pi_{b}) \;\big|\; \mathcal{D}\,\big]}{\lambda^\top \Delta C(m)}\;}$$
 
-The real novelty of this framing is not "which method is better" but **given current evidence, what is the expected value of the next unit of resource**. Correspondingly, $m^{*} = \arg\max_m MV(m \mid b,\pi,\mathcal{D})$ is only a **one-step / local allocation rule**, not a global optimum; and different interventions (30 min SI, $10^6$ DR steps, 100 real trajectories) do **not live in the same intervention space** — the "type" component of $m$ is precisely what encodes this. The full problem should be written as a **multi-resource sequential allocation**:
+The novelty is not "which method is better" but **given current evidence, what is the expected value of the next unit of resource**. Correspondingly, $m^{*} = \arg\max_m MV(m \mid b,\pi,\mathcal{D};\lambda)$ is only a **one-step / local rule**, not a global optimum; and different interventions (30 min SI, $10^6$ DR steps, 100 real trajectories) do **not live in the same intervention space** — the "type" component of $m$ is precisely what encodes this. The full problem should be written as a **multi-resource sequential allocation with a chance constraint**:
 
-$$\max_{\{m_t\}_{t=1}^{T}}\ \mathbb{E}\big[J_{\mathrm{real}}(\pi_T)\big] \quad \text{s.t.}\quad \sum_{t} C_r(m_t) \le B_r,\;\; r \in \{\mathrm{real},\mathrm{compute},\mathrm{eng},\mathrm{risk}\}.$$
+$$\max_{\{m_t\}_{t=1}^{T}}\ \mathbb{E}\big[J_{\mathrm{real}}(\pi_T)\big] \quad \text{s.t.}\quad \sum_{t} \Delta C_r(m_t) \le B_r\ (r \in \{\mathrm{real},\mathrm{compute},\mathrm{eng}\}),\;\; \Pr[\text{unsafe} \mid \pi_T] \le \alpha.$$
 
-$MV$ is a **local decision statistic** for this sequential problem; only under the additional assumptions of negligible interaction between interventions, linear cost, and no fixed cost does greedy selection approximate global optimality — none of which is assumed in this article. This ratio cannot be computed analytically from the simulator; it can only be estimated **sequentially** via pilot experiments / ablation / few-shot real evaluation. Four caveats: **(i) uncertainty** — real-world $\Delta J$ is extremely noisy, so allocation should also look at CI / posterior / **lower confidence bound (LCB)**, otherwise a high-variance intervention gets wrongly prioritized by a single lucky run. **(ii) non-linear cost** — a one-off SI engineering pass can benefit every subsequent training run (fixed cost); DR saturates gradually (diminishing returns); fine-tuning has threshold effects. **(iii) non-monotonicity / negative MV** — **this article does not assume interventions monotonically improve real performance**; over-randomization, overfitting-style fine-tuning, an incorrect residual, and cross-domain negative transfer all mean $MV$ **can be negative** ($\Delta J_{\mathrm{real}} < 0$). **(iv) information value** — many pilot interventions (e.g. a 20-minute friction identification) have $\Delta J \approx 0$ immediately but sharply shrink the uncertainty set for downstream allocation; their real contribution is **learning what to do next**, not an instant lift in the policy. This can be formalized as $MV_{\mathrm{perf}} = \mathbb{E}[\Delta J]/C(m)$ and $MV_{\mathrm{info}} = \mathbb{E}[V(\mathcal{D}_{t+1}) - V(\mathcal{D}_t)]/C(m)$, where $V$ is a value-of-information functional over the evidence set. Total allocation score can be loosely read as $MV_{\mathrm{perf}} + \lambda\, MV_{\mathrm{info}}$ — but **$MV_{\mathrm{info}}$ stays at the narrative layer and does not enter the core boxed formula**, to avoid framework inflation.
+$MV$ is a **local decision statistic** for this sequential problem; $\lambda_r$ is the dual / shadow price of each resource constraint. Only under the additional assumptions of negligible interaction between interventions, linear cost, and no fixed cost does greedy with a fixed $\lambda$ approximate global optimality — none of which is assumed here; in practice $\lambda$ can be treated as a slowly-updated estimate indexed by $t$. This ratio cannot be computed analytically from the simulator; it can only be estimated **sequentially** via pilot experiments / ablation / few-shot real evaluation. Four caveats: **(i) uncertainty** — real-world $\Delta J$ is extremely noisy, so allocation should also look at CI / posterior / **lower confidence bound (LCB)**, otherwise a high-variance intervention gets wrongly prioritized by a single lucky run. **(ii) non-linear cost** — a one-off SI engineering pass can benefit every subsequent training run (fixed cost); DR saturates gradually (diminishing returns); fine-tuning has threshold effects. **(iii) non-monotonicity / negative MV** — **this article does not assume interventions monotonically improve real performance**; over-randomization, overfitting-style fine-tuning, an incorrect residual, and cross-domain negative transfer all mean $MV$ **can be negative** ($\Delta J_{\mathrm{real}} < 0$). **(iv) information value is a missing term in the full sequential objective, not just narrative decoration** — many pilots (e.g. a 20-minute friction identification) have $\Delta J \approx 0$ immediately but sharply shrink the uncertainty set for downstream allocation; their real contribution is **learning what to do next**. Written rigorously, the full sequential objective should contain both performance and VoI terms: $\max_{\{m_t\}} \big(\mathbb{E}[J_{\mathrm{real}}(\pi_T)] + \beta V(\mathcal{D}_T)\big)$ with $V$ a value-of-information functional over the evidence set. The article's core boxed formula only makes $MV_{\mathrm{perf}} = \mathbb{E}[\Delta J]/C_\lambda(m)$ explicit; $MV_{\mathrm{info}} = \mathbb{E}[V(\mathcal{D}_{t+1}) - V(\mathcal{D}_t)]/C_\lambda(m)$ and the composite $MV_{\mathrm{perf}} + \beta\, MV_{\mathrm{info}}$ stay at the narrative layer. **Ignoring $MV_{\mathrm{info}}$ systematically under-prices pilot-class interventions and collapses allocation into exploit-only**.
 
 **$MV$ across different interventions is also not a fixed constant**: $MV_i = MV_i(b_{1:i-1},\ \pi_b,\ D_{\mathrm{real}})$ — doing SI first narrows the uncertainty set and DR's $MV$ falls; doing DR first yields a more robust starting point and fine-tuning's $MV$ rises. **Interventions exhibit complementarity, substitutability, and occasional conflict simultaneously**, so this is **resource-constrained sequential experimentation / adaptive allocation** (close to adaptive experimental design, but **do not write it as a bandit algorithm** — there are no strict arms / stationary reward / regret guarantees).
 
@@ -259,9 +262,11 @@ Learned-model route：interaction data → learned dynamics → imagine → opti
 
 **Interaction data can come from real, sim, or a mixture** — the learned-model route ≠ real-only learning.
 
-To say it precisely: the world model **does not cancel the simulator** — it swaps the simulator from "a hand-specified physics model" to "a predictive model learned from interaction data"; what changes is the **model source**:
+To say it precisely: the world model **does not cancel the simulator** — it is still doing simulation / imagination, only the predictive model is now learned. A more accurate phrasing is **changing the source and inductive bias of the predictive model**:
 
-$$f_{\mathrm{hand\text{-}designed}} \;\longrightarrow\; f_{\mathrm{learned}}$$
+$$\text{model source} \;=\; \text{physics prior} \;+\; \text{learned dynamics} \;+\; \text{data}$$
+
+**The three can be hybrid** — reading world model as "simulator replacement" (a binary swap $f_{\mathrm{hand\text{-}designed}} \rightarrow f_{\mathrm{learned}}$) oversimplifies.
 
 Dreamer (1912.01603) and TD-MPC2 (2310.16828) embody this route. When **the model bias of a hand-crafted simulator is too large to be worth fixing first**, the world model offers a rewrite of the problem itself. DayDreamer (2206.14176) is often misread as "sim pretraining → real fine-tuning"; the more accurate statement is: **it demonstrates a real-interaction-driven experimental route** — learning a world model directly on a real robot and doing policy improvement via latent imagination. **Not depending on a handcrafted simulator ≠ model-free** — world-model learning still eats its full share of assumptions; it merely moves the inductive bias from "explicit physics" into the "learned world model."
 
@@ -271,7 +276,7 @@ The honest boundary: "learning dynamics from real data" **does not mean it is na
 
 Maddukuri et al. (RSS 2025, 2503.24361) proposed Sim-and-Real Co-Training as a pragmatic direction. **What the paper actually reports**: mixing sim and real within one training run yields an **average aggregate relative improvement of roughly 37.9%** relative to the paper's **own baselines (train-on-real-only and train-on-sim-only, each as its own reference)** across **two platforms and six visual manipulation tasks**. This is a **relative lift under a paper-defined aggregate metric normalized across tasks** — **not an absolute percentage-point gain in success rate**, and not directly comparable to per-task success-rate deltas. When quoting 37.9%, always state the baseline and the aggregation definition; check the per-task numbers against the original paper. It does not do one-way sim→real transfer but is a single recipe that decides the ratio and schedule between the two.
 
-**This article's reading (not something the paper proves)** is to push it one step further into a **data-mixture problem**: co-training's **primary intervention variable is the training mixture** $p_{\mathrm{train}}=\lambda\, p_{\mathrm{sim}}+(1-\lambda)\, p_{\mathrm{real}}$, not simulator calibration and not a deployment-time adapter; **$\lambda$ itself is only a sampling-level simplification** — real recipes also change the **effective** training distribution through dataset size / importance weighting / augmentation / curriculum. Follow-up mechanistic analysis (Lei et al., arXiv 2026, 2604.13645) shows that changing the mixture also induces **structured representation alignment and importance reweighting** — "mixture as the primary lever, with effects spanning multiple dimensions," rather than a fifth axis strictly orthogonal to the previous four.
+**This article's reading (not something the paper proves)** is to push it one step further into a **data-mixture problem**: co-training's **primary intervention variable is the training mixture** $p_{\mathrm{train}}=\lambda\, p_{\mathrm{sim}}+(1-\lambda)\, p_{\mathrm{real}}$, not simulator calibration and not a deployment-time adapter; **$\lambda$ itself is only a sampling-level simplification** — real recipes also change the **effective** training distribution through dataset size / importance weighting / augmentation / curriculum. Follow-up mechanistic analysis (Lei et al., arXiv 2026, 2604.13645) shows that, **within the generative-robot-policy setting that paper studies**, changing the mixture induces **structured representation alignment and importance reweighting** — this is a **paper-specific mechanistic explanation, not a universal claim that any sim + real mixture always produces these two effects**. But it is enough to establish "mixture as the primary lever, with effects spanning multiple dimensions," rather than a fifth axis strictly orthogonal to the previous four.
 
 ## Evaluation: how do you know you actually closed the gap?
 
@@ -300,7 +305,7 @@ $$\pi_{\mathrm{sim}} = \operatorname*{arg\,max}_{\pi \in \Pi} J_{\mathrm{sim}}(\
 
 Spearman = 0.95 but a wrong top-1 is still a disaster; conversely, Spearman = 0.7 but a top-1 that rarely misses is enough for "pick one deployable policy." Both are **conditional metrics**. **A conclusion the allocation framework naturally yields**: **simulator fidelity is task-of-use dependent, not an absolute property** — change the use (pretraining / exploration / curriculum / safety filter) and "which errors matter" changes entirely. $\pi^*_{\mathrm{real}}$ is typically unavailable, so $R_{\mathrm{select}}$ — like the real-domain learning gap earlier — is an **oracle-defined diagnostic quantity**; in practice use $J_{\mathrm{real}}(\pi_{\mathrm{best\text{-}observed}}) - J_{\mathrm{real}}(\pi_{\mathrm{sim}})$ or a Pareto-best proxy.
 
-When full ranking is unnecessary, more practical metrics are **top-k recall** (the probability that the true-best policy appears in the sim-selected top-$k$), **regret@k**, or the binary question "real best $\in$ sim top-$k$?" — the simulator only needs to include good policies in its candidate set, not precisely rank the tail.
+**More importantly**, real projects rarely need the simulator to precisely rank every policy — they need it to **compress the worth-evaluating candidates down to an acceptable set**: **sim → candidate filtering → small real evaluation**, structurally identical to this article's allocation philosophy (real to discover, sim to amplify, real again to validate). So **top-$k$ candidate recall** (real top policy lands inside sim's top-$k$), **regret@k**, or "real best $\in$ sim top-$k$?" should be lifted to the same tier as ranking, or arguably the more operational one — the simulator only needs to include good policies in its candidate set, not precisely rank the tail.
 
 At this point, **an important corollary of the allocation framework**: **simulator utility is not a single property but three non-substitutable dimensions** —
 
@@ -310,11 +315,7 @@ At this point, **an important corollary of the allocation framework**: **simulat
 | Ranking accuracy | Spearman $\rho_{\mathrm{rank}}$, Kendall $\tau$, top-k recall, regret@k |
 | Quality of the selected policy (decision quality) | $R_{\mathrm{select}} = J_{\mathrm{real}}(\pi^{*}_{\mathrm{real}}) - J_{\mathrm{real}}(\pi_{\mathrm{sim}})$ (in practice use a best-observed proxy) |
 
-A simulator can be calibrated very accurately and still pick the wrong policy (narrow distribution); another can be numerically wrong across the board yet rank stably with small regret — the three dimensions cannot substitute for each other. $U_{\mathrm{sim}}$ should not be written as an abstract scalar; it should be expanded into **utility classified by use**:
-
-$$U_{\mathrm{sim}} \;\in\; \big\{\ U_{\mathrm{pretrain}},\ U_{\mathrm{selection}},\ U_{\mathrm{exploration}},\ U_{\mathrm{curriculum}},\ U_{\mathrm{safety}}\ \big\}$$
-
-Evaluating fidelity cannot stare at a single policy; it must be relative to the **candidate policy family** and the **concrete use**: $U_{\mathrm{sim}}(\cdot \mid \Pi_{\mathrm{candidate}},\ p_{\mathrm{eval}}^{\mathrm{real}})$.
+A simulator can be calibrated very accurately and still pick the wrong policy (narrow distribution); another can be numerically wrong across the board yet rank stably with small regret — the three dimensions cannot substitute for each other. $U_{\mathrm{sim}}$ should not be written as an abstract scalar; it should be indexed **by use as a superscript**: $U_{\mathrm{sim}}^{(u)}$ with $u \in \{\text{pretrain},\ \text{selection},\ \text{exploration},\ \text{curriculum},\ \text{safety}\}$. Evaluating fidelity cannot stare at a single policy; it must be relative to the **candidate policy family** and the **concrete use**: $U_{\mathrm{sim}}^{(u)}(\cdot \mid \Pi_{\mathrm{candidate}},\ p_{\mathrm{eval}}^{\mathrm{real}})$.
 
 ## Composition, decision, and a question usually dodged
 
@@ -347,6 +348,33 @@ Following this logic, we can answer the counter-question the whole article has a
 - **When the simulator offers no unique coverage / safety / exploration / counterfactual access** — $U_{\mathrm{sim}}^{\mathrm{downstream}} < C_{\mathrm{sim}}^{\mathrm{effective}}$: not that sim is "bad," but that it provides no **unique utility** and its opportunity cost exceeds its benefit.
 
 Being willing to admit "sometimes the optimal move is not doing sim-to-real" is exactly what the allocation framing should look like: **it does not take the "simulation" team; it takes the "next unit of budget buys the most real-world performance" team.**
+
+## A minimum executable Sim-to-Real allocation protocol
+
+A framework that never lands on "how the project runs tomorrow" is still just a clever framing. The six steps below are the **minimum executable version** — any one can be skipped, but only with an explicit reason why it is a no-op for the current project.
+
+**Step 1 — Freeze the evaluation.** Lock down task / initial-state distribution / horizon / success metric / safety threshold / policy interface (obs + action schema + control frequency). Without this, every $\Delta J$ downstream is measured on a different ruler.
+
+**Step 2 — Build a held-out real evaluation set.** Real evaluation data must be **strictly disjoint from real training data** and cover held-out hardware / calibration / objects / scene slices. Evaluating interventions on training data makes $\Delta J$ systematically optimistic.
+
+**Step 3 — Enumerate mismatch hypotheses as a falsifiable table.**
+
+| Hypothesis | Evidence | Conf. | Candidate intervention |
+| --- | --- | ---: | --- |
+| friction $\mu$ too low | contact slip | med | SI + DR |
+| actuator latency unmodeled | high-frequency oscillation | high | SI + timing re-ID |
+| camera extrinsics off | systematic grasp offset | high | Calibration / DA-input-level |
+| contact model wrong | soft-object OOD failure | low | Residual / world model |
+
+Every hypothesis must be **falsifiable by a concrete experiment**; drop any that cannot specify what would refute it.
+
+**Step 4 — Cheap pilots to estimate $\Delta J$ and its uncertainty.** For each candidate intervention, use the smallest feasible sample (e.g. 5 real trajectories, 30 min SI) to estimate $\mathbb{E}[\Delta J]$ with CI / posterior — not chasing significance, just moving uncertainty from "no idea" to "knowing which probably do not pay off."
+
+**Step 5 — Pick the next slice of budget by resource-aware $MV$.** Compute $MV(m \mid b,\pi,\mathcal{D};\lambda)$ using the **current shadow-price estimate** (tightest budget gets the largest $\lambda_r$) — **not "which method is most advanced."** Safety-related interventions go through Step 1's $\alpha$ chance constraint and are **never traded against cost**.
+
+**Step 6 — Real evaluation → posterior update → return to Step 3.** Update $\mathcal{D}_t \rightarrow \mathcal{D}_{t+1}$, re-estimate $\lambda$, retire falsified hypotheses, add newly observed failure modes to the mismatch table, and run the next round. **The most-skipped, most-important step** — without posterior update, the whole pipeline degrades to a static checklist.
+
+**Positioning.** This protocol is the **minimum landing version** of the allocation framework, not the only implementation. Small teams can merge Step 3 and Step 4; larger teams can add a portfolio-optimization layer on top of Step 5. But none of the six steps may stay implicit — writing them down is what makes review possible, and review is what stops allocation from quietly degrading into "using whichever method the team already knows."
 
 ## What this means: a loop, not a switch
 
