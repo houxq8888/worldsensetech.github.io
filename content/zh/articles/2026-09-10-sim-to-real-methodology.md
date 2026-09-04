@@ -24,9 +24,9 @@ related_articles:
 
 - **Level 1 — Diagnosis**：$M_{\mathrm{sim}} \rightarrow p_{\mathrm{sim}}^\pi \rightarrow J_{\mathrm{sim}}$ vs. real——哪里不一样、哪里重要？
 - **Level 2 — Intervention**：四个 lens（Model × Data × Representation × Optimization）——哪种干预改变这个 mismatch？
-- **Level 3 — Allocation**：local decision score $Q_\lambda(m \mid s_t)$ 与 efficiency reading $MV(m \mid s_t)$——当前 state、预算、uncertainty 下、下一块资源投哪？
+- **Level 3 — Allocation**：在当前 state、预算、uncertainty 下、**下一块资源投哪**？（decision score 与 efficiency reading 在 §Alloction 一节 formalize）
 
-主线是 **Diagnosis → Experiment → Intervention → Allocation → Re-evaluation** 闭环。四个核心贡献：**(1)** reality gap 是 policy-conditioned、task-conditioned consequence、非 sim 固有标量；**(2)** descriptor / sensitivity 只是诊断、决策变量是 intervention；**(3)** SI / DR / DA / FT 是 multi-resource sequential allocation 下的 intervention lenses、非互斥方法；**(4)** sim evaluation 从 fidelity 扩到 downstream utility（prediction / ranking / selection）。**"误差预算" 是 allocation metaphor、真正的 formal object 是 model uncertainty 下的 sequential resource allocation**：约束是 $B_{\mathrm{real}}, B_{\mathrm{compute}}, B_{\mathrm{eng}}$、不是 $\sum_k \Delta_k \le B_{\mathrm{error}}$；预算花在**干预动作**上。
+主线是 **Diagnosis → Experiment → Intervention → Allocation → Re-evaluation** 闭环。**三个 framework contributions + 一个 downstream corollary**：**(1)** reality gap 是 policy-conditioned、task-conditioned consequence、非 sim 固有标量；**(2)** descriptor / sensitivity 只是诊断、决策变量是 intervention；**(3)** SI / DR / DA / FT 是 multi-resource sequential allocation 下的 intervention lenses、非互斥方法；**下游 corollary**——sim evaluation 从 fidelity 扩到 downstream utility（prediction / ranking / selection）——是 allocation framework 的推论、不与前三同层。**"误差预算" 是 allocation metaphor、真正的 formal object 是 model uncertainty 下的 sequential resource allocation**：约束是 $B_{\mathrm{real}}, B_{\mathrm{compute}}, B_{\mathrm{eng}}$、不是 $\sum_k \Delta_k \le B_{\mathrm{error}}$；预算花在**干预动作**上。
 
 ## Reality Gap：不是一个标量，而是一个 policy-conditioned 的 mismatch
 
@@ -105,11 +105,14 @@ $$\boxed{\;MV(m \mid s_t;\lambda) \;=\; \frac{\mathbb{E}\big[\,J_{\mathrm{real}}
 
 **真正的局部 decision score 是 Lagrangian net value**、且要与 global objective 一样把 VoI 纳入（否则出现"全局含 VoI、局部只算 performance"的近似断点）：
 
-$$\boxed{\;Q_\lambda^{\mathrm{perf+info}}(m \mid s_t) \;=\; \mathbb{E}\big[\Delta J(m) + \beta\, \Delta V(m) \;\big|\; \mathcal{D}_t\,\big] \;-\; \lambda^\top \Delta C(m)\;}$$
+$$\boxed{\begin{aligned}
+&U_0(m \mid \mathcal{D}_t) \;=\; \mathbb{E}\big[\Delta J(m) \mid \mathcal{D}_t\big] \;-\; \lambda^\top \Delta C(m)\\[2pt]
+&Q_\lambda^{\mathrm{perf+info}}(m \mid s_t) \;=\; U_0(m \mid \mathcal{D}_t) \;+\; \beta\,\mathrm{VoI}(m \mid \mathcal{D}_t)
+\end{aligned}\;}$$
 
-其中 $\Delta V(m)$ 是这步 intervention 的**未来决策价值增量**（下节给轻量 operationalization）；performance-only $Q_\lambda^{\mathrm{perf}} = \mathbb{E}[\Delta J] - \lambda^\top \Delta C$ 只作 special case、$MV = \mathbb{E}[\Delta J] / \lambda^\top \Delta C$ 是效率读数。$Q_\lambda^{\mathrm{perf+info}}$ **是 current-state local score、非含未来 option value 的 Bellman-optimal action value**——本文 deliberately 用可估计的一步局部近似。
+$U_0$ 是 **performance-only reference utility**——$\mathrm{VoI}(\cdot)$ 只引用 $U_0$、不引用 $Q_\lambda^{\mathrm{perf+info}}$ 本身，**避免 $Q \leftrightarrow \mathrm{VoI}$ 自我递归**（真要走 self-consistent 需 fixed-point、本文不走）。performance-only $Q_\lambda^{\mathrm{perf}} = U_0$ 是 special case、$MV = \mathbb{E}[\Delta J] / \lambda^\top \Delta C$ 是效率读数。$Q_\lambda^{\mathrm{perf+info}}$ **是 current-state local score、非含未来 option value 的 Bellman-optimal action value**、可估计的一步局部近似。
 
-**Candidate set 也 state-dependent**：$\mathcal{M}_t = \mathcal{M}(s_t)$——SI 已做完、residual rollout 未过 validation gate、safety 不满足时 online FT 禁、real data 不够时某些 DA pipeline 跑不起来——**直接缩掉 $\mathcal{M}_t$、不是让 $MV$ 变小**；$\mathcal{M}_t^{\mathrm{feasible}} = \mathcal{M}_t^{\mathrm{safe}} \cap \mathcal{M}_t^{\mathrm{budget}}$、**safety 是 action feasibility gate、不是低权重 cost**；$\mathcal{M}_t^{\text{safe}}$ 严格写 $\{m : \mathrm{UCB}_{1-\delta}[\Pr(\text{unsafe} \mid \mathcal{D}_t, m)] \le \alpha\}$、**非经验 failure rate 点估计**。
+**Candidate set 也 state-dependent**：$\mathcal{M}_t = \mathcal{M}(s_t)$——SI 已做完、residual rollout 未过 validation gate、safety 不满足时 online FT 禁、real data 不够时某些 DA pipeline 跑不起来——**直接缩掉 $\mathcal{M}_t$、不是让 $MV$ 变小**；$\mathcal{M}_t^{\mathrm{feasible}} = \mathcal{M}_t^{\mathrm{safe}} \cap \mathcal{M}_t^{\mathrm{budget}}$、**safety 是 action feasibility gate、不是低权重 cost**；$\mathcal{M}_t^{\mathrm{safe}} = \{m : \mathrm{UCB}_{1-\delta}[\Pr(\text{unsafe} \mid \mathcal{D}_t, m)] \le \alpha\}$、**非经验 failure rate 点估计**。$\alpha$ 是**允许的 failure probability**（决策变量）、$\delta$ 是**统计 confidence tail**（估计精度）、**不要混**。$m$ 也不限于改 policy 的 intervention——**也包括主要购买 information 的 diagnostic experiment**（role ∈ {adaptation, diagnosis, model update}）：即时 $\Delta J \approx 0$、通过 $\mathrm{VoI}$ 改善后续 allocation；同一 type 不同 batch size / recipe / evaluation protocol **视为不同 candidate**、对应不同 incremental value 与 cost。
 
 $$m_{t+1} \;=\; \arg\max_{m \,\in\, \mathcal{M}_t^{\mathrm{feasible}}}\; Q_\lambda^{\mathrm{perf+info}}(m \mid s_t)$$
 
@@ -128,9 +131,9 @@ $m_{t+1}$ 只是 **one-step / local rule**、非 global optimum；不同 interve
 
 $$\max_{\{m_t\}_{t=1}^{T}}\ \mathbb{E}\big[J_{\mathrm{real}}(\pi_T)\big] \quad \text{s.t.}\quad \sum_{t} \Delta C_r(m_t) \le B_r\ (r \in \{\mathrm{real},\mathrm{compute},\mathrm{eng}\}),\;\; \Pr[\text{unsafe} \mid \pi_T] \le \alpha.$$
 
-$\lambda_r$ 是**估计影子价格**（对 RHS 的边际导数、非剩余百分比）、随 $t$ 缓慢更新；固定 $\lambda$ 的 greedy 只在 intervention 无 interaction、成本线性、无 fixed cost 时近似 global。ratio 只能用 pilot / ablation / few-shot real eval sequential 估。四条 caveat：**(i) uncertainty**——真机 $\Delta J$ 噪声大、看 CI / posterior / **LCB**。**(ii) 非线性成本 / 负 MV**——SI fixed cost、DR diminishing returns、FT threshold effects；over-randomization、错误 residual、negative transfer 可让 $MV < 0$。**(iii) info value 要真进 local score**——pilot 即时 $\Delta J \approx 0$、但显著缩小 uncertainty set；$\mathrm{VoI}(m) = \mathbb{E}_Y[\max_{m'} \mathbb{E}[U(m')\mid \mathcal{D}, Y]] - \max_{m'} \mathbb{E}[U(m')\mid \mathcal{D}]$；$V(\mathcal{D}) = -\Pr(\arg\max Q_\lambda$ flips$)$ 只是 **decision-stability proxy**、**posterior 收窄 ≠ 决策价值**。**(iv) $\Delta J$ 非天然 causal effect**——混 seed / optimizer / temperature / battery / wear / reset / evaluator 变异、pilot 用 **matched / paired evaluation**；$\Delta C(m)$ **必须是全部 incremental cost**、否则偏向"训练更久"的 intervention。数值**只在固定 $p_{\mathrm{eval}}$ 下有意义**。
+$\lambda_r$ 是**估计影子价格**（对 RHS 的边际导数、非剩余百分比）、**随 allocation state 更新**（$\lambda_t = \lambda(B_t, \mathcal{D}_t, \pi_t)$、一次关键实验可显著改变、不一定"缓慢"）；固定 $\lambda$ 的 greedy 只在 intervention 无 interaction、成本线性、无 fixed cost 时近似 global。ratio 只能用 pilot / ablation / few-shot real eval sequential 估。四条 caveat：**(i) uncertainty 与 decision functional**——真机 $\Delta J$ 噪声大；正文 $Q_\lambda$ 默认 posterior mean 作基线、风险敏感项目可换成 LCB / CVaR-adjusted utility 或其他保守 decision functional、**但不要公式用 mean、文字说 LCB**。**(ii) 非线性成本 / 负 MV**——SI fixed cost、DR diminishing returns、FT threshold effects；over-randomization、错误 residual、negative transfer 可让 $MV < 0$。**(iii) info value 要真进 local score**——diagnostic pilot 即时 $\Delta J \approx 0$、但显著缩小 uncertainty set；$\mathrm{VoI}(m) = \mathbb{E}_Y\!\big[\max_{m'} U_0(m' \mid \mathcal{D}, Y)\big] - \max_{m'} U_0(m' \mid \mathcal{D})$、**reference utility 固定为 $U_0$、避免 $Q \leftrightarrow \mathrm{VoI}$ 递归**；$V(\mathcal{D}) = -\Pr(\arg\max Q_\lambda$ flips$)$ 只是 **decision-stability proxy**、**posterior 收窄 ≠ 决策价值**。**(iv) $\Delta J$ 非天然 causal effect**——混 seed / optimizer / temperature / battery / wear / reset / evaluator 变异、pilot 用 **matched / paired evaluation**；$\Delta C(m)$ **必须是全部 incremental cost**、否则偏向"训练更久"的 intervention。数值**只在固定 $p_{\mathrm{eval}}$ 下有意义**。
 
-**$MV$ / $Q_\lambda$ 不是固定常数**、$MV_i = MV_i(b_{1:i-1}, \pi_b, D_{\mathrm{real}})$。**可能出现**先 SI 缩 uncertainty set 使 DR $MV$ 下降、先 DR 起点更 robust 使 FT $MV$ 上升——**方向取决于 intervention interaction、不假设固定单调**：SI 可能暴露 sim 原本错更多、DR 可能暴露新 failure mode、FT 可能因 policy 已 robust 反而难优化。**intervention 之间同时有 complementarity / substitutability / occasional conflict**、是 **resource-constrained sequential experimentation / adaptive allocation**（**不写成 bandit**）。还有一层反馈：**intervention 改 policy、进而改 policy 对 gap 的敏感度** $S_k^{\mathrm{int}} = S_k^{\mathrm{int}}(\pi)$：
+**$MV_i = MV_i(b_{1:i-1}, \pi_b, D_{\mathrm{real}})$ 是 state-dependent 的**、不是固定常数。**可能出现**先 SI 缩 uncertainty set 使 DR $MV$ 下降、先 DR 起点更 robust 使 FT $MV$ 上升——**方向取决于 intervention interaction、不假设固定单调**：SI 可能暴露 sim 原本错更多、DR 可能暴露新 failure mode、FT 可能因 policy 已 robust 反而难优化。**intervention 之间同时有 complementarity / substitutability / occasional conflict**——所以是 **resource-constrained sequential experimentation / adaptive allocation**（不写成 bandit）。还有一层反馈：**intervention 改 policy、进而改 policy 对 gap 的敏感度** $S_k^{\mathrm{int}} = S_k^{\mathrm{int}}(\pi)$：
 
 ```
 estimate mismatch → estimate sensitivity → intervention
@@ -234,7 +237,7 @@ $$MV_{\mathrm{real}} \;\approx\; \frac{J(N+\Delta N)-J(N)}{\Delta N}$$
 
 ### World model：不是取消 simulator，而是换掉 simulator 的来源
 
-**本文 lens disclaimer**：在 allocation taxonomy 里、我把 world model 看成"model source replacement"的 reformulation——**本文分析角度、非标准定义**；本节只挑"相对 physics-sim 换掉 model 来源与 inductive bias"这个切面。
+**本文 lens**：本节把 world model 读作"model source replacement"的 reformulation、只挑"相对 physics-sim 换掉 model 来源与 inductive bias"这个切面——不是 world model 的标准定义、也不声称这是唯一读法。
 
 [数据 scaling 下篇](/zh/articles/2026-09-09-robot-data-scaling/)讨论过 world model 与 data utility。放进 sim-to-real 语境先纠正定位误读：**world model 不天然属于 sim-to-real**——两条路线 causal direction 不同：
 
@@ -261,7 +264,7 @@ Maddukuri et al.（RSS 2025, 2503.24361）的 Sim-and-Real Co-Training 是务实
 
 ## 评估：你怎么知道自己把 gap 补好了？
 
-本文所有 claim 都挂在**三级证据层**上——**Level A：mechanism evidence**（friction ID、camera calibration、latency measurement 等直接观测量）→ **Level B：policy response evidence**（$\hat S_k^{\mathrm{int}}$、ablation、有限差分式 attribution）→ **Level C：deployment evidence**（真机 $\Delta J$、$\Pr(\text{unsafe})$、$Q_\lambda$、$MV$、simulator ranking utility）。**三层不能互相替代**——SI 参数拟合得很好属 Level A、不等于 Level C 的 deployment 一定改善；这条链也是"不把 sim fidelity 当 final truth"哲学的具体形式。
+本文所有 claim 挂在**三级证据层**上——$\boxed{\text{A: mechanism}\quad \text{B: policy-response}\quad \text{C: deployment}}$：A 是 friction ID / camera calibration / latency measurement 等**直接观测量**、B 是 $\hat S_k^{\mathrm{int}}$ / ablation / 有限差分式 attribution、C 是真机 $\Delta J$ / $\Pr(\text{unsafe})$ / $Q_\lambda$ / $MV$ / sim ranking utility。**三层是证据层级、非固定执行顺序**——实际诊断常在三者之间循环（真机 failure → 怀疑 latency → 回测 A）；但**不能互相替代**——SI 参数拟合属 A、不等于 C 的 deployment 一定改善；这也是"不把 sim fidelity 当 final truth"的具体形式。
 
 危险的做法是只在 sim benchmark 报性能。可信评估至少：
 
@@ -330,7 +333,7 @@ $$\text{discover real tail} \rightarrow \text{identify structure} \rightarrow \t
 - **部署分布非常固定**——少量 targeted real FT 更划算。
 - **sim 不提供 unique coverage / safety / exploration / counterfactual access**——$U_{\mathrm{sim}}^{\mathrm{downstream}} < C_{\mathrm{sim}}^{\mathrm{effective}}$。
 
-**sequential allocation 需要显式 stopping rule、分三类**：**(a) economic stop**——$\max_{m \in \mathcal{M}_t^{\mathrm{feasible}}} Q_\lambda^{\mathrm{perf+info}}(m \mid s_t) \le 0$（**decision score 与 stopping rule 用同一 $Q_\lambda$ 变体**）；**(b) decision-information stop**——新 evidence 改变 $\arg\max_m Q_\lambda$ 的概率近 0、继续 explore 只买 noise；**(c) safety / feasibility stop**——剩余 candidate 全部落在 $\mathcal{M}_t^{\mathrm{safe}} \cap \mathcal{M}_t^{\mathrm{budget}}$ 之外。任一触发即**停、不默认花完剩余预算**。
+**sequential allocation 需要显式 stopping rule、分三类**：**(a) economic stop**——$\max_{m \in \mathcal{M}_t^{\mathrm{feasible}}} Q_\lambda^{\mathrm{perf+info}}(m \mid s_t) \le 0$（**decision score 与 stopping rule 用同一 $Q_\lambda$ 变体**；这是**当前 one-step candidate approximation 下的 local stop、非全局最优停止**——若预先存在已知强互补 intervention portfolio、应作为 portfolio candidate 一并评估）；**(b) decision-information stop**——新 evidence 改变 $\arg\max_m Q_\lambda$ 的概率近 0、继续 explore 只买 noise；**(c) safety / feasibility stop**——剩余 candidate 全部落在 $\mathcal{M}_t^{\mathrm{safe}} \cap \mathcal{M}_t^{\mathrm{budget}}$ 之外。任一触发即**停、不默认花完剩余预算**。
 
 ## 一个最小可执行的 Sim-to-Real Allocation Protocol
 
@@ -351,9 +354,9 @@ $$\text{discover real tail} \rightarrow \text{identify structure} \rightarrow \t
 
 每条 hypothesis **必须能被具体实验否证**、写不出否证条件的先剔除。
 
-**Step 4 — 低成本 pilot 估 $\Delta J$ 与 uncertainty。** 每类候选 intervention 用最小可行样本估 $\mathbb{E}[\Delta J]$ 与 CI / posterior——**目标估出 effect size、排除明显低价值 intervention、不预设固定样本数**。**采用 matched / paired / block 化评估**：同批 seed、同 held-out real slice、尽量一致 hardware condition；**对明显漂移的系统**（轮胎磨损、电机温度、电池衰减）、还要记录 hardware condition、避免把 drift 误归因于 intervention。
+**Step 4 — one-time / initial calibration pilot**、估 $\Delta J$ 与 uncertainty（**Step 5 才进入 sequential adaptive allocation**、避免"先用 pilot 估 VoI、再用 VoI 选 pilot"的时间循环）。每类候选 intervention 用最小可行样本估 $\mathbb{E}[\Delta J]$ 与 CI / posterior——**目标估出 effect size、排除明显低价值 intervention、不预设固定样本数**。**$\Delta J(m)$ 相对 matched control 定义**：$\Delta J(m) = J_{\mathrm{real}}(\pi_t^{m}) - J_{\mathrm{real}}(\pi_t^{\mathrm{control}})$——control 承担**相同的额外训练步数 / 时间 / seed / 数据累积**、只关掉本 intervention 本身；**$\Delta J$ 是 incremental deployment utility、不是 intervention 后 policy 的绝对性能**。**采用 matched / paired / block 化评估**：同批 seed、同 held-out real slice、尽量一致 hardware condition；对**明显漂移的系统**（轮胎磨损、电机温度、电池衰减）还要记录 hardware condition、避免把 drift 误归因于 intervention。
 
-**Step 5 — 在 feasible 集内按 $Q_\lambda^{\mathrm{perf+info}}$ 选下一份预算**。$m_{t+1} = \arg\max_{m \in \mathcal{M}_t^{\mathrm{safe}} \cap \mathcal{M}_t^{\mathrm{budget}}} Q_\lambda^{\mathrm{perf+info}}(m \mid s_t)$——$\lambda_r$ 是**影子价格估计**（严格 $\lambda^{\mathrm{dual}}$ 需解过 dual、工程里往往是 $w^{\mathrm{resource}}$）、$MV$ 只作效率读数；**objective 与 local score 必须一致**。Safety 走 Step 1 的 $\alpha$ chance constraint、**作 $\mathcal{M}_t^{\mathrm{safe}}$ gate（posterior UCB 判定、非经验 failure rate 点估计）、不进 $Q_\lambda$ cost**。
+**Step 5 — 在 feasible 集内按 $Q_\lambda^{\mathrm{perf+info}}$ 选下一份预算**（自此处起进入 sequential adaptive allocation、每一步用最新 $s_t$ 与 posterior）。$m_{t+1} = \arg\max_{m \in \mathcal{M}_t^{\mathrm{safe}} \cap \mathcal{M}_t^{\mathrm{budget}}} Q_\lambda^{\mathrm{perf+info}}(m \mid s_t)$——$\lambda_r$ 是**影子价格估计**（严格 $\lambda^{\mathrm{dual}}$ 需解过 dual、工程里往往是 $w^{\mathrm{resource}}$）、$MV$ 只作效率读数；**objective 与 local score 必须一致**。Safety 走 Step 1 的 $\alpha$ chance constraint、**作 $\mathcal{M}_t^{\mathrm{safe}}$ gate（posterior UCB 判定、非经验 failure rate 点估计）、不进 $Q_\lambda$ cost**。
 
 **Step 6 — real evaluation → posterior update → 回到 Step 3。** 更新 $\mathcal{D}_t \rightarrow \mathcal{D}_{t+1}$、重估 $\lambda$、淘汰否证 hypothesis、新失败补入表。**最易跳过、最关键**——没 posterior update、流程退化为静态 checklist。
 
@@ -410,16 +413,16 @@ $$\boxed{\ \text{diagnosis} \rightarrow \text{sensitivity / uncertainty} \righta
 这条链是 **resource-constrained adaptive sequential experimentation framework**：敏感度与边际收益靠小步实验在真实评估上估出、一轮估完再定下一份预算。**收成五层结构**、全文派生都挂在这条 spine 上：
 
 $$\boxed{\begin{aligned}
-&\textbf{L1 目标}:\ \max\ \mathbb{E}[J_{\mathrm{real}}(\pi_T) + \beta V(\mathcal{D}_T)]\ \text{s.t.}\ \textstyle\sum_t \Delta C_r(m_t)\le B_r,\ \Pr[\text{unsafe} \mid \pi_T]\le \alpha\\
+&\textbf{L1 目标}:\ \max\ \mathbb{E}\big[J_{\mathrm{real}}(\pi_T) + \beta\,\mathrm{VoI}_T\big]\ \text{s.t.}\ \textstyle\sum_t \Delta C_r(m_t)\le B_r,\ \Pr[\text{unsafe} \mid \pi_T]\le \alpha\\
 &\textbf{L2 状态}:\ s_t = (b_t,\ \pi_t,\ \mathcal{D}_t,\ h_t)\\
 &\textbf{L3 候选集}:\ m_t \in \mathcal{M}_t = \mathcal{M}(s_t),\quad \mathcal{M}_t^{\mathrm{feasible}} = \mathcal{M}_t^{\mathrm{safe}} \cap \mathcal{M}_t^{\mathrm{budget}}\\
-&\textbf{L4 决策分}:\ Q_\lambda^{\mathrm{perf+info}}(m \mid s_t) = \mathbb{E}[\Delta J + \beta \Delta V \mid \mathcal{D}_t] - \lambda^\top \Delta C(m)\\
+&\textbf{L4 决策分}:\ U_0 = \mathbb{E}[\Delta J \mid \mathcal{D}_t] - \lambda^\top \Delta C(m),\;\; Q_\lambda^{\mathrm{perf+info}} = U_0 + \beta\,\mathrm{VoI}\\
 &\textbf{L5 效率读数}:\ MV(m \mid s_t) = \mathbb{E}[\Delta J \mid \mathcal{D}_t] / \lambda^\top \Delta C(m)
 \end{aligned}\;\longrightarrow\;\text{execute} \rightarrow \text{real eval} \rightarrow \mathcal{D}_{t+1} \rightarrow s_{t+1} \rightarrow \circlearrowleft}$$
 
 层级关系明确写作 $\boxed{\text{global problem} \supset \text{local } Q_\lambda^{\mathrm{perf+info}} \supset \text{efficiency readout } MV}$——$Q_\lambda$ 是 global sequential allocation 的一步近似 decision score、$MV$ 是 efficiency statistic、三者**分工不互换**。
 
-收束：**sim-to-real 不是选一种 transfer technique、而是在当前 belief、不可互换预算与真实评估反馈下连续决定下一次 intervention**——这是全文理论 spine。**本文 methodological contribution 不是新数学、而是改变 decision unit**：从「选方法」转为「选下一次 intervention」、并把 reality gap 与 sim utility 重述成 policy / evaluation-conditioned 的量。
+收束：**sim-to-real 不是选一种 transfer technique、而是在当前 belief、不可互换预算与真实评估反馈下连续决定下一次 intervention**——这是全文理论 spine。**本文的贡献不是提出新的 optimization primitive、而是重新定义 sim-to-real 的 decision unit**——从「选一种方法」到「在当前 state 下选下一次 intervention」——并把 reality gap 与 sim utility 重述成 policy / evaluation-conditioned 的量。
 
 ---
 
