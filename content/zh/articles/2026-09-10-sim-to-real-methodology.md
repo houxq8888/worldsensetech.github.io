@@ -26,11 +26,11 @@ related_articles:
 - **Level 2 — Intervention**：四个 lens（Model × Data × Representation × Optimization）——哪种干预可以改变这个 mismatch？
 - **Level 3 — Allocation**：$MV(m \mid b, \pi)$——当前状态、预算与 uncertainty 下、下一块资源投哪里？
 
-然后 $\text{real evaluation} \rightarrow \text{update belief} \rightarrow \text{next intervention}$、闭环。
+然后 $\text{experiment} \rightarrow \text{real evaluation} \rightarrow \text{update belief }\mathcal{D}_t \rightarrow \text{next intervention}$、闭环。整篇主线因此是 **Diagnosis → Experiment → Intervention → Allocation → Re-evaluation**、比四个 lens 的 taxonomy 更贴合本文真正的原创 framing。
 
 四个核心贡献：**(1) 重新定义 mismatch**——reality gap 是 policy-conditioned、task-conditioned consequence、不是 simulator 固有标量；**(2) 区分 diagnosis 与 intervention**——mismatch descriptor / sensitivity 只是诊断、真正决策变量是 intervention；**(3) 把方法选择改写为 multi-resource sequential allocation**——SI / DR / DA / fine-tuning 是 intervention lenses、不是互斥方法；**(4) 把 simulator evaluation 从 fidelity 扩展到 downstream utility**——prediction / ranking / selection quality 是不同 utility、并作为 allocation framework 的 corollary。
 
-乍看是工程直觉、其实是闭环资源分配：几笔不能互换的预算下、要不断问"下一块钱花在哪、换回最多真实性能"。项目里最卡人的不是"不知道有这些方法"、而是"这类 gap 管不管用、花哪种预算"。"误差预算"**不是**给每个误差项预分固定额度、而是花在**干预动作**上、通过 sequential allocation 逐步压低最有价值的 mismatch。
+乍看是工程直觉、其实是闭环资源分配：几笔不能互换的预算下、不断问"下一块钱花在哪、换回最多真实性能"。项目里最卡人的不是"不知道有方法"、而是"这类 gap 管不管用、花哪种预算"。"误差预算"**不是**给误差项预分固定额度、而是花在**干预动作**上、通过 sequential allocation 逐步压低最有价值的 mismatch。
 
 ## Reality Gap：不是一个标量，而是一个 policy-conditioned 的 mismatch
 
@@ -40,13 +40,15 @@ $$p_{\mathrm{sim}}^{\pi}(\tau) \;\neq\; p_{\mathrm{real}}^{\pi}(\tau)$$
 
 轨迹分布本身是 **policy-induced**、随 $\pi$ 而变、不是环境固有属性。真正关心的不是分布差、而是它在任务上**表现的后果**——同一 $\pi$ 两边的性能差：
 
+术语严格分三层、避免后文 ontology 冲突：**(a) trajectory / distribution mismatch** $D(p_{\mathrm{sim}}^\pi,\ p_{\mathrm{real}}^\pi)$、process 层面的分布差；**(b) transfer delta**
+
 $$\boxed{\;\delta_J(\pi) \;=\; J_{\mathrm{real}}(\pi) \;-\; J_{\mathrm{sim}}(\pi)\;}$$
 
-叫 **transfer delta**、保留符号：$J$ 若是 success rate、真实反而更好（sim 更保守、或噪声更狠）时 $\delta_J$ 会为正、直觉上不该叫 gap。故另把幅度
+是 signed 量、真实反而更好（sim 更保守或噪声更狠）时 $\delta_J$ 为正、直觉上不该叫 gap；**(c) performance discrepancy**
 
 $$G_J(\pi) \;=\; \big|\,\delta_J(\pi)\,\big|$$
 
-单独叫 **performance gap**——下文谈敏感度用这个语义、不与符号纠缠。**注意：$\delta_J$ 不等于 reality gap 本身**——它是 gap 在特定 policy + evaluation 下的 downstream consequence；reality gap 是更完整的四元组属性（见下文）。
+是只谈幅度的绝对量——下文谈敏感度用 $G_J$ 语义、不与符号纠缠。**$J$ 默认是"越大越好"的 utility；若 $J$ 是 cost / minimization objective、符号约定相应反转、结构不变。** 另须强调：**$\delta_J$ 不等于 reality gap 本身**、它是 gap 在特定 $\pi$ + evaluation 下的 downstream consequence；reality gap 更接近完整四元组属性（见下节）。
 
 **distribution mismatch ≠ performance gap**：$p_{\mathrm{sim}}^{\pi} \neq p_{\mathrm{real}}^{\pi}$ 不自动意味着 $\delta_J$ 很大、不同 policy 对分布差的敏感度完全不同——只依赖粗粒度几何的 policy 换掉摩擦建模性能几乎不变；依赖高频力反馈的精细装配里同样分布差可能致命。
 
@@ -56,7 +58,7 @@ $\delta_J(\pi)$ 是**任务相关、policy 相关的可观测后果**。严格�
 
 $$\text{Reality gap} \;=\; \mathrm{Gap}\big(\pi,\ \mathcal{E};\ M_{\mathrm{sim}},\ M_{\mathrm{real}}\big)$$
 
-逻辑是 **mechanism → trajectory distribution → performance**：$\mathcal{E}$ 是 evaluation 假设集合（initial-state / horizon / reward / constraints）——同一 $M_{\mathrm{sim}}$ 对 position control policy 可能 gap 很小、对 force-sensitive manipulation policy 可能 gap 巨大。**reality gap 是这个四元组的属性、不是仿真器的属性**。
+逻辑是 **mechanism → trajectory distribution → performance**：$\mathcal{E}$ 是 evaluation 假设集合（initial-state / horizon / reward / constraints）——同一 $M_{\mathrm{sim}}$ 对 position control policy 可能 gap 很小、对 force-sensitive manipulation policy 可能 gap 巨大。**本文把 reality gap 操作性地视为四元组 $(\pi,\mathcal{E},M_{\mathrm{sim}},M_{\mathrm{real}})$ 下的 downstream discrepancy、而不是 simulator 的单一固有标量**——这是 **operational definition / framing**、不宣称领域已有统一 formal definition；下文所有"reality gap"均按此 notion 使用。
 
 ### gap 到底在哪里：reality mismatch 与 task-specification mismatch
 
@@ -79,7 +81,7 @@ Sim-to-real / task mismatch
 
 尤其要注意：timing mismatch（$\Delta t_{\mathrm{sim}} \neq \Delta t_{\mathrm{real}}$、action hold、sensor delay、policy inference latency、asynchronous observation）**可被闭环反馈动力学放大**、不是简单的 additive observation error——它能改变 closed-loop stability 本身。
 
-**Initial-state / environment mismatch** $p_{\mathrm{train}}(s_0) \neq p_{\mathrm{eval}}(s_0)$——reset 分布 / 场景布局对不上；**Objective / task shift** $R_{\mathrm{train}} \neq R_{\mathrm{eval}}$——仿真只要 grasp success、真实还要 collision avoidance。**initial-state 归因要谨慎**：若 sim 与 real **都能产生同样 $s_0$**、只是训练没覆盖（sim 生成红/蓝杯、部署全蓝杯、policy 只训红杯），这是**一般 train-test shift、不是 reality gap**；只有 sim-real reset / scene **实现本身**对不上才是 environment mismatch。Objective shift 则**已是 objective mismatch 而非 reality gap**：物理再准、reward / 约束对不上就不是"迁移失败"、而是"评测的根本不是同一任务"；下文默认 objective 已对齐。
+**Initial-state / environment mismatch** $p_{\mathrm{train}}(s_0) \neq p_{\mathrm{eval}}(s_0)$；**Objective / task shift** $R_{\mathrm{train}} \neq R_{\mathrm{eval}}$。归因要谨慎：若 sim 与 real **都能产生同样 $s_0$**、只是训练没覆盖、这是一般 train-test shift、**不是 reality gap**；只有 sim-real reset / scene 实现本身对不上才是 environment mismatch。Objective shift 则已是 objective mismatch：物理再准、reward / 约束对不上就不是"迁移失败"、而是"评测的根本不是同一任务"；下文默认 objective 已对齐。
 
 ## 把"误差预算分配"写成一个可估计、可迭代优化的决策框架
 
@@ -87,17 +89,21 @@ Sim-to-real / task mismatch
 
 $$\boxed{\;\delta_J \;=\; F\big(\Delta_{\mathrm{model}},\ \Delta_{\mathrm{obs}},\ \Delta_{\mathrm{ctrl}},\ \Delta_{\mathrm{dist}}\big)\;}$$
 
+**每个 $\Delta_k$ 是 mismatch descriptor、可以是 scalar、vector、distribution 或 set-valued**——后文 stochasticity / occupancy / model-class uncertainty 都不适合塞进单一"error magnitude"、$F$ 的写法是 schematic、不预设共同 scalar metric。
+
 **这一版把 $\Delta_{\mathrm{opt}}$（优化 / 学习误差）从 reality gap 拿掉**：层级不同——同一固定 policy、仿真观测动力学都准但 RL 没训好、$\delta_J$ 很小、policy 却很差——应分开成**两个诊断量**：
 
 $$\underbrace{J_{\mathrm{real}}(\pi_{\mathrm{train}}) - J_{\mathrm{sim}}(\pi_{\mathrm{train}})}_{\text{transfer delta } \delta_J}\qquad \underbrace{J_{\mathrm{real}}(\pi^{*}_{\mathrm{real}}) - J_{\mathrm{real}}(\pi_{\mathrm{train}})}_{\text{real-domain learning gap}}$$
 
-**这两个量不能无条件相加叫 deployment loss**：$\delta_J$ signed、两项 baseline 也不同；它们是**不同层级的误差来源**、分别诊断、分别归因。
+**这两个量不能无条件相加叫 deployment loss**：$\delta_J$ signed、两项 baseline 也不同；它们是**不同层级的误差来源**、分别诊断、分别归因。**$\pi^{*}_{\mathrm{real}}$ 通常不可获得**——右侧一项是 **oracle-defined diagnostic quantity**、实际实验用 $J_{\mathrm{real}}(\pi_{\mathrm{best\text{-}observed}}) - J_{\mathrm{real}}(\pi_{\mathrm{train}})$ 作 proxy、后文 selection regret 同此处理、保持术语一致。
 
 只在工作点附近做工程归因时、才把 $F$ 局部近似成加权和 $\delta_J \approx \sum_k w_k \Delta_k$——**这一层只是局部归因 heuristic、不是全文核心公式**。真正用来做 decision 的是每类 mismatch 挑一个 **intervention 变量** $\xi_k$ 后测得的 **intervention sensitivity**：
 
 $$\hat S_k^{\mathrm{int}} \;\approx\; \frac{J_{\mathrm{real}}\big(\pi;\,\xi_k{+}\delta\big) \;-\; J_{\mathrm{real}}\big(\pi;\,\xi_k\big)}{\delta}$$
 
-**关键澄清**：$\xi_k$ **不是"真实 gap 的天然坐标"、而是为 sensitivity experiment 人为定义的 intervention variable**——latency / friction / appearance 可直接扰动、camera calibration error / contact-model mismatch / state-estimation error 很难在真实世界连续拨动。这是**受控实验性扰动**、不是对固有量求导（此处刻意不用 Pearl-style $\operatorname{do}$-calculus 记号、避免暗示完整因果图假设）。**$\hat S_k^{\mathrm{int}}$ 只是诊断辅助**、**核心决策量是下节 $MV(m\mid b,\pi)$**、叙事为 diagnosis → intervention → empirical marginal utility → allocation；$\Delta_{\mathrm{model}}$ 与 $\Delta_{\mathrm{ctrl}}$ 可能不可辨识地互相补偿（actuator gain 错、policy 靠 command distribution 补回）、均为 sensitivity experiments / ablation 估出的 decision statistics。
+**关键澄清**：$\xi_k$ **不是"真实 gap 的天然坐标"、而是为 sensitivity experiment 人为定义的 intervention variable**、且真实世界很多 $\xi_k$ **根本不可直接控制**——因此 sensitivity 至少分三档：**direct perturbation sensitivity**（$\xi_k$ 可在真机连续拨动、如 latency / friction / appearance）、**proxy / surrogate sensitivity**（借 simulator 或 controlled bench 估、如 camera calibration error）、**diagnostic ablation**（换模块 / 换 model / 换数据集得到的有限差分式 attribution、如 contact model、state estimator）。这是**受控实验性扰动**、不是对固有量求导（此处刻意不用 Pearl-style $\operatorname{do}$-calculus 记号、避免暗示完整因果图假设）。**$\hat S_k^{\mathrm{int}}$ 只是诊断辅助**、**核心决策量是下节 $MV(m\mid b,\pi,\mathcal{D})$**。
+
+**诊断 ≠ 归因（重要）**：sensitivity 不等于 attribution。单 perturb $\Delta_{\mathrm{friction}}$ 影响很小、单 perturb $\Delta_{\mathrm{latency}}$ 也很小、但组合可能显著大于两者之和 $\Delta J(\Delta_f,\Delta_l) \gg \Delta J(\Delta_f,0) + \Delta J(0,\Delta_l)$（interaction / synergy）。**Sensitivity experiments 只识别 locally influential intervention directions、本身不提供对 deployment gap 的 additive causal attribution**。$\Delta_{\mathrm{model}}$ 与 $\Delta_{\mathrm{ctrl}}$ 也可能不可辨识地互相补偿（actuator gain 错、policy 靠 command distribution 补回）；这些都是 sensitivity experiments / ablation 估出的 decision statistics、不是严格分解。
 
 ### 真正的"分配"：把钱花在干预动作上，而不是在方法里挑一个
 
@@ -118,11 +124,15 @@ C_{\mathrm{risk}}(b) &\le B_{\mathrm{risk}} \quad\text{（安全预算：e-stop 
 
 $$\boxed{\;\pi_{b+m} \;=\; \operatorname{Train}\big(D_{\mathrm{sim}},\ D_{\mathrm{real}};\ m\big)\;}$$
 
-于是"下一块钱花在哪"是以干预为变量、需要在真实世界里逐步估计的量。**本文的核心决策公式是 $MV$ 而不是 $w_k$ 或 $\hat S_k^{\mathrm{int}}$**（$MV$ 更准确的名字是 **cost-normalized marginal value（单位成本边际价值）**）：
+于是"下一块钱花在哪"是以干预为变量、需要在真实世界里逐步估计的量。**本文的核心决策公式是 $MV$ 而不是 $w_k$ 或 $\hat S_k^{\mathrm{int}}$**（$MV$ 更准确的名字是 **cost-normalized marginal value（单位成本边际价值）**）。严格写、一次 intervention 是 pair $m = (\text{type},\ \Delta b_m)$、$\Delta b_m$ 是该 intervention 消耗的资源增量、执行后预算 $b' = b + \Delta b_m$；期望 **显式 conditional on 当前 evidence $\mathcal{D}$**（已有真机 evaluation、pilot、既有 calibration）：
 
-$$\boxed{\;MV(m \mid b, \pi) \;=\; \frac{\mathbb{E}\big[\,J_{\mathrm{real}}(\pi_{b+m}) - J_{\mathrm{real}}(\pi_{b})\,\big]}{C(m)}, \qquad m^{*} = \operatorname*{arg\,max}_{m} MV(m \mid b, \pi)\;}$$
+$$\boxed{\;MV(m \mid b,\pi,\mathcal{D}) \;=\; \frac{\mathbb{E}\big[\,J_{\mathrm{real}}(\pi_{b'}) - J_{\mathrm{real}}(\pi_{b}) \;\big|\; \mathcal{D}\,\big]}{C(m)}\;}$$
 
-这个 ratio 无法从 simulator 解析求得、只能用 pilot / ablation / few-shot real evaluation **sequential 地估**。三条 caveat：**(i) 不确定性**——真机 $\Delta J$ 噪声极大、allocation 应看 CI / posterior / **lower confidence bound (LCB)**、否则高方差 intervention 会因一次偶然成功被错误优先。**(ii) 非线性成本**——$MV$ 是**局部决策统计量**：SI 一次工程可让后续训练受益（fixed cost）、DR 逐步饱和（diminishing returns）、fine-tune 有 threshold effects。**(iii) 非单调性**——**本文不假设 intervention 对真实性能单调改善**；over-randomization、过拟合式 fine-tuning、错误 residual、cross-domain negative transfer 都意味着 $MV(m\mid b,\pi)$ **可以为负**（$\Delta J_{\mathrm{real}} < 0$）——这正是 allocation 比 recipe 难、也比 recipe 有趣的地方。
+真正的新意不在"哪个方法好"、而在 **given current evidence、下一单位资源的 expected value 是多少**。相应地、$m^{*} = \arg\max_m MV(m \mid b,\pi,\mathcal{D})$ 只是 **one-step / local allocation rule**、不是 global optimum；不同 intervention（SI 30 min、DR $10^6$ steps、100 条真机轨迹）其实**不在同一 intervention space**、$m$ 的 type 分量承担了这件事。真正的完整问题应写成 **multi-resource sequential allocation**：
+
+$$\max_{\{m_t\}_{t=1}^{T}}\ \mathbb{E}\big[J_{\mathrm{real}}(\pi_T)\big] \quad \text{s.t.}\quad \sum_{t} C_r(m_t) \le B_r,\;\; r \in \{\mathrm{real},\mathrm{compute},\mathrm{eng},\mathrm{risk}\}.$$
+
+$MV$ 是该 sequential problem 的 **局部决策统计量**；只有在 intervention 之间近似无 interaction、成本线性、无 fixed cost 的特定条件下、greedy 才近似 global——本文不假设这些条件成立。这个 ratio 无法从 simulator 解析求得、只能用 pilot / ablation / few-shot real evaluation **sequential 地估**。四条 caveat：**(i) 不确定性**——真机 $\Delta J$ 噪声极大、allocation 应看 CI / posterior / **LCB**、否则高方差 intervention 会因一次偶然成功被错误优先。**(ii) 非线性成本**——SI 一次工程可让后续训练受益（fixed cost）、DR 逐步饱和（diminishing returns）、fine-tune 有 threshold effects。**(iii) 非单调 / 负 MV**——**本文不假设 intervention 对真实性能单调改善**；over-randomization、过拟合式 fine-tuning、错误 residual、cross-domain negative transfer 都意味着 $MV$ **可以为负**。**(iv) information value**——很多 pilot（如 20 min friction identification）即时 $\Delta J \approx 0$、但显著缩小后续 allocation 的 uncertainty set、其真正贡献是 **learning what to do next**、不是立即提升 policy。可形式化拆 $MV_{\mathrm{perf}} = \mathbb{E}[\Delta J]/C(m)$ 与 $MV_{\mathrm{info}} = \mathbb{E}[V(\mathcal{D}_{t+1}) - V(\mathcal{D}_t)]/C(m)$（$V$ 是给定 evidence 下最优后续 allocation 的期望 value-of-information）；总分配分数可粗略读作 $MV_{\mathrm{perf}} + \lambda\, MV_{\mathrm{info}}$——但 **$MV_{\mathrm{info}}$ 只在 narrative 层出现、不进入正文核心 boxed formula**、避免 framework 膨胀。
 
 **不同干预的 $MV$ 也不是固定常数**：$MV_i = MV_i(b_{1:i-1},\ \pi_b,\ D_{\mathrm{real}})$——先 SI 缩窄 uncertainty set、DR 的 $MV$ 下降；先 DR 起点更 robust、fine-tune 的 $MV$ 上升。**intervention 之间同时存在 complementarity、substitutability 与 occasional conflict**、故这是 **resource-constrained sequential experimentation / adaptive allocation**（接近 adaptive experimental design、但**别写成 bandit algorithm**——没有严格 arm / stationary reward / regret 证明）。
 
@@ -179,9 +189,11 @@ $\mathcal{L}_{\mathrm{ID}}$ 可以是 trajectory prediction / one-step transitio
 
 这条轴处理 $\Delta_{\mathrm{model}}$、内部三个**不同层次**常被"可微仿真 = 更强 SI"打包：
 
-$$x_{t+1} \;=\; \underbrace{f_{\mathrm{physics}}(x_t,a_t;\phi)}_{\text{可参数化的物理}} \;+\; \underbrace{r_\theta(x_t,a_t)}_{\text{残差}} \;+\; \epsilon_t$$
+$$y_t \;=\; \underbrace{g_{\mathrm{physics}}(x_t,a_t;\phi)}_{\text{可参数化的物理}} \;+\; \underbrace{r_\theta\big(\psi(x_t,a_t)\big)}_{\text{残差}} \;+\; \epsilon_t$$
 
-- **可微仿真**回答"怎么优化模型"——提供 $\partial f/\partial\phi$；DiffTaichi（Hu et al., ICLR 2020，1910.00935）、Interactive Differentiable Simulation（Heiden et al., arXiv 2019，1905.10706）让参数估计可梯度化。
+**这只是 representative parameterization**——$y_t$ 可以是 $x_{t+1}$、contact impulse、acceleration、deformation field 或其他 observable、$\psi$ 是 residual 的 input view；additive state-transition 只是其中一种、soft robot 的 residual deformation field、contact impulse residual 与 state residual 并非同一数学对象。
+
+- **可微仿真**回答"怎么优化模型"——提供穿过 simulator parameters / states / controls 的 gradient path、可用作 identification / trajectory optimization 等问题的 **optimization interface**（**不等于 system identification 本身**）；DiffTaichi（Hu et al., ICLR 2020，1910.00935）、Interactive Differentiable Simulation（Heiden et al., arXiv 2019，1905.10706）是这条 gradient path 的代表实现。
 - **System identification** 回答"优化什么参数"——真实工作流常是 **real → identify → sim → train → real**（real-to-sim-to-real）。
 - **Residual physics** 回答"模型没解释掉的部分由谁解释"——让网络学 $r_\theta$ 补差。
 
@@ -191,7 +203,7 @@ $r_\theta$ 只是**统一记号**：实际 residual 可定义在状态转移 / f
 
 SI 还有两个细坑。**其一**、$p_{\mathrm{real}}(\tau)$ 几乎不可直接访问、只有有限条真机轨迹。**其二**、参数存在 ≠ 可辨识——identifiability 还依赖 excitation 与 sensor observability、质量 / 阻尼 / 刚度在某些激励下产生几乎相同的可观测轨迹、无法独立估出。
 
-Residual physics 的边界要收窄：甜蜜点是 residual 在目标分布上相对受限、$f_{\mathrm{physics}}$ 仍提供**有用的结构性归纳偏置**（inductive bias / state representation / constraints / extrapolation prior）；若 $f_{\mathrm{physics}}$ 完全错、残差独自承担整个 dynamics、不如直接学一个 model。软体（Gao et al., RA-L 2024，2402.01086）、浮力腿式（Sontakke et al., 2023，2303.09597）这类"主干物理还算数、局部有稳定残差"的场景最好用。但 $r_\theta$ **并不天然等于"缺失物理"**——unrestricted additive residual 会吞下大量 model error（sensor bias / actuator error / timing / calibration / reward mismatch / policy-induced artifact）成 **error sponge**：训练分布内拟合好、一到 OOD 就失稳；故 residual 要配结构约束（低维 / 稀疏 / 力或加速度尺度 / 物理先验 / 只在特定 contact regime 生效）。
+Residual physics 的边界要收窄：甜蜜点是 $f_{\mathrm{physics}}$ 仍提供**有用的结构性归纳偏置**、residual 只在目标分布上有限修正；软体（Gao et al., RA-L 2024，2402.01086）、浮力腿式（Sontakke et al., 2023，2303.09597）这类"主干物理还算数、局部有稳定残差"的场景最好用。若 $f_{\mathrm{physics}}$ 完全错、残差独扛整个 dynamics、不如直接学一个 model。$r_\theta$ **并不天然等于"缺失物理"**——unrestricted additive residual 会吞下 sensor bias / actuator error / timing / calibration / reward mismatch 等大量 model error 成 **error sponge**、训练分布内拟合好、一到 OOD 就失稳；故需结构约束（低维 / 稀疏 / 力或加速度尺度 / 物理先验 / 只在特定 contact regime 生效）。
 
 还有一点：$\phi$ 与 $r_\theta$ 之间存在 **confounding**——若残差足够灵活、它会把本应属于 $\phi$ 的效应也吸收掉、使得 $\hat\phi$ 不再有意义；identifiability 要求 $f_{\mathrm{physics}}$ 与 $r_\theta$ 的贡献能在数据上被区分（通常需正则化、scale separation 或 structural constraints）。
 
@@ -203,15 +215,15 @@ Residual physics 的边界要收窄：甜蜜点是 residual 在目标分布上�
 
 $$\max_{\theta}\; \mathbb{E}_{\phi \sim p(\phi)}\big[J(\pi_\theta;\phi)\big]$$
 
-更准确：**DR 是对一族环境模型做 population-level 优化**。上式是 **risk-neutral average-case DR 的 baseline abstraction**；robust / adversarial DR 还可换成 $\max_\theta \min_{\phi\in\Phi} J(\pi_\theta;\phi)$、CVaR 或其他风险敏感形式。DR 有效条件：**真实参数分布要落在 DR 支撑内**——更安全的表述是 $\mathrm{supp}(p_{\mathrm{real}}) \subseteq \mathrm{supp}(p_{\mathrm{DR}})$ 且 real-typical 区域获得足够 density。**但这还隐含一个更根本的前提**：real dynamics 可被同一 $\phi$-parameterization 表达；若 simulator model class 不包含真实现象、连 $\phi_{\mathrm{real}}$ 都无法定义、support **从根上不成立**——这时不是"DR 覆盖不够宽"、而是 model-class uncertainty。（**parameter uncertainty** 是"$\phi$ 落在哪"、可用后验或 DR 覆盖；**model-class uncertainty** 是"这个 $\phi$-parameterization 能不能表达 real dynamics"、不是加宽 range 能解决的。）**主结论**：真正决定 transfer 的不是 parameter-space marginal support、而是 policy 在 evaluation 下实际访问的 **state-action / contact occupancy $d_{\mathrm{real}}^{\pi}(s,a)$** 与训练分布诱导的 occupancy 是否足够 overlap——**parameter coverage 是必要 proxy、非 deployment coverage 的充分条件**。
+更准确：**DR 是对一族环境模型做 population-level 优化**。上式是 **risk-neutral average-case DR 的 baseline abstraction**；robust / adversarial DR 还可换成 $\max_\theta \min_{\phi\in\Phi} J(\pi_\theta;\phi)$、CVaR 或其他风险敏感形式。DR 有效条件：**真实参数分布要落在 DR 支撑内**——更安全的表述是 $\mathrm{supp}(p_{\mathrm{real}}) \subseteq \mathrm{supp}(p_{\mathrm{DR}})$ 且 real-typical 区域获得足够 density。**但这还隐含一个更根本的前提**：real dynamics 可被同一 $\phi$-parameterization 表达；若 simulator model class 不包含真实现象、连 $\phi_{\mathrm{real}}$ 都无法定义、support **从根上不成立**——这时不是"DR 覆盖不够宽"、而是 model-class uncertainty。（**parameter uncertainty** 是"$\phi$ 落在哪"、可用后验或 DR 覆盖；**model-class uncertainty** 是"这个 $\phi$-parameterization 能不能表达 real dynamics"、不是加宽 range 能解决的。）**主结论**：Parameter-space support 是有用的 design proxy、**但 deployment-relevant 的对象是它诱导出的 policy-conditioned occupancy**——从 $p_{\mathrm{DR}}(\phi)$ 到训练分布诱导的 $d_{\mathrm{train}}^{\pi}(s,a,\text{mode})$、与真实的 $d_{\mathrm{real}}^{\pi}(s,a,\text{mode})$ 之间的 overlap 才是 downstream transfer 的真正决定因素；不同参数完全可能诱导高度重叠的 policy-relevant trajectories、parameter-space 差异**不必然是** deployment failure 的充分条件。**parameter coverage 是必要 proxy、非 deployment coverage 的充分条件**。
 
-再往下一层：**DR 不是选 scalar range、而是在设计 joint distribution**。$p(\phi_1,\phi_2) \neq p(\phi_1)p(\phi_2)$ 才是常态——payload ↑ 联动 actuator regime、temperature ↑ 联动 motor resistance / friction / battery。独立 uniform DR 只是方便的 baseline。关键回到分配：**randomization 分布要对齐 evaluation 分布与 objective**——过宽或无关会拉低样本效率；但 robust 设定下适当扩大 uncertainty set 反而更稳。**"越宽越保守"并非普遍规律、shape 与对齐才是。**
+再往下一层：**DR 不是选 scalar range、而是在设计 joint distribution**——$p(\phi_1,\phi_2) \neq p(\phi_1)p(\phi_2)$ 才是常态（payload ↑ 联动 actuator regime、temperature ↑ 联动 motor resistance / friction / battery）、独立 uniform DR 只是方便的 baseline。回到分配：**randomization 分布要对齐 evaluation 与 objective**、过宽或无关会拉低样本效率；但 robust 设定下适当扩大 uncertainty set 反而更稳——**"越宽越保守"并非普遍规律、shape 与对齐才是。**
 
 "Adaptive / Automatic DR" 是家族而非单一方法：curriculum / adversarial / automatic / posterior-based sampling / performance-driven range adaptation——共同点是**避免一开始就 over-randomize**。
 
 ### Axis C — Observation / Representation：domain adaptation 与观测翻译
 
-这条轴处理 $\Delta_{\mathrm{obs}}$、在**观测/表示层**对齐 sim 与 real。**"Representation" 是本文 abstraction**——DA 实际可发生在 input / feature / latent / output / policy / dynamics model 六层。具体机制包括 feature-level adapter、image translation（GAN / 扩散）、RCAN（James et al., CVPR 2019，1812.07252）——**RCAN 更适合当"input-level canonicalization / sim-to-sim adaptation"的例子**：把随机化过的 sim 图翻回近似 canonical 的干净图喂下游 policy、顺带把 DR 与这条轴缝起来。两条边界：**其一、DA 只是 observation mismatch 子集**——camera intrinsics/extrinsics、temporal sync、sensor bias、depth distortion 更适合 calibration / SI / sensor modeling。**其二、task-relevant invariance 才是目标**——只对齐 $z_{\mathrm{sim}}\approx z_{\mathrm{real}}$ 不够、理想是保持 $I(z;y_{\mathrm{task}})$ 高的同时压低 $D(z_{\mathrm{sim}},z_{\mathrm{real}})$、与"过宽 DR 抹掉任务信号"同一件事。
+这条轴处理 $\Delta_{\mathrm{obs}}$、在**观测/表示层**对齐 sim 与 real。**"Representation" 是本文 abstraction**——DA 实际可发生在 input / feature / latent / output / policy / dynamics model 六层。具体机制包括 feature-level adapter、latent alignment、policy distillation、simulation-to-simulation canonicalization 等（image translation / GAN / 扩散只是 input-level 特例；典型如 RCAN, James et al., CVPR 2019, 1812.07252——把随机化过的 sim 图翻回近似 canonical 的干净图喂下游 policy、顺带把 DR 与这条轴缝起来）。**别把 DA 简化成 "DA = image translation"**。两条边界：**其一、DA 只是 observation mismatch 子集**——camera intrinsics/extrinsics、temporal sync、sensor bias、depth distortion 更适合 calibration / SI / sensor modeling。**其二、task-relevant invariance 才是目标**——只对齐 $z_{\mathrm{sim}}\approx z_{\mathrm{real}}$ 不够、理想是保持 $I(z;y_{\mathrm{task}})$ 高的同时压低 $D(z_{\mathrm{sim}},z_{\mathrm{real}})$、与"过宽 DR 抹掉任务信号"同一件事。
 
 ### Axis D — Optimization / adaptation：真机微调
 
@@ -257,7 +269,7 @@ Dreamer（1912.01603）、TD-MPC2（2310.16828）体现这条路。当**人工 s
 
 ### Sim-and-real co-training：把"迁移"重述成 data mixture
 
-Maddukuri et al.（RSS 2025，2503.24361）的 Sim-and-Real Co-Training 是个务实方向。**论文实际报告**：同一批训练把 sim 与 real 混合采样、**两平台、六视觉操作任务**上相对 baseline 观测到**平均约 37.9% 的 aggregate relative improvement**（**论文定义的 aggregate metric**、不应读作 success rate 绝对百分点提升；per-task 数字请回原文核对）。它不做 sim→real 单向迁移、而是用一个 recipe 决定两者比例与调度。
+Maddukuri et al.（RSS 2025，2503.24361）的 Sim-and-Real Co-Training 是个务实方向。**论文实际报告**：同一批训练把 sim 与 real 混合采样、在**两平台、六视觉操作任务**上、相对**论文自带的 baseline（train-on-real-only 与 train-on-sim-only 各自对照）**观测到**平均约 37.9% 的 aggregate relative improvement**——这是**论文按其自定义 aggregate metric 跨任务归一化后的 relative lift**、**不是 success rate 的绝对百分点提升**、也不能与"per-task success rate delta"直接比较；引用时务必带上 baseline 与 aggregation 定义、per-task 数字请回原文核对。它不做 sim→real 单向迁移、而是用一个 recipe 决定两者比例与调度。
 
 **本文的解读（非论文证明）**：把它读成 **data-mixture 问题**——co-training 的**主要干预变量是 training mixture** $p_{\mathrm{train}}=\lambda\, p_{\mathrm{sim}}+(1-\lambda)\, p_{\mathrm{real}}$、不是 simulator calibration 也不是 deployment-time adapter；**$\lambda$ 只是 sampling-level 简化**、真实 recipe 还通过 dataset size / importance weighting / augmentation / curriculum 改变**有效**训练分布。Mechanistic 分析（Lei et al., arXiv 2026，2604.13645）指出 mixture 的改变会诱发 **structured representation alignment 与 importance reweighting**——"以 mixture 为主抓手、效应跨多维"、而非与前四条轴严格正交的第五根。
 
@@ -286,7 +298,7 @@ Maddukuri et al.（RSS 2025，2503.24361）的 Sim-and-Real Co-Training 是个�
 
 $$\pi_{\mathrm{sim}} = \operatorname*{arg\,max}_{\pi \in \Pi} J_{\mathrm{sim}}(\pi), \qquad R_{\mathrm{select}} = J_{\mathrm{real}}\big(\pi^{*}_{\mathrm{real}}\big) - J_{\mathrm{real}}\big(\pi_{\mathrm{sim}}\big)$$
 
-Spearman=0.95 却把 top-1 选错仍是灾难；反过来 Spearman=0.7 但 top-1 基本不出错、对"选一个能部署的 policy"够用。两者都是 **conditional metric**。**allocation framework 自然推出的结论**：simulator fidelity 是 task-of-use dependent、不是 absolute property——换用途（预训练 / exploration / curriculum / safety filter）"哪些误差重要"整个变一遍。$\pi^*_{\mathrm{real}}$ 通常不可获得、$R_{\mathrm{select}}$ 只能作为 **conceptual target metric**、实际用 best-observed 或 Pareto-best proxy。
+Spearman=0.95 却把 top-1 选错仍是灾难；反过来 Spearman=0.7 但 top-1 基本不出错、对"选一个能部署的 policy"够用。两者都是 **conditional metric**。**allocation framework 自然推出的结论**：simulator fidelity 是 task-of-use dependent、不是 absolute property——换用途（预训练 / exploration / curriculum / safety filter）"哪些误差重要"整个变一遍。$\pi^*_{\mathrm{real}}$ 通常不可获得、$R_{\mathrm{select}}$ 与前面的 real-domain learning gap 一样都是 **oracle-defined diagnostic quantity**、实际实验用 $J_{\mathrm{real}}(\pi_{\mathrm{best\text{-}observed}}) - J_{\mathrm{real}}(\pi_{\mathrm{sim}})$ 或 Pareto-best proxy。
 
 不需要全排序时、更实用的指标是 **top-k recall**（真实 top policy 被 sim 选入 top-$k$ 候选的概率）、**regret@k**、或 "real best $\in$ sim top-$k$?" 二值判定——sim 只要能把好 policy 框进候选集就够、不必精确排序尾部。
 
@@ -331,8 +343,8 @@ $$\text{discover real tail} \rightarrow \text{identify structure} \rightarrow \t
 顺着这个逻辑、可以回答整篇几乎回避但框架本身允许的反问：**什么时候最优解其实是"不做 sim-to-real"？**
 - **真机数据已便宜到 $C_{\mathrm{SI}}+C_{\mathrm{DR}} > C_{\mathrm{real}}^{\mathrm{effective}}$ 时**——$C_{\mathrm{real}}^{\mathrm{effective}}$ 是**有效真机成本**（含安全 / operator / reset / 磨损 / 失败恢复 / deployment 多样性）。正确比较是"当前预算 horizon 内的 expected cumulative value / cost"、不是"一次 intervention 的 raw hours"。
 - **仿真器 model class 本身就差**（$\Delta_{\mathrm{model}}$ 主导且难参数化、如软体 / 流体 / 复杂接触）——修 sim 边际效用极低、不如走 world model 或真机数据。
-- **部署分布非常固定**时——不需大规模 DR、少量 targeted real fine-tuning 往往更划算。
-- **simulator 只提供"廉价产生与真实数据高度相关的数据"、不提供独特 coverage / safety / exploration / counterfactual access 时**——$U_{\mathrm{sim}}^{\mathrm{downstream}} < C_{\mathrm{sim}}^{\mathrm{effective}}$：不是"sim 不好"、而是"它没有提供 unique utility、opportunity cost 超过收益"。
+- **部署分布非常固定**——不需大规模 DR、少量 targeted real fine-tuning 往往更划算。
+- **simulator 不提供独特 coverage / safety / exploration / counterfactual access 时**——$U_{\mathrm{sim}}^{\mathrm{downstream}} < C_{\mathrm{sim}}^{\mathrm{effective}}$：不是"sim 不好"、而是"它没提供 unique utility、opportunity cost 超过收益"。
 
 能大方承认"有时最优解是不做 sim-to-real"、恰恰是 allocation framing 应有的样子：**不站"仿真"、只站"下一单位预算换回最多真实性能"。**
 
@@ -346,11 +358,45 @@ $$U\big(D_{\mathrm{sim}} \mid \mathcal{L},\ p_{\mathrm{eval}}^{\mathrm{real}}\bi
 
 把这条线走完、sim-to-real 就不再是"能不能迁移成功"的开关、而是一条带反馈的闭环：
 
-$$\boxed{\ \text{mismatch} \rightarrow \text{sensitivity} \rightarrow \text{intervention} \rightarrow \text{marginal utility} \rightarrow \text{budget allocation} \rightarrow \text{real evaluation} \rightarrow\ \circlearrowleft\ }$$
+$$\boxed{\ \text{diagnosis} \rightarrow \text{sensitivity / uncertainty} \rightarrow \text{intervention} \rightarrow \text{performance} + \text{information gains} \rightarrow \text{update }\mathcal{D}_t \rightarrow \text{re-allocate} \rightarrow\ \circlearrowleft\ }$$
+
+配套的**闭环 spine 图**、比任何"四分类"表格都更贴合本文论点：
+
+```text
+                current policy π + evidence D_t
+                          │
+                          ▼
+             ┌─── mismatch diagnosis ───┐
+             │ model / obs / ctrl / dist │
+             └─────────────┬─────────────┘
+                           ▼
+              sensitivity / uncertainty set
+                           │
+                           ▼
+                candidate interventions  m = (type, Δb)
+              ┌────────────┼────────────┬────────────┐
+              ▼            ▼            ▼            ▼
+             SI            DR          DA / FT      World model
+              │            │            │            │
+              └────────────┴─────┬──────┴────────────┘
+                                 ▼
+                       real evaluation (paired, CI)
+                                 │
+                    ┌────────────┴────────────┐
+                    ▼                         ▼
+             performance gain            information gain
+             (ΔJ_real)                (uncertainty shrinks)
+                    │                         │
+                    └────────────┬────────────┘
+                                 ▼
+                    update evidence D_{t+1} → reallocate
+                                 │
+                                 └──────↺
+```
 
 （最后一步会重新改变 sensitivity 与 mismatch 估计——见上文 feedback loop。）
 
-这条链是一个 **resource-constrained adaptive sequential experimentation framework**：敏感度与边际收益都靠小步实验在真实评估上估出来、一轮估完再决定下一份预算投到哪。收束：**sim-to-real 不是 transfer 技巧、而是在 model fidelity / 训练多样性 / 表示对齐 / 真机交互与工程成本之间做 constrained、可迭代估计的 allocation 问题**。
+这条链是一个 **resource-constrained adaptive sequential experimentation framework**：敏感度与边际收益都靠小步实验在真实评估上估出来、一轮估完再决定下一份预算投到哪。收束：**sim-to-real 不是选择一种 transfer technique、而是在当前 belief、不可互换的多种预算和真实评估反馈下、连续决定下一次 intervention**——这是全文的理论 spine、其他都是它的具体派生。
 
 ---
 
@@ -373,7 +419,7 @@ $$\boxed{\ \text{mismatch} \rightarrow \text{sensitivity} \rightarrow \text{inte
 - Sim-and-Real Co-Training: A Simple Recipe for Vision-Based Robotic Manipulation — Maddukuri et al., RSS 2025, arXiv:2503.24361
 - A Mechanistic Analysis of Sim-and-Real Co-Training in Generative Robot Policies — Lei et al. (Yu Lei, Minghuan Liu, Abhiram Maddukuri, Zhenyu Jiang, Yuke Zhu), arXiv preprint 2026, arXiv:2604.13645
 
-sim-to-real 尚无公认的跨任务"哪种方法更强"定量对照——不同任务 / 硬件 / fidelity 上限下结论可能完全颠倒；上述工作更多是"这类 gap 用这个方法可行"的样本、而非可外推的排序。本文关于四个 intervention lens / 分析维度的分解、simulator utility 的三维分解是 allocation 视角的自然推论、error-budget constrained-allocation 的形式化、$\hat S_k^{\mathrm{int}}$ 与 $MV$ 的定义都是 **conceptual framework 与作者解读**：$\hat S_k^{\mathrm{int}}$、$MV$ 是靠 sensitivity experiments / ablation / 小规模真实评估估出的 decision statistics、不是 simulator 解析可求的量；把 co-training 读作 data-mixture、把 world model 读作 model-source replacement、同样不是受控实验证明的结论。
+sim-to-real 尚无公认的跨任务"哪种方法更强"定量对照——不同任务 / 硬件 / fidelity 上限下结论可能完全颠倒；上述工作更多是"这类 gap 用这个方法可行"的样本、不是可外推的排序。本文关于四个 intervention lens 的分解、simulator utility 三维切分、error-budget constrained-allocation 的形式化、$\hat S_k^{\mathrm{int}}$ 与 $MV$ 的定义都是 **conceptual framework 与作者解读**：这些是 sensitivity experiments / ablation / 小规模真实评估估出的 decision statistics、不是 simulator 解析可求的量；把 co-training 读作 data-mixture、把 world model 读作 model-source replacement、同样不是受控实验证明的结论。
 
 ---
 
