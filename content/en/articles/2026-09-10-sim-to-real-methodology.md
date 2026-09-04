@@ -128,15 +128,15 @@ $$\boxed{\;MV(m \mid s_t;\lambda) \;=\; \frac{\mathbb{E}\big[\,J_{\mathrm{real}}
 But **the real local decision score is the Lagrangian net value and, to match the global objective, must include value of information**:
 
 $$\boxed{\begin{aligned}
-&U_0(m \mid \mathcal{D}_t) \;=\; \mathbb{E}\big[\Delta J(m) \mid \mathcal{D}_t\big] \;-\; \lambda^\top \Delta C(m)\\[2pt]
-&Q_\lambda^{\mathrm{perf+info}}(m \mid s_t) \;=\; U_0(m \mid \mathcal{D}_t) \;+\; \beta\,\mathrm{VoI}(m \mid \mathcal{D}_t)\\[2pt]
-&s_{t+1} \;=\; \mathcal{T}(s_t,\; m_t,\; Y_t),\quad Y_t \sim p(Y\mid\mathcal{D}_t,\,m_t)
+&U_0(m \mid s_t) \;=\; \mathbb{E}\big[\Delta J(m) \mid s_t\big] \;-\; \lambda^\top \Delta C(m)\\[2pt]
+&Q_\lambda^{\mathrm{perf+info}}(m \mid s_t) \;=\; U_0(m \mid s_t) \;+\; \beta\,\mathrm{VoI}(m \mid s_t)\\[2pt]
+&s_{t+1} \;=\; \mathcal{T}(s_t,\; m_t,\; Y_t),\quad Y_t \sim p(Y\mid s_t,\,m_t)
 \end{aligned}\;}$$
-For policy-changing interventions, $\mathcal{T}$ updates $\pi_t$ and budget — $\pi_{b+m} = \operatorname{Train}(D_{\mathrm{sim}}, D_{\mathrm{real}};\,m)$ is its special case. For diagnostic experiments, $\mathcal{T}$ mainly updates $\mathcal{D}_t \cup Y_m$. For model-update interventions, it also updates the simulator / surrogate state. All three roles fit the same sequential framework.
+$\mathcal{T}$ updates $\pi_t$, $\mathcal{D}_t$, $b_t$, and $h_t$ jointly. For policy-changing interventions, $\pi_{b+m} = \operatorname{Train}(D_{\mathrm{sim}}, D_{\mathrm{real}};\,m)$ is a **special case**; for diagnostic experiments, $\mathcal{T}$ mainly updates $\mathcal{D}_t \cup Y_m$; for model-update interventions, it also refreshes the simulator / surrogate state. All three roles fit one sequential framework — the same intervention (e.g. "30 min SI") induces different $Y_t$ under different $\pi_t$ or hardware condition, which is exactly why the posterior predictive must condition on $s_t$, not only on $\mathcal{D}_t$.
 
-$U_0$ is a **performance-only reference utility** — $\mathrm{VoI}(\cdot)$ only references $U_0$, not $Q_\lambda^{\mathrm{perf+info}}$ itself, avoiding the $Q \leftrightarrow \mathrm{VoI}$ self-reference. Performance-only $Q_\lambda^{\mathrm{perf}} = U_0$ is a special case. $Q_\lambda^{\mathrm{perf+info}}$ is a **one-step look-ahead approximation** to the global sequential problem, not a Bellman-optimal action value. $\beta$ is a **dimensionless project-level preference weight**; if VoI and $U_0$ share the same utility scale, set $\beta = 1$.
+$U_0$ is a **performance-only reference utility** — $\mathrm{VoI}(\cdot)$ only references $U_0$, not $Q_\lambda^{\mathrm{perf+info}}$ itself, avoiding $Q \leftrightarrow \mathrm{VoI}$ self-reference (a truly self-consistent definition would need a fixed-point; we do not go there). Performance-only $Q_\lambda^{\mathrm{perf}} = U_0$ is a special case. $MV = \mathbb{E}[\Delta J] / \lambda^\top \Delta C$ is an **efficiency readout**; for **diagnostic-only** actions $\Delta J = 0$ and $MV \equiv 0$ — not an oversight but a consequence of what $MV$ measures: $MV$ tracks performance efficiency, so the value of pure information acquisition must be priced by $\mathrm{VoI}$, not $MV$. $Q_\lambda^{\mathrm{perf+info}}$ is formally called a **local decision score** (not an RL-style Bellman action value); it is an estimable one-step local approximation under the current state. $\beta$ is a **dimensionless project-level preference weight**; if $\mathrm{VoI}$ and $U_0$ share the same utility scale, set $\beta = 1$.
 
-**$\mathcal{M}_t = \mathcal{M}(s_t)$ state-dependent** — SI done / residual not through gate / safety blocks FT → shrink $\mathcal{M}_t$ directly, not lower $MV$; $\mathcal{M}_t^{\mathrm{feasible}} = \mathcal{M}_t^{\mathrm{safe}} \cap \mathcal{M}_t^{\mathrm{budget}}$. $\alpha$ = allowed failure probability, $\delta$ = statistical confidence tail — do not conflate. $m$ covers policy-changing interventions and diagnostic experiments (role ∈ {adaptation, diagnosis, model update}); same type at different batch / recipe / protocol counts as distinct candidates. Decision rule:
+**$\mathcal{M}_t = \mathcal{M}(s_t)$ state-dependent** — SI done / residual not through gate / safety blocks FT → shrink $\mathcal{M}_t$ directly, not lower $MV$; $\mathcal{M}_t^{\mathrm{feasible}} = \mathcal{M}_t^{\mathrm{safe}} \cap \mathcal{M}_t^{\mathrm{budget}}$. $\mathcal{M}_t^{\mathrm{safe}} = \{m : \mathrm{UCB}_{1-\delta}[\Pr(\text{unsafe} \mid s_t, m)] \le \alpha\}$ — $\alpha$ = allowed failure probability, $\delta$ = statistical confidence tail, do not conflate. Safety is simultaneously an **experiment-level and deployment-level** constraint: the former gates each candidate $m$, the latter bounds the terminal $\pi_T$. $m$ covers policy-changing interventions and diagnostic experiments (role ∈ {adaptation, diagnosis, model update}); same type at different batch / recipe / protocol counts as distinct candidates. Decision rule:
 
 $$m_{t+1} \;=\; \arg\max_{m \,\in\, \mathcal{M}_t^{\mathrm{feasible}}}\; Q_\lambda^{\mathrm{perf+info}}(m \mid s_t)$$
 
@@ -153,9 +153,9 @@ $MV$ ranks SI first; $Q_\lambda$ ranks DR first — ratio reads efficiency, Lagr
 
 The novelty is not "which method is better" but **given current evidence, the expected value of the next intervention**. $m_{t+1}$ is a one-step / local rule, not a global optimum. Full problem: multi-resource sequential allocation with chance constraint.
 
-$$\max_{\{m_t\}_{t=1}^{T}}\ \mathbb{E}\big[J_{\mathrm{real}}(\pi_T)\big] \quad \text{s.t.}\quad \sum_{t} \Delta C_r(m_t) \le B_r\ (r \in \{\mathrm{real},\mathrm{compute},\mathrm{eng}\}),\;\; \Pr[\text{unsafe} \mid \pi_T] \le \alpha.$$
+$$\max_{\{m_t\}_{t=1}^{T}}\ \mathbb{E}\big[J_{\mathrm{real}}(\pi_T)\big] \quad \text{s.t.}\quad \sum_{t} \Delta C_r(m_t) \le B_r\ (r \in \{\mathrm{real},\mathrm{compute},\mathrm{eng}\}),\;\; \Pr[\text{unsafe} \mid s_T] \le \alpha.$$
 
-$MV$ / $Q_\lambda$ are **local decision statistics**; $\lambda_r$ **ideally interprets as the marginal value of resource $B_r$ at the optimum**, but the article only needs a **resource-weight estimate** consistent with that meaning: $\lambda_t = \lambda(B_t, \mathcal{D}_t, \pi_t)$ — updates with allocation state, one pivotal experiment can shift it sharply. Fixed-$\lambda$ greedy approximates global optimality only under negligible interaction, linear cost, and no fixed cost. Five caveats: **(i) uncertainty and the decision functional** — main text uses posterior mean; risk-sensitive projects may swap LCB / CVaR-adjusted utility — do not write formula with mean and prose with LCB. **(ii) non-linear cost** — SI fixed, DR diminishing, FT threshold. **(iii) negative MV** — over-randomization / negative transfer. **(iv) information value must enter the local score** — $\mathrm{VoI}(m\mid\mathcal{D})$ means: **how much the information purchased by executing $m$ raises the expected net value of the next best action** — not "the current intervention's own future utility." $\mathrm{VoI}(m) = \mathbb{E}_Y[\max_{m'} U_0(m'\mid\mathcal{D},Y)] - \max_{m'} U_0(m'\mid\mathcal{D})$; reference utility fixed to $U_0$, no recursion. $V(\mathcal{D}) = -\Pr(\arg\max Q_\lambda$ flips$)$ is only a decision-stability proxy; posterior narrowing $\neq$ decision value. **(v) $\Delta J$ is not a natural causal effect** — matched / paired evaluation; $\Delta C$ includes all incremental cost; **for diagnostic-only actions, $\pi_t^m = \pi_t^{\mathrm{control}}$, $\Delta J = 0$, value comes entirely through VoI**. Values only meaningful under fixed $p_{\mathrm{eval}}$.
+$MV$ / $Q_\lambda$ are **local decision statistics**; $\lambda_r$ **ideally interprets as the marginal value of resource $B_r$ at the optimum** (the ideal shadow price), but this article only needs a resource-weight estimate consistent with that meaning: $\lambda_t = \lambda(B_t, \mathcal{D}_t, \pi_t)$ — updates with allocation state, one pivotal experiment can shift it sharply; hereafter we abbreviate uniformly as **resource weights $\lambda_t$**. Fixed-$\lambda$ greedy approximates global optimality only under negligible interaction, linear cost, and no fixed cost. Five caveats: **(i) uncertainty and the decision functional** — main text uses posterior mean; risk-sensitive projects may swap LCB / CVaR-adjusted utility — do not write formula with mean and prose with LCB. **(ii) non-linear cost** — SI fixed, DR diminishing, FT threshold, negative transfer can all drive $MV < 0$. **(iii) information value must enter the local score** — $\mathrm{VoI}(m\mid s_t)$ means: **how much the information purchased by executing $m$ raises the expected net value of the next best action**, not the current intervention's own future utility; the definition simultaneously absorbs evidence update **and** candidate-set update, since a diagnostic experiment can open or close future feasibility: $\mathrm{VoI}(m\mid s_t) = \mathbb{E}_{Y \sim p(\cdot\mid s_t,m)}\!\big[\max_{m' \in \mathcal{M}_{t+1}^{\mathrm{feasible}}} U_0(m'\mid s_{t+1})\big] - \max_{m' \in \mathcal{M}_t^{\mathrm{feasible}}} U_0(m'\mid s_t)$, reference utility fixed to $U_0$, no recursion. $V(\mathcal{D}) = -\Pr(\arg\max Q_\lambda$ flips$)$ is only a decision-stability proxy; posterior narrowing $\neq$ decision value. **(iv) $\Delta J$ is not a natural causal effect** — matched / paired evaluation; $\Delta C$ includes all incremental cost. **(v) diagnostic-only actions** have $\pi_t^m = \pi_t^{\mathrm{control}}$, $\Delta J = 0$, $MV \equiv 0$; their value flows entirely through $\mathrm{VoI}$. Values only meaningful under fixed $p_{\mathrm{eval}}$.
 
 **$MV_i = MV_i(b_{1:i-1}, \pi_b, D_{\mathrm{real}})$ is state-dependent.** SI first can lower DR's $MV$; DR first can raise FT's — direction depends on interaction, no fixed monotonic law. **Interventions exhibit complementarity, substitutability, and occasional conflict** (not a bandit). Feedback: interventions change the policy, which changes $S_k^{\mathrm{int}} = S_k^{\mathrm{int}}(\pi)$:
 
@@ -191,11 +191,11 @@ $$\boxed{\text{Model} \times \text{Data} \times \text{Representation} \times \te
 
 "$\times$" here is a **combinatorial space**, not mathematical orthogonality — DR touches Model / Observation / Distribution, DA can happen at input / feature / latent / policy / output, and "DA = the Representation axis" is only one abstraction layer of this article.
 
-**The tool criterion is not "systematic → SI, random → DR"** — the useful partition is the continuum "**point estimate → posterior → robust randomization**". SI **fits parameters under an identification objective**:
+**The tool criterion is not "systematic → SI, random → DR"** — the useful partition is the continuum "**point estimate → posterior → robust randomization**". SI can do **point calibration** or, further, produce a **posterior**; we start with the point-estimate form:
 
 $$\hat\phi \;=\; \operatorname*{arg\,min}_{\phi}\; \mathcal{L}_{\mathrm{ID}}\big(D_{\mathrm{real}},\ f_{\mathrm{sim}}(\cdot\,;\,\phi)\big)$$
 
-$\mathcal{L}_{\mathrm{ID}}$ may be trajectory prediction / one-step transition error / force-torque residual / likelihood — **many classical SI methods never do trajectory distribution matching; they just minimize prediction error**. SI handles **ide
+$\mathcal{L}_{\mathrm{ID}}$ may be trajectory prediction / one-step transition error / force-torque residual / likelihood — **many classical SI methods never do trajectory distribution matching; they just minimize prediction error**. SI handles **parameterizable model mismatch**: dynamics residual, contact / friction coefficients, latency, camera extrinsics — when the gap lies outside the model class (unobserved long tail, semantic-level visual difference), SI runs out of leverage and one must switch to DR / DA / WM.
 
 | Nature of the mismatch | More natural tool |
 | --- | --- |
@@ -222,7 +222,7 @@ $$y_t \;=\; \underbrace{g_{\mathrm{physics}}(x_t,a_t;\phi)}_{\text{parameterizab
 
 $r_\theta$ is only **unified notation**: the actual residual may be defined on state transition, force, acceleration, contact impulse, deformation field, or other latents.
 
-A make-or-break point hidden behind "differentiable": **differentiability solves the optimization interface, not model-class correctness**. If the contact model simply cannot express a real phenomenon, gradients only give "the optimum under a wrong model." **Commonly ignored**: collision / friction / contact-mode switching are **nonsmooth or piecewise-smooth** — even when $\partial f/\partial\phi$ exists, no guarantee the gradient is stable, that the gradient at mode transitions is meaningful, or that it beats derivative-free optimization.
+A make-or-break point hidden behind "differentiable": **differentiability solves the optimization interface, not model-class correctness**. If the contact model simply cannot express a real phenomenon, gradients only give "the optimum under a wrong model." **Commonly ignored**: contact-mode switches and complementarity constraints in collision / friction produce **nonsmooth or piecewise-smooth dynamics** — even when $\partial f/\partial\phi$ exists, no guarantee the gradient is stable, that the gradient at mode transitions is meaningful, or that it beats derivative-free optimization.
 
 SI has two further pitfalls. **First, $p_{\mathrm{real}}(\tau)$ is essentially never directly accessible** — only a finite set of real trajectories. **Second, parameters existing $\neq$ identifiable** — identifiability also depends on excitation and sensor observability: mass / damping / stiffness can produce nearly identical observable trajectories under some excitations and cannot be estimated independently.
 
@@ -265,9 +265,9 @@ $$MV_{\mathrm{real}} \;\approx\; \frac{J(N+\Delta N)-J(N)}{\Delta N}$$
 
 — the only form that connects with the article-wide $MV$. Risks go beyond catastrophic forgetting: more common is **distribution narrowing** — real FT data is much narrower than sim, so the post-FT policy is better on the target slice but robustness can drop, **generalization traded for specialization**. $MV_{\mathrm{real}}(N)$ is **not guaranteed positive**: the first 100 may buy a big jump, later returns decay quickly, and beyond that you may overfit or regress — **FT itself can enter a negative marginal-return region**.
 
-## Two new routes that loosen the "two given distributions" assumption
+## Two new routes that loosen the environment-generating-process assumption
 
-The four axes above share an implicit premise: **$p_{\mathrm{sim}}$ and $p_{\mathrm{real}}$ are two given distributions**. The two routes below loosen this premise itself — not "the fifth and sixth tricks" but a reformulation: **the first four change the intervention; world model and co-training change the underlying training substrate on which interventions operate** — a different abstraction level, not foldable back into the same taxonomy.
+The four axes above share an implicit premise: the classical framing treats simulator and real environment as **two given environment-generating processes** (with distributions $p_{\mathrm{sim}}$, $p_{\mathrm{real}}$). The two routes below loosen this premise itself — not "the fifth and sixth tricks" but a reformulation: **the first four change the intervention; world model and co-training change the underlying training substrate on which interventions operate** — a different abstraction level, not foldable back into the same taxonomy.
 
 ### World model: not cancelling the simulator, but replacing the simulator's source
 
@@ -326,7 +326,7 @@ In sim it looks like $A > B > C$; on the real robot it is $B > C > A$. Here the 
 
 $$\pi_{\mathrm{sim}} = \operatorname*{arg\,max}_{\pi \in \Pi} J_{\mathrm{sim}}(\pi), \qquad R_{\mathrm{select}} = J_{\mathrm{real}}\big(\pi^{*}_{\mathrm{real}}\big) - J_{\mathrm{real}}\big(\pi_{\mathrm{sim}}\big)$$
 
-Spearman = 0.95 but wrong top-1 is still a disaster; Spearman = 0.7 with a rarely-missed top-1 is enough to "pick one deployable policy." Both are **conditional metrics**. **The allocation framework naturally yields**: **simulator fidelity is task-of-use dependent, not absolute** — change the use (pretraining / exploration / curriculum / safety filter) and "which errors matter" changes entirely. $\pi^*_{\mathrm{real}}$ is typically unavailable, so $R_{\mathrm{select}}$ — like the earlier learning gap — is **oracle-defined**; in practice use $J_{\mathrm{real}}(\pi_{\mathrm{best\text{-}observed}}) - J_{\mathrm{real}}(\pi_{\mathrm{sim}})$ or a Pareto-best proxy.
+Spearman = 0.95 but wrong top-1 is still a disaster; Spearman = 0.7 with a rarely-missed top-1 is enough to "pick one deployable policy." Both are **conditional metrics**. **The allocation framework naturally yields**: **simulator fidelity is task-of-use dependent, not absolute** — change the use (pretraining / exploration / curriculum / safety filter) and "which errors matter" changes entirely. $\pi^*_{\mathrm{real}}$ is typically unavailable, so $R_{\mathrm{select}}$ — like the earlier learning gap — is **oracle-defined**; in practice use $J_{\mathrm{real}}(\pi_{\mathrm{best\text{-}observed}}) - J_{\mathrm{real}}(\pi_{\mathrm{sim}})$ as a validated-best observed proxy.
 
 **More importantly**, real projects rarely need the sim to precisely rank every policy — only to narrow candidates to an acceptable set. **top-$k$ recall** and **regret@k** should be peers of ranking. **Beware adaptive selection bias**: if sim adaptively filters policies (sim select → real eval → update → re-select), using the same selected candidates to evaluate sim creates self-confirming loops. **Maintain two pools**: $\Pi_{\mathrm{adapt}}$ for training/selection, $\Pi_{\mathrm{audit}}$ for held-out evaluation. **Held-out evaluation sets are not infinitely immune** — long-running projects should reserve an audit slice or periodically refresh the evaluation set to avoid adaptive experimentation overfitting a fixed real benchmark.
 
@@ -338,7 +338,7 @@ At this point, **a corollary of the allocation framework**: **simulator utility 
 | Ranking accuracy | Spearman $\rho_{\mathrm{rank}}$, Kendall $\tau$, top-k recall, regret@k |
 | Quality of the selected policy (decision quality) | $R_{\mathrm{select}} = J_{\mathrm{real}}(\pi^{*}_{\mathrm{real}}) - J_{\mathrm{real}}(\pi_{\mathrm{sim}})$ (in practice use a best-observed proxy) |
 
-A simulator can be very well calibrated and still pick the wrong policy (narrow distribution); another can be numerically wrong across the board yet rank stably with small regret — the three dimensions cannot substitute. $U_{\mathrm{sim}}$ should not be an abstract scalar; index it **by use as a superscript**: $U_{\mathrm{sim}}^{(u)}$, $u \in \{\text{pretrain},\ \text{selection},\ \text{exploration},\ \text{curriculum},\ \text{safety}\}$. Evaluating fidelity is not staring at a single policy; it must be relative to the **candidate family** and the **concrete use**: $U_{\mathrm{sim}}^{(u)}(\cdot \mid \Pi_{\mathrm{candidate}},\ p_{\mathrm{eval}}^{\mathrm{real}})$.
+A simulator can be very well calibrated and still pick the wrong policy (narrow distribution); another can be numerically wrong across the board yet rank stably with small regret — the three dimensions cannot substitute, **and the three metric families differ not only in scale but in the loss they optimize, so there is no natural universal scalar simulator score**. $U_{\mathrm{sim}}$ should not be an abstract scalar; index it **by use as a superscript**: $U_{\mathrm{sim}}^{(u)}$, $u \in \{\text{pretrain},\ \text{selection},\ \text{exploration},\ \text{curriculum},\ \text{safety}\}$. Evaluating fidelity is not staring at a single policy; it must be relative to the **candidate family** and the **concrete use**: $U_{\mathrm{sim}}^{(u)}(\cdot \mid \Pi_{\mathrm{candidate}},\ p_{\mathrm{eval}}^{\mathrm{real}})$.
 
 ## Composition, decision, and a question usually dodged
 
@@ -391,7 +391,7 @@ A framework that never lands on "how the project runs tomorrow" is only clever f
 
 Every hypothesis must be **falsifiable by a concrete experiment**; drop any that cannot specify what would refute it.
 
-**Step 4 — one-time initial calibration pilot** (Step 5 is where sequential adaptive allocation begins, avoiding the pilot-selection circularity). Estimate $\mathbb{E}[\Delta J]$ with CI / posterior; no preset sample count. **$\Delta J(m) = J_{\mathrm{real}}(\pi_t^{m}) - J_{\mathrm{real}}(\pi_t^{\mathrm{control}})$** — control bears same extra steps / time / seed, only removing this intervention; $\Delta J$ is incremental deployment utility, not absolute post-intervention performance; **for diagnostic-only actions $\Delta J = 0$, value entirely through VoI**. Matched / paired / block evaluation: same seed, held-out slice, consistent hardware; record drift (tire, motor, battery).
+**Step 4 — one-time initial calibration pilot** (Step 5 is where sequential adaptive allocation begins, avoiding the pilot-selection circularity). Estimate $\mathbb{E}[\Delta J]$ with CI / posterior; no preset sample count. **$\Delta J(m) = J_{\mathrm{real}}(\pi_t^{m}) - J_{\mathrm{real}}(\pi_t^{\mathrm{control}})$** — control bears same extra steps, **same elapsed time (so robot temperature, battery, wear, and other background drift are matched)**, and same seed, only removing this intervention; $\Delta J$ is incremental deployment utility, not absolute post-intervention performance; **for diagnostic-only actions $\Delta J = 0$, value entirely through VoI**. Matched / paired / block evaluation: same seed, held-out slice, consistent hardware; record drift (tire, motor, battery).
 
 **Step 5 — sequential adaptive allocation**: $m_{t+1} = \arg\max_{m \in \mathcal{M}_t^{\mathrm{feasible}}} Q_\lambda^{\mathrm{perf+info}}(m \mid s_t)$ — $\lambda_r$ is a resource-weight estimate; objective and local score must agree. Safety flows through Step 1's $\alpha$ gate — posterior UCB, never entering $Q_\lambda$ cost.
 
@@ -414,53 +414,53 @@ $$\boxed{\ \text{diagnosis} \rightarrow \text{sensitivity / uncertainty} \righta
 The corresponding **closed-loop spine**, which fits the article's thesis better than any four-way table:
 
 ```text
-              current policy π + evidence D_t
-                          │
-                          ▼
-             ┌─── mismatch diagnosis ───┐
-             │ model / obs / ctrl / dist │
-             └─────────────┬─────────────┘
-                           ▼
-              sensitivity / uncertainty set
-                           │
-                           ▼
-                candidate interventions  m = (type, Δb)
-              ┌────────────┼────────────┬────────────┐
-              ▼            ▼            ▼            ▼
-             SI            DR          DA / FT      World model
-              │            │            │            │
-              └────────────┴─────┬──────┴────────────┘
-                                 ▼
-                       real evaluation (paired, CI)
-                                 │
-                    ┌────────────┴────────────┐
-                    ▼                         ▼
-             performance gain            information gain
-             (ΔJ_real)                (uncertainty shrinks)
-                    │                         │
-                    └────────────┬────────────┘
-                                 ▼
-                    update evidence D_{t+1} → reallocate
-                                 │
-                                 └──────↺
+              current state  s_t = (b_t, π_t, D_t, h_t)
+                                  │
+                                  ▼
+                     mismatch diagnosis (D_t vs real)
+                                  │
+                                  ▼
+                 sensitivity / uncertainty attribution
+                                  │
+                                  ▼
+         candidate action  m = (role, method, batch/protocol)
+              ┌────────────────┼────────────────┐
+              ▼                ▼                ▼
+         diagnosis         adaptation       model update
+      SI / calibration   DR / DA / FT      residual / WM
+       / measurement     / co-training     / sim-state refresh
+              └────────────────┼────────────────┘
+                               ▼
+                  real evaluation (paired, CI)
+                               │
+                    performance gain  +  information gain
+                     (ΔJ_real)          (D_t shrinks, M_{t+1} opens)
+                               │
+                               ▼
+                update  s_{t+1} = T(s_t, m, Y),  Y ~ p(·|s_t,m)
+                               │
+                               ▼
+                    stopping rule?  → deploy π_T
+                               │
+                               └────► next round (loop)
 ```
 
-(The last step re-enters the loop by changing the sensitivity and mismatch estimates — see the feedback loop above.)
+Role × method × batch together define a candidate — **SI / DR / DA / FT are method labels, not the action space of allocation**. The true decision unit is a state-conditioned action $m \in \mathcal{M}_t^{\mathrm{feasible}}(s_t)$; the candidate set itself is state-dependent: a diagnostic experiment can open or close downstream adaptation / model-update feasibility, and the last step changes the sensitivity and mismatch inside $s_{t+1}$, driving the feedback loop.
 
 This chain is a **resource-constrained adaptive sequential experimentation framework**: sensitivity and marginal return are both estimated via small-step experiments on real evaluation, each round ending by deciding the next budget slice. The framework collapses into a **five-layer spine** that everything else hangs from:
 
 $$\boxed{\begin{aligned}
-&\textbf{L1}:\ \max_{\{m_t\}}\ \mathbb{E}[J_{\mathrm{real}}(\pi_T)]\quad\text{s.t.}\ \textstyle\sum_t \Delta C_r(m_t)\le B_r,\ \Pr[\text{unsafe}]\le \alpha\\
+&\textbf{L1}:\ \max_{\{m_t\}}\ \mathbb{E}[J_{\mathrm{real}}(\pi_T)]\quad\text{s.t.}\ \textstyle\sum_t \Delta C_r(m_t)\le B_r,\ \Pr[\text{unsafe}\mid s_T]\le \alpha\\
 &\textbf{L2}:\ s_t = (b_t,\,\pi_t,\,\mathcal{D}_t,\,h_t)\\
-&\textbf{L3}:\ m_t \in \mathcal{M}_t(s_t),\quad \mathcal{M}_t^{\mathrm{feasible}} = \mathcal{M}_t^{\mathrm{safe}} \cap \mathcal{M}_t^{\mathrm{budget}}\\
-&\textbf{L4}:\ Q_\lambda^{\mathrm{perf+info}} = U_0 + \beta\,\mathrm{VoI}\quad\text{(one-step look-ahead approximation)}\\
-&\textbf{L5}:\ MV = \mathbb{E}[\Delta J\mid\mathcal{D}_t]\;/\;\lambda^\top \Delta C(m)\\
-&\textbf{Transition}:\ s_{t+1} = \mathcal{T}(s_t,\, m_t,\, Y_t)
+&\textbf{L3}:\ m_t \in \mathcal{M}_t^{\mathrm{feasible}}(s_t),\quad \mathcal{M}_t^{\mathrm{feasible}} = \mathcal{M}_t^{\mathrm{safe}} \cap \mathcal{M}_t^{\mathrm{budget}}\\
+&\textbf{L4}:\ Q_\lambda^{\mathrm{perf+info}}(m\mid s_t) = U_0(m\mid s_t) + \beta\,\mathrm{VoI}(m\mid s_t)\quad\text{(one-step look-ahead)}\\
+&\textbf{L5}:\ MV(m\mid s_t) = \mathbb{E}[\Delta J\mid s_t]\;/\;\lambda^\top \Delta C(m)\\
+&\textbf{Transition}:\ s_{t+1} = \mathcal{T}(s_t,\, m_t,\, Y_t),\quad Y_t \sim p(\cdot\mid s_t, m_t)
 \end{aligned}\;\longrightarrow\;\circlearrowleft}$$
 
-Hierarchy: $\boxed{\text{global } \mathbb{E}[J_T] \supset \text{local } Q_\lambda \supset MV}$ — $Q_\lambda$ is a one-step look-ahead approximation of the global sequential score (not a terminal information reward); $MV$ is an efficiency statistic.
+Hierarchy: $\boxed{\text{global } \mathbb{E}[J_T] \supset \text{local } Q_\lambda \supset MV}$ — $Q_\lambda$ is a one-step look-ahead approximation of the global sequential score; $MV$ is an efficiency statistic. **$\mathrm{VoI}$ is used only for intermediate-decision look-ahead, not as a terminal deployment reward: at stopping, the final objective evaluates only $J_{\mathrm{real}}(\pi_T)$ under the constraints**, so the terminal $Q_\lambda$ collapses to $U_0$.
 
-$MV$ and $Q_\lambda$ **split duties, not interchangeable** — $MV$ answers "how efficient per unit shadow cost," $Q_\lambda$ answers "worth doing after opportunity cost"; reading both prevents ratio-driven misprioritization while keeping cross-budget comparability. Closing: **sim-to-real is not the choice of a transfer technique; it is the continuous decision, under current belief, non-substitutable budgets, and real-evaluation feedback, of what the next intervention should be** — the article's spine. **The contribution is not a new optimization primitive; it is a redefinition of sim-to-real's decision unit** — from "pick a transfer method" to "pick the next intervention under current state and multi-resource constraints" — while reframing r
+$MV$ and $Q_\lambda$ **split duties, not interchangeable** — $MV$ answers "how efficient per unit resource cost," $Q_\lambda$ answers "worth doing after opportunity cost"; reading both prevents ratio-driven misprioritization while keeping cross-budget comparability. Closing: **sim-to-real is not the choice of a transfer technique; it is the continuous decision, under current belief, non-substitutable budgets, and real-evaluation feedback, of what the next intervention should be** — the article's spine. **The contribution is not a new optimization primitive; it is a redefinition of sim-to-real's decision unit** — from "pick a transfer method" to "pick the next intervention under current state and multi-resource constraints" — while reframing reality gap and simulator utility as policy- and evaluation-conditioned quantities.
 
 ---
 

@@ -97,8 +97,8 @@ $$\max_{b}\quad \mathbb{E}\big[J_{\mathrm{real}}(\pi_b)\big] \quad \text{s.t.}\q
 
 预算是分向量后、决策变量从"gap"换成"干预动作"——能买到 30 min SI / $10^6$ 步 sim / 100 条真机轨迹；**干预不直接改 $\Delta_k$、通过更新 state 改变后续决策**：
 
-$$\boxed{\;s_{t+1} \;=\; \mathcal{T}\big(s_t,\; m_t,\; Y_t\big),\quad Y_t \sim p\!\big(Y \mid \mathcal{D}_t,\, m_t\big)\;}$$
-对于 policy-changing intervention、$\mathcal{T}$ 更新 $\pi_t$ 与预算、此时 $\pi_{b+m} = \operatorname{Train}(D_{\mathrm{sim}}, D_{\mathrm{real}};\, m)$ 是其**特例**；对于 diagnostic experiment、主要更新 $\mathcal{D}_t \cup Y_m$；对于 model-update intervention、同时更新 sim / surrogate state。三类 action 统一到同一个 sequential framework。
+$$\boxed{\;s_{t+1} \;=\; \mathcal{T}\big(s_t,\; m_t,\; Y_t\big),\quad Y_t \sim p\!\big(Y \mid s_t,\, m_t\big)\;}$$
+$\mathcal{T}$ 同时更新 $\pi_t$、$\mathcal{D}_t$、$b_t$、$h_t$：policy-changing intervention 更新 $\pi_t$ 与预算（$\pi_{b+m} = \operatorname{Train}(D_{\mathrm{sim}}, D_{\mathrm{real}};\, m)$ 是其**特例**）、diagnostic experiment 主要更新 $\mathcal{D}_t \cup Y_m$、model-update intervention 同时更新 sim / surrogate state。三类 action 统一到同一个 sequential framework。
 
 **$Q_\lambda$（decision score）与 $MV$（效率读数、不是 decision rule）**。conditional on $s_t$。**「DR 的 $MV$」问错了**、正解是「当前 $s_t$ 下加一单位 DR 的 expected value」。$m = (\text{type}, \Delta b_m)$、是可执行 batch。$\Delta C(m) = (\Delta C_{\mathrm{real}}, \Delta C_{\mathrm{compute}}, \Delta C_{\mathrm{eng}})$、$C_\lambda = \lambda^\top \Delta C(m)$。
 
@@ -107,13 +107,13 @@ $$\boxed{\;MV(m \mid s_t;\lambda) \;=\; \frac{\mathbb{E}\big[\,J_{\mathrm{real}}
 **真正的局部 decision score 是 Lagrangian net value**、且要与 global objective 一样把 VoI 纳入（否则出现"全局含 VoI、局部只算 performance"的近似断点）：
 
 $$\boxed{\begin{aligned}
-&U_0(m \mid \mathcal{D}_t) \;=\; \mathbb{E}\big[\Delta J(m) \mid \mathcal{D}_t\big] \;-\; \lambda^\top \Delta C(m)\\[2pt]
-&Q_\lambda^{\mathrm{perf+info}}(m \mid s_t) \;=\; U_0(m \mid \mathcal{D}_t) \;+\; \beta\,\mathrm{VoI}(m \mid \mathcal{D}_t)
+&U_0(m \mid s_t) \;=\; \mathbb{E}\big[\Delta J(m) \mid s_t\big] \;-\; \lambda^\top \Delta C(m)\\[2pt]
+&Q_\lambda^{\mathrm{perf+info}}(m \mid s_t) \;=\; U_0(m \mid s_t) \;+\; \beta\,\mathrm{VoI}(m \mid s_t)
 \end{aligned}\;}$$
 
-$U_0$ 是 **performance-only reference utility**——$\mathrm{VoI}(\cdot)$ 只引用 $U_0$、不引用 $Q_\lambda^{\mathrm{perf+info}}$ 本身，**避免 $Q \leftrightarrow \mathrm{VoI}$ 自我递归**（真要走 self-consistent 需 fixed-point、本文不走）。performance-only $Q_\lambda^{\mathrm{perf}} = U_0$ 是 special case、$MV = \mathbb{E}[\Delta J] / \lambda^\top \Delta C$ 是效率读数。$Q_\lambda^{\mathrm{perf+info}}$ **是 current-state local score、非含未来 option value 的 Bellman-optimal action value**、可估计的一步局部近似。
+$U_0$ 是 **performance-only reference utility**——$\mathrm{VoI}(\cdot)$ 只引用 $U_0$、不引用 $Q_\lambda^{\mathrm{perf+info}}$ 本身，**避免 $Q \leftrightarrow \mathrm{VoI}$ 自我递归**（真要走 self-consistent 需 fixed-point、本文不走）。performance-only $Q_\lambda^{\mathrm{perf}} = U_0$ 是 special case；$MV = \mathbb{E}[\Delta J] / \lambda^\top \Delta C$ 是 efficiency readout、对 **diagnostic-only** action 天生 $\Delta J = 0$、$MV \equiv 0$——这不是遗漏、而是 $MV$ 只度量 performance efficiency、信息获取的价值由 $\mathrm{VoI}$ 承担（见 p. allocation caveats）。$Q_\lambda^{\mathrm{perf+info}}$ 正式叫作 **local decision score**（**不是** RL 意义上的 Bellman action value）、是当前 state 下可估计的一步局部近似。
 
-**$\mathcal{M}_t = \mathcal{M}(s_t)$ state-dependent**——直接缩 $\mathcal{M}_t$、不是让 $MV$ 变小；$\mathcal{M}_t^{\mathrm{feasible}} = \mathcal{M}_t^{\mathrm{safe}} \cap \mathcal{M}_t^{\mathrm{budget}}$。$\mathcal{M}_t^{\mathrm{safe}} = \{m : \mathrm{UCB}_{1-\delta}[\Pr(\text{unsafe})] \le \alpha\}$——$\alpha$ = allowed failure probability、$\delta$ = statistical confidence tail。$m$ 涵盖 policy-changing intervention 与 diagnostic experiment（role ∈ {adaptation, diagnosis, model update}）；同 type 不同 batch / recipe / protocol 视为不同 candidate。
+**$\mathcal{M}_t = \mathcal{M}(s_t)$ state-dependent**——直接缩 $\mathcal{M}_t$、不是让 $MV$ 变小；$\mathcal{M}_t^{\mathrm{feasible}} = \mathcal{M}_t^{\mathrm{safe}} \cap \mathcal{M}_t^{\mathrm{budget}}$。$\mathcal{M}_t^{\mathrm{safe}} = \{m : \mathrm{UCB}_{1-\delta}\!\big[\Pr(\text{unsafe} \mid s_t, m)\big] \le \alpha\}$——$\alpha$ = allowed failure probability、$\delta$ = statistical confidence tail。Safety 同时是 **experiment-level 与 deployment-level** 约束：前者 gate 每次 candidate $m$、后者约束 terminal $\pi_T$。$m$ 涵盖 policy-changing intervention 与 diagnostic experiment（role ∈ {adaptation, diagnosis, model update}）；同 type 不同 batch / recipe / protocol 视为不同 candidate。
 
 $$m_{t+1} \;=\; \arg\max_{m \,\in\, \mathcal{M}_t^{\mathrm{feasible}}}\; Q_\lambda^{\mathrm{perf+info}}(m \mid s_t)$$
 
@@ -130,9 +130,9 @@ $MV$ 把 SI 顶第一、$Q_\lambda$ 把 DR 顶第一。$MV < 0 \Leftrightarrow \
 
 $m_{t+1}$ 只是 **one-step local rule**、非 global optimum。完整问题：**multi-resource sequential allocation with chance constraint**：
 
-$$\max_{\{m_t\}_{t=1}^{T}}\ \mathbb{E}\big[J_{\mathrm{real}}(\pi_T)\big] \quad \text{s.t.}\quad \sum_{t} \Delta C_r(m_t) \le B_r\ (r \in \{\mathrm{real},\mathrm{compute},\mathrm{eng}\}),\;\; \Pr[\text{unsafe} \mid \pi_T] \le \alpha.$$
+$$\max_{\{m_t\}_{t=1}^{T}}\ \mathbb{E}\big[J_{\mathrm{real}}(\pi_T)\big] \quad \text{s.t.}\quad \sum_{t} \Delta C_r(m_t) \le B_r\ (r \in \{\mathrm{real},\mathrm{compute},\mathrm{eng}\}),\;\; \Pr[\text{unsafe} \mid s_T] \le \alpha.$$
 
-$\lambda_r$ **理想下可解释为最优值函数对 $B_r$ 的边际价值**、实际本文只需 resource-weight estimate $\lambda_t = \lambda(B_t, \mathcal{D}_t, \pi_t)$、随 allocation state 更新。四条 caveat：**(i)** $Q_\lambda$ 默认 posterior mean、风险敏感可换 LCB / CVaR-adjusted utility——禁"公式 mean、文字 LCB"。**(ii)** SI fixed cost、DR diminishing returns、FT threshold、negative transfer 可让 $MV < 0$。**(iii)** $\mathrm{VoI}(m\mid\mathcal{D})$ 语义：**执行 $m$ 所购买的信息使下一步最优 action 的 expected net value 增加多少**（不是"当前 intervention 自己的 future utility"）；$\mathrm{VoI}(m) = \mathbb{E}_Y[\max_{m'} U_0(m'\mid\mathcal{D},Y)] - \max_{m'} U_0(m'\mid\mathcal{D})$、reference utility 固定为 $U_0$。$\beta$ 是 dimensionless 偏好权重、若 VoI 与 $U_0$ 同尺度可令 $\beta=1$。$V(\mathcal{D}) = -\Pr(\arg\max Q_\lambda$ flips$)$ 只是 decision-stability proxy。**(iv)** $\Delta J$ 非天然 causal effect——matched / paired evaluation、$\Delta C$ 含全部 incremental cost；**diagnostic-only action 的 $\pi_t^m = \pi_t^{\mathrm{control}}$、$\Delta J = 0$、价值全通过 VoI 体现**。数值只在固定 $p_{\mathrm{eval}}$ 下有意义。
+$\lambda_r$ **理想下可解释为最优值函数对 $B_r$ 的边际价值**（ideal shadow price）、实际本文只需 resource-weight estimate $\lambda_t = \lambda(B_t, \mathcal{D}_t, \pi_t)$、随 allocation state 更新；下文一律简称 **resource weights $\lambda_t$**。四条 caveat：**(i)** $Q_\lambda$ 默认 posterior mean、风险敏感可换 LCB / CVaR-adjusted utility——禁"公式 mean、文字 LCB"。**(ii)** SI fixed cost、DR diminishing returns、FT threshold、negative transfer 可让 $MV < 0$。**(iii)** $\mathrm{VoI}(m\mid s_t)$ 语义：**执行 $m$ 所购买的信息使下一步最优 action 的 expected net value 增加多少**（不是当前 intervention 自己的 future utility），并同时吸收 evidence 更新与 **candidate set 更新** 两路价值——$\mathrm{VoI}(m\mid s_t) = \mathbb{E}_{Y \sim p(\cdot\mid s_t,m)}\!\big[\max_{m' \in \mathcal{M}_{t+1}^{\mathrm{feasible}}} U_0(m'\mid s_{t+1})\big] - \max_{m' \in \mathcal{M}_t^{\mathrm{feasible}}} U_0(m'\mid s_t)$，reference utility 固定为 $U_0$；$\beta$ 是 dimensionless 偏好权重、若 $\mathrm{VoI}$ 与 $U_0$ 同尺度可令 $\beta=1$。$V(\mathcal{D}) = -\Pr(\arg\max Q_\lambda$ flips$)$ 只是 decision-stability proxy。**(iv)** $\Delta J$ 非天然 causal effect——matched / paired evaluation、$\Delta C$ 含全部 incremental cost；**diagnostic-only action 的 $\pi_t^m = \pi_t^{\mathrm{control}}$、$\Delta J = 0$、$MV \equiv 0$，其价值完全通过 $\mathrm{VoI}$ 体现**。数值只在固定 $p_{\mathrm{eval}}$ 下有意义。
 
 **$MV_i$ 是 state-dependent 的**。先 SI 可使 DR $MV$ 下降、先 DR 可使 FT $MV$ 上升——**方向取决于 interaction、不假设单调**。intervention 之间有 complementarity / substitutability / conflict（不写成 bandit）。反馈层：**intervention 改 policy、进而改 $S_k^{\mathrm{int}}(\pi)$**：
 
@@ -166,11 +166,11 @@ $$\boxed{\text{Model} \times \text{Data} \times \text{Representation} \times \te
 
 "$\times$" 是组合空间、非正交——DR 触及 Model / Observation / Distribution、DA 可发生在多层。
 
-选工具标准是**"点估计 → 后验 → 鲁棒随机化"连续谱**。SI 做的是给 $\phi$ calibration posterior：
+选工具标准是**"点估计 → 后验 → 鲁棒随机化"连续谱**。SI 可以做 point calibration、也可以进一步给出 posterior；下面先写 point estimate：
 
 $$\hat\phi \;=\; \operatorname*{arg\,min}_{\phi}\; \mathcal{L}_{\mathrm{ID}}\big(D_{\mathrm{real}},\ f_{\mathrm{sim}}(\cdot\,;\,\phi)\big)$$
 
-$\mathcal{L}_{\mathrm{ID}}$ 可取 trajectory prediction / one-step transition error / force-torque residual / likelihood——**很多经典 SI 不做 trajectory distribution matching、只最小化预测误差**。SI 解
+$\mathcal{L}_{\mathrm{ID}}$ 可取 trajectory prediction / one-step transition error / force-torque residual / likelihood——**很多经典 SI 不做 trajectory distribution matching、只最小化预测误差**。SI 处理的是**可参数化的 model mismatch**：动力学残差、接触/摩擦系数、延迟、相机外参等——若 gap 落在 model class 之外（未建模 long tail、语义级视觉差），SI 就力不从心、需换 DR / DA / WM。
 
 | mismatch 的性质 | 更自然的工具 |
 | --- | --- |
@@ -197,11 +197,11 @@ $$y_t \;=\; \underbrace{g_{\mathrm{physics}}(x_t,a_t;\phi)}_{\text{可参数化�
 
 **可微性在 discontinuous contact / friction cone 切换处有 gradient vanishing 风险**（需 soft contact）。工程判据：physics 结构基本正确、参数或边界不准时、可微仿真性价比最高。
 
-Residual physics 甜蜜点是 $f_{\mathrm{physics}}$ 提供**结构性归纳偏置**、residual 只在目标分布上有限修正。风险：sim 有 residual 补偿后看似好、到 OOD 失效——**residual model 的 valid domain 需与 deployment condition 对齐**。可微仿真在 contact-rich 场景受 complementarity problem 非光滑瓶颈。
+Residual physics 甜蜜点是 $f_{\mathrm{physics}}$ 提供**结构性归纳偏置**、residual 只在目标分布上有限修正。风险：sim 有 residual 补偿后看似好、到 OOD 失效——**residual model 的 valid domain 需与 deployment condition 对齐**。可微仿真在 contact-rich 场景受 contact mode switches / complementarity constraints 带来的非光滑与梯度不稳定问题掣肘。
 
 ### Axis B — Data distribution：domain randomization 及其家族
 
-这条轴让 policy 对一族参数 $\{\phi\}$ 都稳健、不追求逼近最准 $p_{\mathrm{real}}$。Tobin（1703.06991）是起点。
+这条轴让 policy 对一族参数 $\{\phi\}$ 都稳健、不追求逼近最准 $p_{\mathrm{real}}$。Tobin（1703.06907）是起点。
 
 **DR 非"隐式 ensemble"**——训练的是单个共享 $\pi_\theta$、目标是：
 
@@ -209,7 +209,7 @@ $$\max_{\theta}\; \mathbb{E}_{\phi \sim p(\phi)}\big[J(\pi_\theta;\phi)\big]$$
 
 更准确：**DR 是对一族环境模型做 population-level 优化**、risk-neutral average-case baseline；worst-case 可写 $\max_\theta\min_\phi$。过度 DR 让 policy 过于保守、牺牲 performance。
 
-**DR 非选 scalar range、而是设计 joint distribution**——$p(\phi_1,\phi_2)\neq p(\phi_1)p(\phi_2)$ 时 independent sampling 产生大量物理不一致 combo、降低 effective coverage。**correlated / adversarial curriculum** 是对策。
+**DR 非选 scalar range、而是设计 joint distribution**——$p(\phi_1,\phi_2)\neq p(\phi_1)p(\phi_2)$ 时 independent sampling 产生大量物理不一致组合、**使有限 sampling budget 浪费在低 deployment relevance 区域**。**correlated / adversarial curriculum** 是对策。
 
 ### Axis C — Observation / Representation：domain adaptation 与观测翻译
 
@@ -232,9 +232,9 @@ $$MV_{\mathrm{real}} \;\approx\; \frac{J(N+\Delta N)-J(N)}{\Delta N}$$
 
 ——这才与全文 $MV$ 框架接上。风险不止灾难性遗忘、更常见是**分布收窄**——真机数据比 sim 窄得多、微调后目标切片更好但鲁棒性反降、**generalization 换 specialization**；$MV_{\mathrm{real}}(N)$ **不保证始终为正**、**FT 本身可进入负边际收益区间**。
 
-## 两条松动"两个给定分布"假设的新路线
+## 两条松动 environment-generating-process 假设的新路线
 
-上面四条轴共享一隐含前提：**$p_{\mathrm{sim}}$ 与 $p_{\mathrm{real}}$ 是两个给定分布**。下面两条路线恰在松动这个前提——非"第五第六种技巧"、是整个问题的 reformulation：**前四条 lens 改变 intervention、WM 与 co-training 改变的是 intervention 所作用的 underlying training substrate**、不塞回同一 taxonomy。
+上面四条轴共享一隐含前提：经典 framing 把 simulator / real environment 视为**两个给定的 environment-generating processes**（对应分布 $p_{\mathrm{sim}}$、$p_{\mathrm{real}}$）。下面两条路线恰在松动这个前提——非"第五第六种技巧"、是整个问题的 reformulation：**前四条 lens 改变 intervention、WM 与 co-training 改变的是 intervention 所作用的 underlying training substrate**、不塞回同一 taxonomy。
 
 ### World model：不是取消 simulator，而是换掉 simulator 的来源
 
@@ -289,7 +289,7 @@ Maddukuri et al.（RSS 2025, 2503.24361）的 Sim-and-Real Co-Training 是务实
 
 $$\pi_{\mathrm{sim}} = \operatorname*{arg\,max}_{\pi \in \Pi} J_{\mathrm{sim}}(\pi), \qquad R_{\mathrm{select}} = J_{\mathrm{real}}\big(\pi^{*}_{\mathrm{real}}\big) - J_{\mathrm{real}}\big(\pi_{\mathrm{sim}}\big)$$
 
-Spearman=0.95 却把 top-1 选错仍是灾难；反过来 Spearman=0.7 但 top-1 基本不出错、对"选一个能部署的 policy"够用。**sim fidelity 是 task-of-use dependent、不是 absolute property**——换用途（pretrain / exploration / curriculum / safety filter）"哪些误差重要"整个变一遍。$\pi^*_{\mathrm{real}}$ 不可得、$R_{\mathrm{select}}$ 与 real-domain learning gap 一样都是 oracle-defined 量、实际用 $J_{\mathrm{real}}(\pi_{\mathrm{best\text{-}observed}}) - J_{\mathrm{real}}(\pi_{\mathrm{sim}})$ 或 Pareto-best proxy。
+Spearman=0.95 却把 top-1 选错仍是灾难；反过来 Spearman=0.7 但 top-1 基本不出错、对"选一个能部署的 policy"够用。**sim fidelity 是 task-of-use dependent、不是 absolute property**——换用途（pretrain / exploration / curriculum / safety filter）"哪些误差重要"整个变一遍。$\pi^*_{\mathrm{real}}$ 不可得、$R_{\mathrm{select}}$ 与 real-domain learning gap 一样都是 oracle-defined 量、实际用 $J_{\mathrm{real}}(\pi_{\mathrm{best\text{-}observed}}) - J_{\mathrm{real}}(\pi_{\mathrm{sim}})$ 作 validated-best observed proxy。
 
 **更重要的一层**：真实项目通常不要求 sim 精确排序所有 policy、只要求把值得上真机的候选压到可接受集合——**top-$k$ recall**、**regret@k** 应与 ranking 同级。**警惕 adaptive selection bias**：sim 若被 adaptive filter policy、用同一批被选候选反过来评 sim 造成 self-confirming 循环。**维护两个 pool**——$\Pi_{\mathrm{adapt}}$ 参与 training / selection、$\Pi_{\mathrm{audit}}$ 只做 held-out evaluation。**held-out set 并非无限次免疫的**：长期项目应保留 audit slice 或定期 refresh evaluation set、避免 adaptive experimentation 过拟合固定真机评测集。
 
@@ -301,7 +301,7 @@ Spearman=0.95 却把 top-1 选错仍是灾难；反过来 Spearman=0.7 但 top-1
 | 排序准不准（ranking） | Spearman $\rho_{\mathrm{rank}}$、Kendall $\tau$、top-k recall、regret@k |
 | 选出的 policy 好不好（decision quality） | $R_{\mathrm{select}} = J_{\mathrm{real}}(\pi^{*}_{\mathrm{real}}) - J_{\mathrm{real}}(\pi_{\mathrm{sim}})$（实际用 best-observed proxy） |
 
-一个 sim 可校得很准却选错 policy、也可数值全错但排序稳、regret 小——三维不能互替。$U_{\mathrm{sim}}$ 不该写成抽象标量、应按用途**上标索引**：$U_{\mathrm{sim}}^{(u)}$、$u \in \{\text{pretrain},\ \text{selection},\ \text{exploration},\ \text{curriculum},\ \text{safety}\}$。评 fidelity 要相对**候选 policy family** 与用途：$U_{\mathrm{sim}}^{(u)}(\cdot \mid \Pi_{\mathrm{candidate}},\ p_{\mathrm{eval}}^{\mathrm{real}})$。
+一个 sim 可校得很准却选错 policy、也可数值全错但排序稳、regret 小——三维不能互替，**三类 metric 不仅量纲不同、优化目标也不同、因此不存在一个自然的 universal scalar simulator score**。$U_{\mathrm{sim}}$ 不该写成抽象标量、应按用途**上标索引**：$U_{\mathrm{sim}}^{(u)}$、$u \in \{\text{pretrain},\ \text{selection},\ \text{exploration},\ \text{curriculum},\ \text{safety}\}$。评 fidelity 要相对**候选 policy family** 与用途：$U_{\mathrm{sim}}^{(u)}(\cdot \mid \Pi_{\mathrm{candidate}},\ p_{\mathrm{eval}}^{\mathrm{real}})$。
 
 ## 组合与决策，以及一个常被回避的问题
 
@@ -354,7 +354,7 @@ $$\text{discover real tail} \rightarrow \text{identify structure} \rightarrow \t
 
 每条 hypothesis **必须能被具体实验否证**、写不出否证条件的先剔除。
 
-**Step 4 — one-time initial calibration pilot**（Step 5 才进入 sequential adaptive allocation）。每类候选用最小可行样本估 $\mathbb{E}[\Delta J]$ 与 posterior、不预设固定样本数。**$\Delta J(m) = J_{\mathrm{real}}(\pi_t^{m}) - J_{\mathrm{real}}(\pi_t^{\mathrm{control}})$**——control 承担相同训练步数 / 时间 / seed、只关掉本 intervention；**diagnostic-only action 的 $\Delta J = 0$、价值全通过 VoI 体现**。**matched / paired / block 化评估**：同批 seed、同 held-out slice、一致 hardware condition；漂移系统记录 hardware state。
+**Step 4 — one-time initial calibration pilot**（Step 5 才进入 sequential adaptive allocation）。每类候选用最小可行样本估 $\mathbb{E}[\Delta J]$ 与 posterior、不预设固定样本数。**$\Delta J(m) = J_{\mathrm{real}}(\pi_t^{m}) - J_{\mathrm{real}}(\pi_t^{\mathrm{control}})$**——control 承担相同训练步数、**相同 elapsed time（覆盖机器人温度 / 电量 / wear 等 background drift）**、相同 seed、只关掉本 intervention；**diagnostic-only action 的 $\Delta J = 0$、价值全通过 VoI 体现**。**matched / paired / block 化评估**：同批 seed、同 held-out slice、一致 hardware condition；漂移系统记录 hardware state。
 
 **Step 5 — sequential adaptive allocation**：$m_{t+1} = \arg\max_{m\in\mathcal{M}_t^{\mathrm{feasible}}} Q_\lambda^{\mathrm{perf+info}}$——$\lambda_r$ 是 resource-weight estimate、objective 与 local score 必须一致。Safety 走 $\alpha$ gate、不进 cost。
 
@@ -377,51 +377,51 @@ $$\boxed{\ \text{diagnosis} \rightarrow \text{sensitivity / uncertainty} \righta
 配套的**闭环 spine 图**、比任何"四分类"表格都更贴合本文论点：
 
 ```text
-                current policy π + evidence D_t
-                          │
-                          ▼
-             ┌─── mismatch diagnosis ───┐
-             │ model / obs / ctrl / dist │
-             └─────────────┬─────────────┘
-                           ▼
-              sensitivity / uncertainty set
-                           │
-                           ▼
-                candidate interventions  m = (type, Δb)
-              ┌────────────┼────────────┬────────────┐
-              ▼            ▼            ▼            ▼
-             SI            DR          DA / FT      World model
-              │            │            │            │
-              └────────────┴─────┬──────┴────────────┘
-                                 ▼
-                       real evaluation (paired, CI)
-                                 │
-                    ┌────────────┴────────────┐
-                    ▼                         ▼
-             performance gain            information gain
-             (ΔJ_real)                (uncertainty shrinks)
-                    │                         │
-                    └────────────┬────────────┘
-                                 ▼
-                    update evidence D_{t+1} → reallocate
-                                 │
-                                 └──────↺
+                current state  s_t = (b_t, π_t, D_t, h_t)
+                                  │
+                                  ▼
+                     mismatch diagnosis (D_t vs real)
+                                  │
+                                  ▼
+                 sensitivity / uncertainty attribution
+                                  │
+                                  ▼
+         candidate action  m = (role, method, batch/protocol)
+              ┌────────────────┼────────────────┐
+              ▼                ▼                ▼
+         diagnosis         adaptation       model update
+      SI / calibration   DR / DA / FT      residual / WM
+       / measurement     / co-training     / sim-state refresh
+              └────────────────┼────────────────┘
+                               ▼
+                  real evaluation (paired, CI)
+                               │
+                    performance gain  +  information gain
+                     (ΔJ_real)          (D_t shrinks, M_{t+1} opens)
+                               │
+                               ▼
+                update  s_{t+1} = T(s_t, m, Y),  Y ~ p(·|s_t,m)
+                               │
+                               ▼
+                    stopping rule?  → deploy π_T
+                               │
+                               └────► next round (loop)
 ```
 
-（最后一步改变 sensitivity 与 mismatch、见 feedback loop。）
+role × method × batch 三元组共同决定 candidate——**SI / DR / DA / FT 只是 method 标签、不是 allocation 的 action space**，真正的 decision unit 是 state-conditioned action $m \in \mathcal{M}_t^{\mathrm{feasible}}(s_t)$。**candidate set 本身也 state-dependent**：diagnostic experiment 关掉或打开后续 adaptation / model-update 的可行域、把 evidence 与 action set 的耦合直接暴露在读图上；最后一步改变 $s_{t+1}$ 里的 sensitivity 与 mismatch、驱动 feedback loop。
 
 这条链是 **resource-constrained adaptive sequential experimentation framework**：敏感度与边际收益靠小步实验估出、一轮估完再定下一份预算。收成五层 spine：
 
 $$\boxed{\begin{aligned}
-&\textbf{L1}:\ \max_{\{m_t\}}\ \mathbb{E}[J_{\mathrm{real}}(\pi_T)]\quad\text{s.t.}\ \textstyle\sum_t \Delta C_r(m_t)\le B_r,\ \Pr[\text{unsafe}]\le \alpha\\
+&\textbf{L1}:\ \max_{\{m_t\}}\ \mathbb{E}[J_{\mathrm{real}}(\pi_T)]\quad\text{s.t.}\ \textstyle\sum_t \Delta C_r(m_t)\le B_r,\ \Pr[\text{unsafe}\mid s_T]\le \alpha\\
 &\textbf{L2}:\ s_t = (b_t,\,\pi_t,\,\mathcal{D}_t,\,h_t)\\
-&\textbf{L3}:\ m_t \in \mathcal{M}_t(s_t),\quad \mathcal{M}_t^{\mathrm{feasible}} = \mathcal{M}_t^{\mathrm{safe}} \cap \mathcal{M}_t^{\mathrm{budget}}\\
-&\textbf{L4}:\ Q_\lambda^{\mathrm{perf+info}} = U_0 + \beta\,\mathrm{VoI}\quad\text{(one-step look-ahead approximation)}\\
-&\textbf{L5}:\ MV = \mathbb{E}[\Delta J\mid\mathcal{D}_t]\;/\;\lambda^\top \Delta C(m)\\
-&\textbf{Transition}:\ s_{t+1} = \mathcal{T}(s_t,\, m_t,\, Y_t)
+&\textbf{L3}:\ m_t \in \mathcal{M}_t^{\mathrm{feasible}}(s_t),\quad \mathcal{M}_t^{\mathrm{feasible}} = \mathcal{M}_t^{\mathrm{safe}} \cap \mathcal{M}_t^{\mathrm{budget}}\\
+&\textbf{L4}:\ Q_\lambda^{\mathrm{perf+info}}(m\mid s_t) = U_0(m\mid s_t) + \beta\,\mathrm{VoI}(m\mid s_t)\quad\text{(one-step look-ahead)}\\
+&\textbf{L5}:\ MV(m\mid s_t) = \mathbb{E}[\Delta J\mid s_t]\;/\;\lambda^\top \Delta C(m)\\
+&\textbf{Transition}:\ s_{t+1} = \mathcal{T}(s_t,\, m_t,\, Y_t),\quad Y_t \sim p(\cdot\mid s_t, m_t)
 \end{aligned}\;\longrightarrow\;\circlearrowleft}$$
 
-层级：$\boxed{\text{global } \mathbb{E}[J_T] \supset \text{local } Q_\lambda \supset MV}$——$Q_\lambda$ 是 global sequential allocation 的 **one-step look-ahead approximation**（非 terminal information reward）、$MV$ 是 efficiency statistic。
+层级：$\boxed{\text{global } \mathbb{E}[J_T] \supset \text{local } Q_\lambda \supset MV}$——$Q_\lambda$ 是 global sequential allocation 的 **one-step look-ahead approximation**、$MV$ 是 efficiency statistic。**$\mathrm{VoI}$ 只用于中间决策的 look-ahead、不是 terminal deployment reward；到停止时刻、最终 objective 仍只评价 $J_{\mathrm{real}}(\pi_T)$ 与约束**——因此 terminal step 的 $Q_\lambda$ 退化为 $U_0$。
 
 收束：**sim-to-real 不是选一种 transfer technique、而是在当前 belief、不可互换预算与真实评估反馈下连续决定下一次 intervention**——这是全文理论 spine。**本文的贡献不是提出新的 optimization primitive、而是重新定义 sim-to-real 的 decision unit**——从「选一种方法」到「在当前 state 下选下一次 intervention」——并把 reality gap 与 sim utility 重述成 policy / evaluation-conditioned 的量。
 
