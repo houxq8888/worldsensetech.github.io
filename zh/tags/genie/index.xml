@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Genie on WorldSense 技术笔记</title><link>https://www.worldsensetech.com/zh/tags/genie/</link><description>Recent content in Genie on WorldSense 技术笔记</description><generator>Hugo</generator><language>zh-CN</language><lastBuildDate>Mon, 31 Aug 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://www.worldsensetech.com/zh/tags/genie/index.xml" rel="self" type="application/rss+xml"/><item><title>从 Dreamer 到世界模型智能体：未来方向与研究趋势</title><link>https://www.worldsensetech.com/zh/articles/2026-08-31-world-model-future/</link><pubDate>Mon, 31 Aug 2026 00:00:00 +0000</pubDate><guid>https://www.worldsensetech.com/zh/articles/2026-08-31-world-model-future/</guid><description>&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;Dreamer 系列 · 第 6 篇&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;系列目录（当前在第 6 篇）：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;a href="https://www.worldsensetech.com/zh/articles/2026-08-25-dreamer-explained/"&gt;（一）读懂 Dreamer：世界模型是怎么学会&amp;rsquo;想象&amp;rsquo;的？&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.worldsensetech.com/zh/articles/2026-08-27-dreamer-actor-critic/"&gt;（二）Dreamer 的 Actor-Critic：想象空间里的策略优化&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.worldsensetech.com/zh/articles/2026-08-28-dreamerv3-training-tips/"&gt;（三）DreamerV3 训练工程实践：从 GPU 配置到超参调优&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.worldsensetech.com/zh/articles/2026-08-29-dreamerv3-gpu-guide/"&gt;（四）DreamerV3 GPU 选型指南：从显存需求到性价比分析&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.worldsensetech.com/zh/articles/2026-08-30-dreamer-applications/"&gt;（五）Dreamer 的应用实践：从仿真控制到 Sim-to-Real&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;（六）从 Dreamer 到世界模型智能体：未来方向与研究趋势&lt;/strong&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;前面五篇文章从架构、原理、训练、硬件到应用，把 Dreamer 系列讲了一遍。但一个更宏观的问题是：&lt;strong&gt;世界模型的未来在哪里？Dreamer 类方法会如何演进？&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;这篇文章作为 Dreamer 系列的收官篇，从 Dreamer 出发，展望世界模型的几个重要研究方向：Transformer 世界模型、视觉预测模型（V-JEPA/Genie）、World Model + LLM Agent、以及机器人基础模型。&lt;/p&gt;
+&lt;h3 id="世界模型的三个层次"&gt;世界模型的三个层次&lt;/h3&gt;
+&lt;p&gt;在展开讨论之前，有必要先澄清&amp;quot;世界模型&amp;quot;这个概念。后文会涉及多种不同的方法，它们实际上处于世界模型的不同层次：&lt;/p&gt;
+&lt;table&gt;
+	&lt;thead&gt;
+			&lt;tr&gt;
+					&lt;th&gt;层次&lt;/th&gt;
+					&lt;th&gt;目标&lt;/th&gt;
+					&lt;th&gt;代表&lt;/th&gt;
+			&lt;/tr&gt;
+	&lt;/thead&gt;
+	&lt;tbody&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;strong&gt;表征世界模型 (Representation WM)&lt;/strong&gt;&lt;/td&gt;
+					&lt;td&gt;学习有用的世界表征&lt;/td&gt;
+					&lt;td&gt;V-JEPA、Slot Attention&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;strong&gt;动力学世界模型 (Dynamics WM)&lt;/strong&gt;&lt;/td&gt;
+					&lt;td&gt;学习 state transition，服务于预测和决策&lt;/td&gt;
+					&lt;td&gt;Dreamer、MuZero&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;strong&gt;生成式世界模型 (Simulation WM)&lt;/strong&gt;&lt;/td&gt;
+					&lt;td&gt;生成可能的未来状态，支持多模态预测&lt;/td&gt;
+					&lt;td&gt;Genie、Diffusion WM&lt;/td&gt;
+			&lt;/tr&gt;
+	&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-text" data-lang="text"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; World Model
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; |
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; ┌───────────┼───────────┐
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; | | |
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;Representation Dynamics Simulation
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; (V-JEPA) (Dreamer) (Genie)
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; | | |
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; 表征学习 策略优化 多未来生成
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;这三层不是竞争关系，而是互补的。Dreamer 属于动力学世界模型，V-JEPA 更接近表征层，Genie 和扩散模型属于生成层。理解这个分类，有助于避免把不同层次的方法混为一谈。&lt;/p&gt;</description></item></channel></rss>

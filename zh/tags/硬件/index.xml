@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>硬件 on WorldSense 技术笔记</title><link>https://www.worldsensetech.com/zh/tags/%E7%A1%AC%E4%BB%B6/</link><description>Recent content in 硬件 on WorldSense 技术笔记</description><generator>Hugo</generator><language>zh-CN</language><lastBuildDate>Sat, 29 Aug 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://www.worldsensetech.com/zh/tags/%E7%A1%AC%E4%BB%B6/index.xml" rel="self" type="application/rss+xml"/><item><title>DreamerV3 GPU 选型指南：从显存需求到性价比分析</title><link>https://www.worldsensetech.com/zh/articles/2026-08-29-dreamerv3-gpu-guide/</link><pubDate>Sat, 29 Aug 2026 00:00:00 +0000</pubDate><guid>https://www.worldsensetech.com/zh/articles/2026-08-29-dreamerv3-gpu-guide/</guid><description>&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;Dreamer 系列 · 第 4 篇&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;系列目录（当前在第 4 篇）：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;a href="https://www.worldsensetech.com/zh/articles/2026-08-25-dreamer-explained/"&gt;（一）读懂 Dreamer：世界模型是怎么学会&amp;rsquo;想象&amp;rsquo;的？&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.worldsensetech.com/zh/articles/2026-08-27-dreamer-actor-critic/"&gt;（二）Dreamer 的 Actor-Critic：想象空间里的策略优化&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.worldsensetech.com/zh/articles/2026-08-28-dreamerv3-training-tips/"&gt;（三）DreamerV3 训练工程实践：从 GPU 配置到超参调优&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;（四）DreamerV3 GPU 选型指南：从显存需求到性价比分析&lt;/strong&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;上一篇训练技巧文章讲了很多 GPU 相关的工程问题：显存不够怎么办、混合精度怎么设、OOM 怎么排查。但有一个更基础的问题没讲：&lt;strong&gt;你到底需要什么样的 GPU？&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;这篇文章从 DreamerV3 的实际显存占用和计算特性出发，分析不同 GPU 的适用场景，帮你做出合理选择。内容基于我在 RTX 5090D（32GB）和 AutoDL 云 GPU 上的实际训练经验。&lt;/p&gt;
+&lt;h2 id="一dreamerv3-的-gpu-需求特点"&gt;一、DreamerV3 的 GPU 需求特点&lt;/h2&gt;
+&lt;p&gt;在选 GPU 之前，先搞清楚 DreamerV3 到底吃 GPU 的哪些资源。&lt;/p&gt;
+&lt;h3 id="显存占用分析"&gt;显存占用分析&lt;/h3&gt;
+&lt;p&gt;DreamerV3 的显存占用主要来自以下几部分：&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;模型参数与训练状态&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;DreamerV3 的模型规模不算大。以默认配置为例：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;RSSM：deter=4096, stoch=32, classes=32, hidden=4096&lt;/li&gt;
+&lt;li&gt;Actor/Critic：3层 MLP，units=1024&lt;/li&gt;
+&lt;li&gt;Encoder/Decoder：取决于任务（像素输入会大很多）&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;对典型控制任务而言，模型参数通常不是显存主要来源——相比激活值和 optimizer 状态，参数占用相对较小。但训练时需要存储 parameter + gradient + Adam 的 m 和 v，合计约 4-8 倍于参数本身。&lt;/p&gt;</description></item></channel></rss>

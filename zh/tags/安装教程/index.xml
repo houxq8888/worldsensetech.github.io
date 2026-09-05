@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>安装教程 on WorldSense 技术笔记</title><link>https://www.worldsensetech.com/zh/tags/%E5%AE%89%E8%A3%85%E6%95%99%E7%A8%8B/</link><description>Recent content in 安装教程 on WorldSense 技术笔记</description><generator>Hugo</generator><language>zh-CN</language><lastBuildDate>Sat, 15 Aug 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://www.worldsensetech.com/zh/tags/%E5%AE%89%E8%A3%85%E6%95%99%E7%A8%8B/index.xml" rel="self" type="application/rss+xml"/><item><title>Isaac Lab 安装避坑指南：从零到跑通全流程</title><link>https://www.worldsensetech.com/zh/articles/isaac-lab-install-guide/</link><pubDate>Sat, 15 Aug 2026 00:00:00 +0000</pubDate><guid>https://www.worldsensetech.com/zh/articles/isaac-lab-install-guide/</guid><description>&lt;p&gt;上一篇介绍了 Isaac Lab 是什么、能做什么。但如果你真的动手装过，会发现从&amp;quot;克隆代码&amp;quot;到&amp;quot;跑通 example&amp;quot;之间，隔着不少坑。&lt;/p&gt;
+&lt;p&gt;这篇文章记录我在 AutoDL 云 GPU 服务器（RTX 5090D/32GB）上安装 Isaac Lab 的完整过程。每一个报错都是真实遇到的，每一个解决方案都是实际验证过的。希望能帮你省掉几个小时的排查时间。&lt;/p&gt;
+&lt;h2 id="为什么-isaac-lab-这么难装"&gt;为什么 Isaac Lab 这么难装？&lt;/h2&gt;
+&lt;p&gt;Isaac Lab 的安装复杂度主要来自三个方面：&lt;/p&gt;
+&lt;p&gt;依赖链长。Isaac Lab 依赖 Isaac Sim，Isaac Sim 依赖 NVIDIA 驱动、CUDA、特定版本的 PyTorch，而 PyTorch 又依赖特定版本的 numpy、triton 等。任何一环版本不对，都会报错。&lt;/p&gt;
+&lt;p&gt;Python 版本要求高。Isaac Lab 要求 Python ≥ 3.12，而很多服务器和云 GPU 平台的基础镜像还在用 Python 3.10 或 3.11。版本不满足会直接安装失败。&lt;/p&gt;
+&lt;p&gt;包体积大。PyTorch + CUDA 的 whl 文件超过 2GB，numpy 也有几十 MB。在国内网络环境下，从 PyPI 下载经常中断，而且 pip 的断点续传并不总是可靠。&lt;/p&gt;
+&lt;h2 id="环境要求"&gt;环境要求&lt;/h2&gt;
+&lt;p&gt;在开始安装之前，确认你的环境满足以下条件：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;GPU。NVIDIA RTX 级别以上 GPU（推荐 RTX 4090 或更高）&lt;/li&gt;
+&lt;li&gt;系统。Ubuntu 22.04（推荐）或 Windows&lt;/li&gt;
+&lt;li&gt;Python。3.12 或更高版本（这是硬要求，3.11 也不行）&lt;/li&gt;
+&lt;li&gt;驱动。NVIDIA 驱动 525+ 和 CUDA 12+&lt;/li&gt;
+&lt;li&gt;内存。16GB+（推荐 32GB）&lt;/li&gt;
+&lt;li&gt;磁盘。至少 50GB 可用空间（Isaac Sim 本身体积较大）&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="第一步解决-python-版本问题"&gt;第一步：解决 Python 版本问题&lt;/h2&gt;
+&lt;p&gt;这是最容易踩的第一个坑。很多服务器默认的 Python 版本是 3.10 或 3.11，直接跑 &lt;code&gt;./isaaclab.sh --install&lt;/code&gt; 会报：&lt;/p&gt;</description></item></channel></rss>

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>架构演进 on WorldSense 技术笔记</title><link>https://www.worldsensetech.com/zh/tags/%E6%9E%B6%E6%9E%84%E6%BC%94%E8%BF%9B/</link><description>Recent content in 架构演进 on WorldSense 技术笔记</description><generator>Hugo</generator><language>zh-CN</language><lastBuildDate>Wed, 12 Aug 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://www.worldsensetech.com/zh/tags/%E6%9E%B6%E6%9E%84%E6%BC%94%E8%BF%9B/index.xml" rel="self" type="application/rss+xml"/><item><title>世界模型架构演进：RSSM、Transformer 与统一世界模型</title><link>https://www.worldsensetech.com/zh/articles/world-model-transformer/</link><pubDate>Wed, 12 Aug 2026 00:00:00 +0000</pubDate><guid>https://www.worldsensetech.com/zh/articles/world-model-transformer/</guid><description>&lt;p&gt;前面几篇文章中，我们深入讲解了 DreamerV3 的 RSSM 架构和训练技巧。RSSM 是强化学习世界模型中的经典设计，但如果你关注最近的研究，会发现一个明显的趋势：世界模型正在走向 Transformer 化。&lt;/p&gt;
+&lt;p&gt;从 Google 的 UniSim 到 Wayve 的 GAIA-1，从 NVIDIA 的 Cosmos 到国内具身智能团队的方案，Transformer 正成为大规模世界模型的重要技术路线。&lt;/p&gt;
+&lt;p&gt;为什么会这样？RSSM 有什么问题？Transformer 带来了什么优势？世界模型的架构演进方向是什么？&lt;/p&gt;
+&lt;p&gt;这篇文章梳理这条技术路线。&lt;/p&gt;
+&lt;p&gt;在展开之前，先澄清一个概念。所谓统一世界模型（unified world model），并不是指一个模型精确复制整个物理世界，而是希望通过统一的表示空间同时理解视觉、语言、动作和环境动态——让同一个模型既能&amp;quot;看&amp;quot;懂场景，又能&amp;quot;想&amp;quot;清因果，还能&amp;quot;做&amp;quot;出决策。这是当前世界模型研究的一个前沿方向。&lt;/p&gt;
+&lt;h2 id="rssm-的设计逻辑与局限"&gt;RSSM 的设计逻辑与局限&lt;/h2&gt;
+&lt;p&gt;先回顾一下 RSSM 为什么被设计出来。&lt;/p&gt;
+&lt;p&gt;RSSM（Recurrent State-Space Model）的核心思想是将隐状态分成两个轨道：确定性状态（deterministic state）和随机性状态（stochastic state）。确定性状态用 GRU 更新，捕捉规律性的动态；随机性状态通过离散分类分布采样——DreamerV3 使用 32 个离散 categorical 变量，每个变量包含 64 个类别，组合形成容量为 64^32 的随机隐空间，捕捉环境的不确定性。&lt;/p&gt;
+&lt;p&gt;这个设计有几个优点：&lt;/p&gt;
+&lt;p&gt;计算效率高。GRU 是循环网络，每一步只需要上一步的隐状态，不需要处理整个序列。训练和推理的内存开销较小。&lt;/p&gt;
+&lt;p&gt;隐空间结构清晰。确定性 + 随机性的双轨道设计，让模型同时学到&amp;quot;规律&amp;quot;和&amp;quot;不确定性&amp;quot;。这对物理世界的建模很重要——宏观物理规律通常具有较强确定性，而观测和环境扰动具有随机性。&lt;/p&gt;
+&lt;p&gt;想象训练方便。在隐空间中可以方便地&amp;quot;想象&amp;quot;未来轨迹：从当前状态出发，用 GRU 逐步推进，每一步采样随机状态，得到一系列隐状态，再解码成观测。&lt;/p&gt;
+&lt;p&gt;但 RSSM 也有几个明显的局限：&lt;/p&gt;
+&lt;p&gt;长程依赖问题。RSSM 通过 deterministic hidden state 维护历史信息，但由于状态更新仍是递归形式，超长时间跨度的信息需要压缩到固定维度的隐状态中，可能造成信息瓶颈。当任务需要记住很久以前的信息时（如延迟奖励、长程因果链），RSSM 的表现可能不够好。&lt;/p&gt;
+&lt;p&gt;并行化受限。循环网络在时间维度上是序列化的——每一步依赖上一步的输出。不过 RSSM 训练并非完全串行：observation encoder 可以并行处理，rollout imagination 也可以在 batch 维度并行。真正的瓶颈在于时间维度上的依赖关系，这使得训练速度受限于序列长度。&lt;/p&gt;</description></item></channel></rss>

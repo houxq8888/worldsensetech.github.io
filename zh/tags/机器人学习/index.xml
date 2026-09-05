@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>机器人学习 on WorldSense 技术笔记</title><link>https://www.worldsensetech.com/zh/tags/%E6%9C%BA%E5%99%A8%E4%BA%BA%E5%AD%A6%E4%B9%A0/</link><description>Recent content in 机器人学习 on WorldSense 技术笔记</description><generator>Hugo</generator><language>zh-CN</language><lastBuildDate>Thu, 06 Aug 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://www.worldsensetech.com/zh/tags/%E6%9C%BA%E5%99%A8%E4%BA%BA%E5%AD%A6%E4%B9%A0/index.xml" rel="self" type="application/rss+xml"/><item><title>世界模型 + VLA：用想象力训练机器人</title><link>https://www.worldsensetech.com/zh/articles/world-model-synthetic-data-for-vla/</link><pubDate>Thu, 06 Aug 2026 00:00:00 +0000</pubDate><guid>https://www.worldsensetech.com/zh/articles/world-model-synthetic-data-for-vla/</guid><description>&lt;p&gt;上一篇&lt;a href="https://www.worldsensetech.com/zh/articles/world-model-lab-setup/"&gt;从零搭建世界模型实验环境&lt;/a&gt;，我们跑通了 DreamerV3。有读者问：训练好的世界模型能做什么？&lt;/p&gt;
+&lt;p&gt;今天聊一个更前沿的话题：怎么用世界模型生成合成数据，来增强 VLA（视觉-语言-动作模型）的训练。这是近年来机器人基础模型领域受到广泛关注的研究方向之一。&lt;/p&gt;
+&lt;h2 id="为什么-vla-需要合成数据"&gt;为什么 VLA 需要合成数据&lt;/h2&gt;
+&lt;p&gt;VLA 的核心能力是让机器人&amp;quot;听懂人话&amp;quot;——你指着桌上的杯子说&amp;quot;把那个红色的拿给我&amp;quot;，它能理解语言指令并执行动作。&lt;/p&gt;
+&lt;p&gt;但训练这样的模型需要海量数据：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;真实数据采集成本高：需要人类示范，每条数据都要人操作机器人&lt;/li&gt;
+&lt;li&gt;场景覆盖有限：真实环境难以覆盖所有边界情况（比如光线变化、物体遮挡）&lt;/li&gt;
+&lt;li&gt;危险动作无法采集：某些失败案例在真实世界太危险，无法收集&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;这就是世界模型的价值所在——它可以在&amp;quot;想象&amp;quot;中生成大量合成数据，弥补真实数据的不足。&lt;/p&gt;
+&lt;h2 id="世界模型如何生成合成数据"&gt;世界模型如何生成合成数据&lt;/h2&gt;
+&lt;p&gt;回顾一下世界模型的核心能力：给定当前状态和动作，预测未来会发生什么。&lt;/p&gt;
+&lt;p&gt;需要说明的是，机器人领域合成数据的来源不仅限于 Dreamer 这类 latent world model，还包括物理模拟器（MuJoCo、Isaac Sim、ManiSkill）、神经渲染环境以及基于视频生成的世界模型。Dreamer 系列是其中适合理解 model-based RL 和 latent imagination 的代表，但实际研究中数据来源更加多元。&lt;/p&gt;
+&lt;p&gt;在 DreamerV3 中，RSSM（循环状态空间模型）可以在想象空间中做 rollout：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;从真实观测编码初始 latent state（后验状态）&lt;/li&gt;
+&lt;li&gt;采样或指定动作序列&lt;/li&gt;
+&lt;li&gt;RSSM 逐步预测 latent state 转移和预期奖励&lt;/li&gt;
+&lt;li&gt;通过 observation model 解码 latent state 为观测&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;世界模型生成的是潜在轨迹（latent trajectories），经过视觉解码器和任务条件映射后，可以进一步构造机器人学习需要的视觉-语言-动作数据。&lt;/p&gt;
+&lt;p&gt;需要注意：DreamerV3 的 latent imagination 与近年来基于 diffusion/transformer 的大规模视频生成模型不同。DreamerV3 的核心优势在于策略学习（latent dynamics、reward prediction），而不是直接生成高保真机器人视觉数据。用 DreamerV3 decoder 直接重建的图像往往模糊、细节缺失，长时间 rollout 还可能出现物体身份漂移。这也是为什么机器人领域正在转向 video diffusion world model 和 transformer-based world model（如 UniSim、RoboGen、GAIA-1）来获取更高质量的视觉合成数据。&lt;/p&gt;</description></item></channel></rss>

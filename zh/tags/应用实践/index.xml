@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>应用实践 on WorldSense 技术笔记</title><link>https://www.worldsensetech.com/zh/tags/%E5%BA%94%E7%94%A8%E5%AE%9E%E8%B7%B5/</link><description>Recent content in 应用实践 on WorldSense 技术笔记</description><generator>Hugo</generator><language>zh-CN</language><lastBuildDate>Sun, 30 Aug 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://www.worldsensetech.com/zh/tags/%E5%BA%94%E7%94%A8%E5%AE%9E%E8%B7%B5/index.xml" rel="self" type="application/rss+xml"/><item><title>Dreamer 的应用实践：从仿真控制到 Sim-to-Real</title><link>https://www.worldsensetech.com/zh/articles/2026-08-30-dreamer-applications/</link><pubDate>Sun, 30 Aug 2026 00:00:00 +0000</pubDate><guid>https://www.worldsensetech.com/zh/articles/2026-08-30-dreamer-applications/</guid><description>&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;Dreamer 系列 · 第 5 篇&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;系列目录（当前在第 5 篇）：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;a href="https://www.worldsensetech.com/zh/articles/2026-08-25-dreamer-explained/"&gt;（一）读懂 Dreamer：世界模型是怎么学会&amp;rsquo;想象&amp;rsquo;的？&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.worldsensetech.com/zh/articles/2026-08-27-dreamer-actor-critic/"&gt;（二）Dreamer 的 Actor-Critic：想象空间里的策略优化&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.worldsensetech.com/zh/articles/2026-08-28-dreamerv3-training-tips/"&gt;（三）DreamerV3 训练工程实践：从 GPU 配置到超参调优&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.worldsensetech.com/zh/articles/2026-08-29-dreamerv3-gpu-guide/"&gt;（四）DreamerV3 GPU 选型指南：从显存需求到性价比分析&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;（五）Dreamer 的应用实践：从仿真控制到 Sim-to-Real&lt;/strong&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;前面四篇文章讲清楚了 Dreamer 的架构设计、Actor-Critic 原理、训练工程经验和硬件选型。但一个关键问题是：&lt;strong&gt;Dreamer 在实际任务中表现如何？它能用来做什么？&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;这篇文章从 Dreamer 在不同任务类型上的实际表现出发，讨论它的应用边界和 Sim-to-Real 的探索现状。&lt;/p&gt;
+&lt;h2 id="一dreamer-的任务覆盖范围"&gt;一、Dreamer 的任务覆盖范围&lt;/h2&gt;
+&lt;p&gt;Dreamer 系列（V1/V2/V3）在论文中展示了多种任务类型上的实验结果。从官方代码和论文来看，主要覆盖以下几类：&lt;/p&gt;
+&lt;h3 id="deepmind-control-suite-dmc"&gt;DeepMind Control Suite (DMC)&lt;/h3&gt;
+&lt;p&gt;DMC 是 Dreamer 论文中最核心的 benchmark，包含一系列连续控制任务：walker、cheetah、fish、reacher 等。这些任务的特点是：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;低维状态空间（通常几十维）&lt;/li&gt;
+&lt;li&gt;连续动作空间&lt;/li&gt;
+&lt;li&gt;episode 长度固定或较长&lt;/li&gt;
+&lt;li&gt;奖励信号相对密集&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;DreamerV3 在 DMC 等连续控制 benchmark 上表现优秀，尤其体现了世界模型带来的样本效率优势。但在最终性能上，不同任务中与 SAC 等强 model-free 方法各有优劣，并不存在全面碾压。从训练效率来看，Dreamer 在 DMC 上的样本效率通常优于 model-free 方法。这是因为 Dreamer 通过世界模型在想象空间中反复练习，减少了对真实环境交互的依赖。&lt;/p&gt;</description></item></channel></rss>

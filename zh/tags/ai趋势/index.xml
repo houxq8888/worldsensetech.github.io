@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>AI趋势 on WorldSense 技术笔记</title><link>https://www.worldsensetech.com/zh/tags/ai%E8%B6%8B%E5%8A%BF/</link><description>Recent content in AI趋势 on WorldSense 技术笔记</description><generator>Hugo</generator><language>zh-CN</language><lastBuildDate>Sun, 16 Aug 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://www.worldsensetech.com/zh/tags/ai%E8%B6%8B%E5%8A%BF/index.xml" rel="self" type="application/rss+xml"/><item><title>为什么说 2026 年，AI 在疯狂寻找物理外壳？</title><link>https://www.worldsensetech.com/zh/articles/2026-08-16-ai-physical-shell/</link><pubDate>Sun, 16 Aug 2026 00:00:00 +0000</pubDate><guid>https://www.worldsensetech.com/zh/articles/2026-08-16-ai-physical-shell/</guid><description>&lt;p&gt;从 Ray-Ban Meta、PLAUD、Amazon Bee，到 Rabbit R1、机器狗和人形机器人：AI 正在一件一件地给自己补齐&amp;quot;器官&amp;quot;。&lt;/p&gt;
+&lt;p&gt;如果过去两年 AI 的主流产品是 ChatGPT、Claude、Cursor，那么 2026 年让我觉得最有意思的变化，是 AI 开始从屏幕里&amp;quot;搬家&amp;quot;。&lt;/p&gt;
+&lt;p&gt;它住进了眼镜、胸针、耳机、小盒子、机器狗和人形机器人。&lt;/p&gt;
+&lt;p&gt;有的给 AI 一双眼睛，有的给它一双耳朵，有的给它记忆，有的给它显示器，有的甚至开始给它手和腿。&lt;/p&gt;
+&lt;p&gt;所以我越来越觉得，&amp;ldquo;AI 在寻找物理外壳&amp;quot;并不是一个比喻。&lt;/p&gt;
+&lt;p&gt;但这里的&amp;quot;外壳&amp;quot;不一定意味着人形机器人。它可能是一副眼镜、一枚胸针、一条腕带、一台机器狗，也可能最终是一台真正能够在现实世界里行动的人形机器人。它们其实都在尝试解决同一个问题：AI 如何从&amp;quot;理解世界&amp;rdquo;，变成&amp;quot;存在于世界&amp;quot;。&lt;/p&gt;
+&lt;p&gt;我是一个做世界模型方向的工程师，日常和 MuJoCo、DreamerV3 打交道。但最近半年越来越关注 AI 硬件——因为我做的世界模型、仿真训练和 sim-to-real，最终面对的一个重要问题，就是如何让 AI 从&amp;quot;理解世界&amp;quot;走向&amp;quot;作用于世界&amp;quot;。而这些 AI，迟早需要某种物理载体。&lt;/p&gt;
+&lt;p&gt;这篇文章不是技术综述，更像是一个&amp;quot;AI 硬件逛展式观察&amp;quot;。我想按一个有意思的角度来聊：AI 正在按器官逐一获得物理形态——从感知到交互再到行动，逐步构建完整的身体。当然，&amp;ldquo;器官&amp;quot;在这里是一个比喻，更准确地说，是 AI 正在获得不同的物理接口。&lt;/p&gt;
+&lt;h2 id="ai-的眼睛ray-ban-meta"&gt;AI 的眼睛：Ray-Ban Meta&lt;/h2&gt;
+&lt;p&gt;&lt;img src="https://www.worldsensetech.com/images/ai-shell-rayban-meta.png" alt="Ray-Ban Meta Gen 2 智能眼镜"&gt;&lt;/p&gt;
+&lt;p&gt;我第一个想聊的不是机器人，而是一副眼镜。&lt;/p&gt;
+&lt;p&gt;2025 年 9 月发布的 Ray-Ban Meta Gen 2，到 2026 年，它已经成为 AI 眼镜里最成熟、也最接近大众消费电子的一种产品形态。它有意思的地方恰恰在于：它看起来不像 AI 产品。没有大屏幕，没有科幻造型。它就是一副普通眼镜，但里面塞了摄像头、麦克风、扬声器和 AI。&lt;/p&gt;
+&lt;p&gt;它真正有意思的能力不是&amp;quot;可以问 ChatGPT&amp;rdquo;。而是：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;AI 可以看到你正在看的东西。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&amp;ldquo;这是什么植物？&amp;ldquo;&amp;ldquo;帮我翻译这个菜单。&amp;ldquo;&amp;ldquo;这个零件叫什么？&amp;quot;——AI 获得了一个非常特殊的输入：佩戴者的第一视角。&lt;/p&gt;
+&lt;p&gt;我觉得它成功的关键之一，是它首先是一副正常的眼镜，然后才是一台 AI 设备。&lt;/p&gt;</description></item></channel></rss>

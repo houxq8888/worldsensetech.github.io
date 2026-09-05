@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>泛化能力 on WorldSense 技术笔记</title><link>https://www.worldsensetech.com/zh/tags/%E6%B3%9B%E5%8C%96%E8%83%BD%E5%8A%9B/</link><description>Recent content in 泛化能力 on WorldSense 技术笔记</description><generator>Hugo</generator><language>zh-CN</language><lastBuildDate>Mon, 03 Aug 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://www.worldsensetech.com/zh/tags/%E6%B3%9B%E5%8C%96%E8%83%BD%E5%8A%9B/index.xml" rel="self" type="application/rss+xml"/><item><title>回看世界模型8年进展，始终没突破的瓶颈是什么？</title><link>https://www.worldsensetech.com/zh/articles/world-model-8year-bottleneck/</link><pubDate>Mon, 03 Aug 2026 00:00:00 +0000</pubDate><guid>https://www.worldsensetech.com/zh/articles/world-model-8year-bottleneck/</guid><description>&lt;p&gt;做世界模型方向大半年，最大的感受是：论文很多，但真正能落地的很少。最近读了一篇2026年中科院联合多所高校的综述，把八年来的进展梳理得很清楚。我结合自己的实践，聊聊几个始终没突破的瓶颈。&lt;/p&gt;
+&lt;p&gt;先说进步。从2018年Ha和Schmidhuber提出世界模型概念，到DreamerV3在55款Atari游戏上统一参数跑出好成绩，再到Sora等视频生成模型的爆发，世界模型确实从&amp;quot;概念验证&amp;quot;走到了&amp;quot;技术验证&amp;quot;阶段。四大技术范式（观测级生成、隐空间建模、强化学习驱动、对象中心表示）已经成型，应用场景也从游戏扩展到了机器人、自动驾驶、科学发现等领域。&lt;/p&gt;
+&lt;p&gt;但有几个核心瓶颈，八年过去了，依然没有根本性突破。&lt;/p&gt;
+&lt;h2 id="瓶颈一sim-to-real鸿沟"&gt;瓶颈一：Sim-to-Real鸿沟&lt;/h2&gt;
+&lt;p&gt;这是最痛的瓶颈。世界模型在仿真环境里表现很好，DreamerV3的样本效率比传统RL高出10-100倍。但仿真里训练的策略，部署到真实机器人上往往性能下降30-50%。&lt;/p&gt;
+&lt;p&gt;域随机化能缓解一部分问题，但远没有解决。根本原因在于：仿真器无法完美模拟真实世界的物理动态——接触摩擦、柔性形变、传感噪声、未建模的干扰。世界模型学到的&amp;quot;世界规律&amp;quot;是仿真世界的规律，不是真实世界的。&lt;/p&gt;
+&lt;p&gt;八年了，这个问题依然没有优雅的解决方案。要么花大量时间做系统辨识，要么接受性能打折。&lt;/p&gt;
+&lt;h2 id="瓶颈二长程预测误差累积"&gt;瓶颈二：长程预测误差累积&lt;/h2&gt;
+&lt;p&gt;世界模型的核心能力是&amp;quot;在想象中推演未来&amp;quot;。但预测不可能完美，每一步都有小误差，多步之后误差指数级放大。&lt;/p&gt;
+&lt;p&gt;DreamerV3的想象步数限制在15步左右，超过这个长度预测就不可靠了。对于需要长期规划的任务（比如机器人完成一个多步骤的装配任务），15步远远不够。&lt;/p&gt;
+&lt;p&gt;层级时序建模、显式因果表征这些方向有潜力，但目前都还在研究阶段，没有成熟的工程方案。&lt;/p&gt;
+&lt;h2 id="瓶颈三物理一致性"&gt;瓶颈三：物理一致性&lt;/h2&gt;
+&lt;p&gt;现在的模型能生成看起来很合理的画面，但经常违反物理定律。比如生成的视频里物体穿模了、重力方向不对、碰撞后动量不守恒。&lt;/p&gt;
+&lt;p&gt;这是因为模型学的是数据分布的统计规律，不是物理定律。它知道&amp;quot;杯子掉在地上会碎&amp;quot;是因为训练数据里见过，而不是因为它理解了重力和材料力学。&lt;/p&gt;
+&lt;p&gt;把物理约束（能量守恒、动量守恒、因果规则）嵌入模型是一个方向，但怎么嵌入、嵌入多少、会不会限制模型的表达能力，这些问题还没有共识。&lt;/p&gt;
+&lt;h2 id="瓶颈四计算成本"&gt;瓶颈四：计算成本&lt;/h2&gt;
+&lt;p&gt;训练一个像样的世界模型，需要多张A100跑几天到几周。推理时虽然比训练快，但对于实时控制场景（比如机器人每秒需要决策100次），延迟仍然太高。&lt;/p&gt;
+&lt;p&gt;边缘设备部署更是难上加难。工业场景的机器人控制器算力有限，跑不动大模型。模型压缩、知识蒸馏这些方法能用，但会牺牲预测精度。&lt;/p&gt;
+&lt;h2 id="为什么这些瓶颈难突破"&gt;为什么这些瓶颈难突破&lt;/h2&gt;
+&lt;p&gt;根本原因在于：世界模型试图用数据驱动的方法解决一个需要机理理解的问题。&lt;/p&gt;
+&lt;p&gt;人类理解世界靠的不只是观察统计，还有物理直觉、因果推理、抽象建模。现在的模型只有第一种能力，缺后两种。&lt;/p&gt;
+&lt;p&gt;未来5年，如果能突破&amp;quot;统计拟合→机理理解&amp;quot;这个关口，世界模型才能真正成为通用人工智能和具身智能的基石。否则，它可能一直停留在*&amp;ldquo;仿真里很强，真实世界拉胯&amp;rdquo;*的状态。&lt;/p&gt;</description></item></channel></rss>

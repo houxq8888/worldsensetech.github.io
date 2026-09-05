@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Actor-Critic on WorldSense 技术笔记</title><link>https://www.worldsensetech.com/zh/tags/actor-critic/</link><description>Recent content in Actor-Critic on WorldSense 技术笔记</description><generator>Hugo</generator><language>zh-CN</language><lastBuildDate>Thu, 27 Aug 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://www.worldsensetech.com/zh/tags/actor-critic/index.xml" rel="self" type="application/rss+xml"/><item><title>Dreamer 的 Actor-Critic：想象空间里的策略优化是怎么工作的？</title><link>https://www.worldsensetech.com/zh/articles/2026-08-27-dreamer-actor-critic/</link><pubDate>Thu, 27 Aug 2026 00:00:00 +0000</pubDate><guid>https://www.worldsensetech.com/zh/articles/2026-08-27-dreamer-actor-critic/</guid><description>&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;Dreamer 系列 · 第 2 篇&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;系列目录（当前在第 2 篇）：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;a href="https://www.worldsensetech.com/zh/articles/2026-08-25-dreamer-explained/"&gt;（一）读懂 Dreamer：世界模型是怎么学会&amp;rsquo;想象&amp;rsquo;的？&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;&lt;a href="https://www.worldsensetech.com/zh/articles/2026-08-27-dreamer-actor-critic/"&gt;（二）Dreamer 的 Actor-Critic：想象空间里的策略优化&lt;/a&gt;&lt;/strong&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;上一篇从架构层面讲清楚了 Dreamer 的整体设计：世界模型在隐空间中预测未来，策略在想象轨迹上学习。但这留下了一个核心问题：&lt;strong&gt;策略具体怎么从想象轨迹中提取学习信号？&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;这篇文章从 DreamerV3 源码出发，把 Actor-Critic 的完整工作链路拆开来看：imagination rollout 怎么生成特征、λ-return 怎么计算、two-hot value prediction 怎么工作、symlog 变换为什么不可或缺。&lt;/p&gt;
+&lt;p&gt;本文基于 &lt;a href="https://github.com/danijar/dreamerv3"&gt;danijar/dreamerv3@e3f02248&lt;/a&gt; JAX reference implementation 开源快照，代码引用来自 &lt;code&gt;dreamerv3/agent.py&lt;/code&gt;、&lt;code&gt;dreamerv3/rssm.py&lt;/code&gt;、&lt;code&gt;embodied/jax/&lt;/code&gt; 等文件。需要注意的是，开源实现与论文描述之间存在一些工程层面的差异，本文以源码行为为准。&lt;/p&gt;
+&lt;h2 id="一从想象到策略完整链路概览"&gt;一、从想象到策略：完整链路概览&lt;/h2&gt;
+&lt;p&gt;先建立全局视角。Dreamer 的一次策略更新经过以下步骤：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-text" data-lang="text"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;replay buffer 中的真实序列
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; ↓
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; encoder + posterior → 初始 latent state (h₀, z₀)
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; ↓
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; imagine loop（15 步）：
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; actor → action → RSSM deterministic transition → prior stochastic state → next latent feature
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; ↓
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; （imagination 阶段没有 observation，stochastic state 完全由 RSSM prior rollout 产生）
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; ↓
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; 每步的 latent feature → reward predictor / continuation predictor / value predictor
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; ↓
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; λ-return 计算 → Actor loss + Critic loss
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; ↓
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; 梯度更新
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;这里的关键是：想象轨迹本身只是一串 latent features。要让策略从中学习，需要 reward model 给出即时反馈、continuation model 判断 episode 是否继续、value model 估计长期价值——三者共同构成 λ-return，然后 Actor 和 Critic 各自更新。&lt;/p&gt;</description></item></channel></rss>

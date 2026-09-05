@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>论文解读 on WorldSense 技术笔记</title><link>https://www.worldsensetech.com/zh/categories/%E8%AE%BA%E6%96%87%E8%A7%A3%E8%AF%BB/</link><description>Recent content in 论文解读 on WorldSense 技术笔记</description><generator>Hugo</generator><language>zh-CN</language><lastBuildDate>Sat, 05 Sep 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://www.worldsensetech.com/zh/categories/%E8%AE%BA%E6%96%87%E8%A7%A3%E8%AF%BB/index.xml" rel="self" type="application/rss+xml"/><item><title>VLA 深度解读（中）：π₀ 家族与动作接口的演进</title><link>https://www.worldsensetech.com/zh/articles/2026-09-05-vla-pi-family/</link><pubDate>Sat, 05 Sep 2026 00:00:00 +0000</pubDate><guid>https://www.worldsensetech.com/zh/articles/2026-09-05-vla-pi-family/</guid><description>&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;VLA 系列共三篇：&lt;/strong&gt; &lt;a href="https://www.worldsensetech.com/zh/articles/2026-09-03-vla-deep-dive/"&gt;上篇：RT-2 到 OpenVLA&lt;/a&gt; · 中篇（本文）· &lt;a href="https://www.worldsensetech.com/zh/articles/2026-09-07-vla-world-models/"&gt;下篇：VLA 与世界模型&lt;/a&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;在&lt;a href="https://www.worldsensetech.com/zh/articles/2026-09-03-vla-deep-dive/"&gt;上篇&lt;/a&gt;中，我们走过了 RT-2、OpenVLA 和 OFT，看到了 VLA 的基础架构和六条演进轴线。OFT 的结果揭示了一个关键信号：action interface 本身就是重要的系统设计轴。从这篇开始，我们进入技术密度更高的部分——π₀ 家族的三代模型。&lt;/p&gt;
+&lt;h2 id="一πflow-matching--action-chunking"&gt;一、π₀：Flow Matching + Action Chunking&lt;/h2&gt;
+&lt;h3 id="论文信息"&gt;论文信息&lt;/h3&gt;
+&lt;p&gt;&lt;em&gt;π₀: A Vision-Language-Action Flow Model for General Robot Control&lt;/em&gt;，Physical Intelligence，2024 年 10 月。arXiv:2410.24164。&lt;/p&gt;
+&lt;h3 id="physical-intelligence-背景"&gt;Physical Intelligence 背景&lt;/h3&gt;
+&lt;p&gt;Physical Intelligence 是一家总部位于旧金山、专注通用机器人基础模型的公司。其 π 系列代表了目前连续动作 VLA 的重要技术路线之一。&lt;/p&gt;
+&lt;h3 id="核心架构"&gt;核心架构&lt;/h3&gt;
+&lt;p&gt;π₀ 做了一个和 RT-2 / OpenVLA 不同的选择：&lt;strong&gt;不用离散 token，用 flow matching 生成连续动作。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;架构分为两部分：&lt;/p&gt;
+&lt;table&gt;
+	&lt;thead&gt;
+			&lt;tr&gt;
+					&lt;th&gt;组件&lt;/th&gt;
+					&lt;th&gt;说明&lt;/th&gt;
+			&lt;/tr&gt;
+	&lt;/thead&gt;
+	&lt;tbody&gt;
+			&lt;tr&gt;
+					&lt;td&gt;VLM 骨干&lt;/td&gt;
+					&lt;td&gt;PaliGemma（3B 参数视觉语言模型）&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;动作专家&lt;/td&gt;
+					&lt;td&gt;300M 参数的专用网络，挂在 VLM 后面&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;strong&gt;总参数&lt;/strong&gt;&lt;/td&gt;
+					&lt;td&gt;&lt;strong&gt;约 3.3B&lt;/strong&gt;&lt;/td&gt;
+			&lt;/tr&gt;
+	&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;需要注意的是，&lt;strong&gt;action expert 不是传统意义上的外挂 controller。&lt;/strong&gt; π₀ 实际上采用了类似 two-expert mixture 的结构：图像/文本主要使用 VLM backbone 的第一套 weights，而机器人 state/action token 使用独立的一套 action-expert weights；两者通过 attention 共享上下文。更准确的描述是：&lt;strong&gt;一个语言视觉 backbone + 一个连续动作生成专家，通过 attention 机制共享条件信息。&lt;/strong&gt;&lt;/p&gt;</description></item><item><title>从 RSSM 到现代 Latent Dynamics：世界模型的"引擎"如何演进</title><link>https://www.worldsensetech.com/zh/articles/2026-09-04-rssm-beyond/</link><pubDate>Fri, 04 Sep 2026 00:00:00 +0000</pubDate><guid>https://www.worldsensetech.com/zh/articles/2026-09-04-rssm-beyond/</guid><description>&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;关于本文的讨论范围：&lt;/strong&gt; 本文涉及的&amp;quot;状态空间建模&amp;quot;包含两个相关但不同的层面：一类是用于环境动力学建模的 latent state-space models（如 RSSM、TD-MPC2 的 latent dynamics），另一类是用于高效序列处理的 SSM architectures（如 S4、Mamba）。二者形式上相似，但不能直接等同。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;在&lt;a href="https://www.worldsensetech.com/zh/articles/rssm-deep-dive/"&gt;之前的 RSSM 系列&lt;/a&gt;中，我详细拆解了 RSSM 的架构细节——确定性路径与随机性路径的双轨设计、categorical latent 的选择、KL balancing 的训练技巧、以及 imagine 阶段的 reset 策略。&lt;/p&gt;
+&lt;p&gt;但那组文章主要聚焦在 RSSM 本身。今天想换一个视角：&lt;strong&gt;把 RSSM 放在更大的状态空间建模（state-space modeling）演进中看，它的位置是什么？在它之后，世界模型的&amp;quot;引擎&amp;quot;正在往哪个方向走？&lt;/strong&gt;&lt;/p&gt;
+&lt;h2 id="rssm-的核心设计选择"&gt;RSSM 的核心设计选择&lt;/h2&gt;
+&lt;p&gt;先快速回顾。RSSM（Recurrent State-Space Model）的核心是一个双轨隐状态结构：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; h_t (deterministic) z_t (stochastic)
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; │ │
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; GRU update categorical prior
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; │ │
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; └────────┬───────────────┘
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; ↓
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; p(o_t | h_t, z_t)
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; observation model
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;确定性路径 h_t&lt;/strong&gt; 由 h_t = f(h_{t-1}, z_{t-1}, a_{t-1}) 递归更新，负责积累历史信息。&lt;strong&gt;随机性路径 z_t&lt;/strong&gt; 通过 categorical prior/posterior 建模 latent state 的不确定性。两者共同构成 RSSM 的 latent state s_t = (h_t, z_t)，并为 observation model 等预测头提供条件。从 POMDP 视角看，这个 latent state 可以理解为对历史观测与动作所形成 belief state 的一种参数化近似；它并不要求恢复环境的&amp;quot;真实物理状态&amp;quot;，而是学习一个足以支持预测和控制的 latent representation。&lt;/p&gt;</description></item><item><title>VLA 深度解读（上）：从 RT-2 到 OpenVLA，端到端策略的基础与早期演进</title><link>https://www.worldsensetech.com/zh/articles/2026-09-03-vla-deep-dive/</link><pubDate>Thu, 03 Sep 2026 00:00:00 +0000</pubDate><guid>https://www.worldsensetech.com/zh/articles/2026-09-03-vla-deep-dive/</guid><description>&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;VLA 系列共三篇：&lt;/strong&gt; 上篇（本文）· &lt;a href="https://www.worldsensetech.com/zh/articles/2026-09-05-vla-pi-family/"&gt;中篇：π₀ 家族与动作接口演进&lt;/a&gt; · &lt;a href="https://www.worldsensetech.com/zh/articles/2026-09-07-vla-world-models/"&gt;下篇：VLA 与世界模型&lt;/a&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;在&lt;a href="https://www.worldsensetech.com/zh/articles/2026-09-02-jepa-deep-dive/"&gt;上一篇 JEPA 深度解读&lt;/a&gt;的结尾，我提到了一个开放问题：JEPA 路线目前主要在视觉和动作空间工作，怎么和语言能力结合？&lt;/p&gt;
+&lt;p&gt;这个问题指向了具身智能的另一条核心路线——VLA（Vision-Language-Action）。&lt;/p&gt;
+&lt;p&gt;如果说 JEPA 的核心问题是&amp;quot;世界模型应该预测什么&amp;quot;，那么 VLA 的核心问题就是&amp;quot;机器人应该怎么把看到的东西和听到的指令变成动作&amp;quot;。两条路线的出发点不同，但最终都要回答同一个底层问题：&lt;strong&gt;感知信息如何转化为物理行动？&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;这篇文章是三篇系列的&lt;strong&gt;上篇&lt;/strong&gt;，把 VLA 从 RT-2 到 OpenVLA 到 OFT 做一次完整的技术拆解，覆盖 VLA 的核心思想、六条演进轴线、以及早期三个代表性模型。但我想强调的不只是一条时间线——&lt;strong&gt;VLA 的演进实际上同时在六条轴上展开：动作表示方式、动作生成机制、时序抽象层级、上下文/embodiment 条件化、预测/规划能力、以及数据异质性。&lt;/strong&gt; 把这六个维度分开看，才能理解每个模型真正解决了什么问题。&lt;/p&gt;
+&lt;p&gt;&lt;em&gt;注：本系列技术时间线以 π₀.7（2026 年 4 月）为主线。VLA 领域发展迅速，后续模型变体不在此展开。&lt;/em&gt;&lt;/p&gt;
+&lt;h2 id="一vla-的核心思想"&gt;一、VLA 的核心思想&lt;/h2&gt;
+&lt;p&gt;&lt;strong&gt;VLA（Vision-Language-Action）是一类将视觉观察、语言/任务条件与机器人动作策略统一建模的 foundation-model policy。&lt;/strong&gt; 它强调的是感知、语言接地与动作生成之间的统一表示和联合学习，而&lt;strong&gt;不要求实现上必须是单一神经网络&lt;/strong&gt;。具体实现可以仍然包含多个专用模块——例如 action expert、history encoder 或 hierarchical action head——但它们共享同一个表征基础。&lt;/p&gt;
+&lt;p&gt;传统机器人控制是分阶段的：感知模块做目标检测和分割，规划模块做任务分解和路径规划，控制模块执行 PID 或阻抗控制。每个模块单独设计，模块之间靠手工定义的接口连接。&lt;/p&gt;
+&lt;p&gt;VLA 的做法是把这些阶段折叠进一个端到端的学习框架。输入是相机图像和自然语言指令，输出是机器人的动作——末端执行器的位姿增量、关节角度、夹爪开合。没有显式的感知-规划-控制分离，没有手工设计的中间表示。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;关于&amp;quot;端到端&amp;quot;的说明：&lt;/strong&gt; 本文所说的&amp;quot;端到端&amp;quot;，指任务条件到机器人动作策略由统一训练体系直接连接，而不是指模型内部不存在模块化结构或中间表示。例如 π₀ 包含 VLM backbone → action expert → flow matching → action 的多级结构，π₀.5 甚至有 semantic subtask → action generation 的层次化推理链——它们仍然是端到端学习的 policy，但不是&amp;quot;从像素一层不分地直接输出 motor command&amp;quot;。&lt;/p&gt;</description></item><item><title>JEPA 深度解读：从 I-JEPA 到 V-JEPA 2-AC，预测性表征如何走向世界模型</title><link>https://www.worldsensetech.com/zh/articles/2026-09-02-jepa-deep-dive/</link><pubDate>Wed, 02 Sep 2026 00:00:00 +0000</pubDate><guid>https://www.worldsensetech.com/zh/articles/2026-09-02-jepa-deep-dive/</guid><description>&lt;p&gt;在&lt;a href="https://www.worldsensetech.com/zh/articles/2026-09-01-world-model-h2-review/"&gt;上一篇世界模型盘点&lt;/a&gt;里，我花了大量篇幅讨论 Cosmos、Genie 3、Marble 这些项目，但有一个方向我只做了概述——JEPA。&lt;/p&gt;
+&lt;p&gt;这不是因为 JEPA 不重要。恰恰相反，&lt;strong&gt;JEPA 可能是当前世界模型方向最有理论深度的一条路线&lt;/strong&gt;。它背后站着 Yann LeCun，有从 I-JEPA 到 V-JEPA 2-AC 的完整技术演进，有 AMI Labs 10.3 亿美元的融资验证，而且它代表了一种和以像素生成为主要训练目标的世界模型截然不同的技术思路。&lt;/p&gt;
+&lt;p&gt;这篇文章把 JEPA 系列从第一篇到最新一篇做一个完整的技术拆解。&lt;/p&gt;
+&lt;h2 id="一jepa-的核心思想一句话版本"&gt;一、JEPA 的核心思想：一句话版本&lt;/h2&gt;
+&lt;p&gt;&lt;strong&gt;不要预测像素，预测表征。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;这句话与以像素或视觉观测生成为主要训练目标的一类世界模型形成了鲜明对比。JEPA 并不是认为生成像素没有价值，而是认为：如果目标是学习可用于预测、理解和决策的抽象世界表征，那么要求模型重建所有观测细节未必是最优的学习目标。&lt;/p&gt;
+&lt;p&gt;生成式世界模型的逻辑是：给定历史观测，预测未来像素。JEPA 的逻辑是：给定历史观测，预测未来观测的&lt;strong&gt;抽象表征&lt;/strong&gt;——在表征空间做预测，而不是在像素空间做预测。&lt;/p&gt;
+&lt;p&gt;为什么这个区别很重要？因为像素空间包含大量与任务无关的细节：光照变化、纹理细节、随机噪声。要求模型精确预测这些细节，不仅浪费模型容量，还会引入大量无用的梯度信号，拖慢学习速度。&lt;/p&gt;
+&lt;p&gt;LeCun 在 2022 年的&lt;a href="https://openreview.net/forum?id=BZ5a1r-kVsf"&gt;位置论文&lt;/a&gt;里把这个问题说得很清楚：&lt;strong&gt;对于学习高层语义和世界状态表示而言，要求模型精确预测所有像素并不是理想的学习目标。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;这不是说像素级预测没有价值——视频生成确实很酷。JEPA 的论点是：如果你的目标是学习对下游任务有用的世界表征，那么在表征空间做预测是更高效的学习策略。&lt;/p&gt;
+&lt;p&gt;但这个策略也留下了一个贯穿全文的核心问题：&lt;strong&gt;JEPA 主动过滤掉的那些&amp;quot;不可预测的像素细节&amp;quot;，会不会恰好是机器人控制所需要的信息？&lt;/strong&gt; 这个问题在第九节的开放讨论中会回到。&lt;/p&gt;
+&lt;h2 id="二i-jepa在图像上证明这条路走得通2023"&gt;二、I-JEPA：在图像上证明这条路走得通（2023）&lt;/h2&gt;
+&lt;h3 id="论文信息"&gt;论文信息&lt;/h3&gt;
+&lt;p&gt;&lt;em&gt;Self-Supervised Learning from Images with a Joint-Embedding Predictive Architecture&lt;/em&gt;，Meta AI，CVPR 2023。&lt;a href="https://arxiv.org/abs/2301.08243"&gt;论文&lt;/a&gt;，&lt;a href="https://github.com/facebookresearch/ijepa"&gt;代码&lt;/a&gt;。&lt;/p&gt;
+&lt;h3 id="架构"&gt;架构&lt;/h3&gt;
+&lt;p&gt;I-JEPA 的架构有三个核心组件：&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Context Encoder（上下文编码器）&lt;/strong&gt;：一个 Vision Transformer，接收可见区域的图像 patch，输出对应的表征。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Target Encoder（目标编码器）&lt;/strong&gt;：架构和 Context Encoder 相同，但参数通过指数移动平均（EMA）更新——不直接参与梯度计算，而是缓慢跟踪 Context Encoder 的参数变化。它负责把被遮蔽区域编码成目标表征。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Predictor（预测器）&lt;/strong&gt;：一个比编码器轻量得多的 Transformer（embedding dimension 384 vs 编码器的更大维度），接收 Context Encoder 的可见表征，预测被遮蔽区域在 Target Encoder 表征空间中的表示。&lt;/p&gt;</description></item></channel></rss>

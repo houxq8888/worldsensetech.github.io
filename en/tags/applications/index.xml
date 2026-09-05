@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Applications on WorldSense Tech Blog</title><link>https://www.worldsensetech.com/en/tags/applications/</link><description>Recent content in Applications on WorldSense Tech Blog</description><generator>Hugo</generator><language>en-US</language><lastBuildDate>Sun, 30 Aug 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://www.worldsensetech.com/en/tags/applications/index.xml" rel="self" type="application/rss+xml"/><item><title>Dreamer in Practice: From Simulation Control to Sim-to-Real</title><link>https://www.worldsensetech.com/en/articles/2026-08-30-dreamer-applications/</link><pubDate>Sun, 30 Aug 2026 00:00:00 +0000</pubDate><guid>https://www.worldsensetech.com/en/articles/2026-08-30-dreamer-applications/</guid><description>&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;Dreamer Series - Part 5&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;Series directory (currently at Part 5):&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;a href="https://www.worldsensetech.com/en/articles/2026-08-25-dreamer-explained/"&gt;(Part 1) Understanding Dreamer: How World Models Learn to &amp;lsquo;Imagine&amp;rsquo;&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.worldsensetech.com/en/articles/2026-08-27-dreamer-actor-critic/"&gt;(Part 2) Dreamer&amp;rsquo;s Actor-Critic: Policy Optimization in Imagination&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.worldsensetech.com/en/articles/2026-08-28-dreamerv3-training-tips/"&gt;(Part 3) DreamerV3 Training Tips: Lessons from Real-World Debugging&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.worldsensetech.com/en/articles/2026-08-29-dreamerv3-gpu-guide/"&gt;(Part 4) DreamerV3 GPU Selection Guide: From VRAM Requirements to Cost-Effectiveness Analysis&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;(Part 5) Dreamer in Practice: From Simulation Control to Sim-to-Real&lt;/strong&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;The previous four articles covered Dreamer&amp;rsquo;s architecture design, Actor-Critic principles, training engineering experience, and hardware selection. But a key question remains: &lt;strong&gt;How does Dreamer perform on real tasks? What can it be used for?&lt;/strong&gt;&lt;/p&gt;</description></item></channel></rss>

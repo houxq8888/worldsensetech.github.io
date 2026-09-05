@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>NVIDIA Cosmos on WorldSense 技术笔记</title><link>https://www.worldsensetech.com/zh/tags/nvidia-cosmos/</link><description>Recent content in NVIDIA Cosmos on WorldSense 技术笔记</description><generator>Hugo</generator><language>zh-CN</language><lastBuildDate>Tue, 01 Sep 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://www.worldsensetech.com/zh/tags/nvidia-cosmos/index.xml" rel="self" type="application/rss+xml"/><item><title>世界模型 2026：从 Cosmos、Genie 到 JEPA 的路线分化</title><link>https://www.worldsensetech.com/zh/articles/2026-09-01-world-model-h2-review/</link><pubDate>Tue, 01 Sep 2026 00:00:00 +0000</pubDate><guid>https://www.worldsensetech.com/zh/articles/2026-09-01-world-model-h2-review/</guid><description>&lt;p&gt;2026 年过了大半，世界模型方向的节奏明显加快了。&lt;/p&gt;
+&lt;p&gt;上半年我写了不少基础性的文章——从 RSSM 的数学原理到 DreamerV3 的训练实战，从 VLA vs 世界模型的路线对比到 Sim-to-Real 的工程踩坑。有读者问我：现在想跟踪世界模型的最新进展，应该看什么？&lt;/p&gt;
+&lt;p&gt;今天这篇文章，我把截至 2026 年 8 月底值得关注的论文和项目做一个盘点。这里&amp;quot;值得关注&amp;quot;并不意味着这些项目都在下半年首次发布——有些（如 Cosmos、Genie）最早发布于 2025 年，但在 2026 年持续发展并产生了重要影响。我更关心的是：截至现在，它们仍然代表着接下来半年值得持续跟踪的技术路线。&lt;/p&gt;
+&lt;p&gt;这不是大而全的综述列表，而是我作为一个在这个方向工作的工程师，从&amp;quot;这些东西对我有什么用&amp;quot;的角度来筛选和点评。&lt;/p&gt;
+&lt;p&gt;但在进入具体项目之前，有一件事必须先说清楚。&lt;/p&gt;
+&lt;h2 id="一先把世界模型分清楚"&gt;一、先把&amp;quot;世界模型&amp;quot;分清楚&lt;/h2&gt;
+&lt;p&gt;现在&amp;quot;世界模型&amp;quot;这个概念被用得太滥了——视频生成模型叫世界模型，游戏引擎叫世界模型，甚至一些简单的预测模型也自称世界模型。但上面这些项目，虽然都被称为&amp;quot;world model&amp;quot;，其实不是同一种东西。&lt;/p&gt;
+&lt;p&gt;结合&lt;a href="https://arxiv.org/html/2607.06401v1"&gt;《A Definition and Roadmap for World Models》（arxiv 2607.06401）&lt;/a&gt;讨论的定义、近期综述，以及我自己的工程经验，我更倾向于把当前常见的世界模型理解成&lt;strong&gt;四条技术路线&lt;/strong&gt;。它们并不是严格互斥的分类，而是帮助我们快速定位不同工作的技术侧重点：&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;A. 隐状态动力学世界模型（Latent Dynamics World Model）&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;代表：Dreamer / RSSM&lt;/p&gt;
+&lt;p&gt;核心逻辑：state → action → next state，在隐空间中学习环境动态。&lt;/p&gt;
+&lt;p&gt;目标：支持 planning、RL、control。这是我在博客里写得最多的类型。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;B. 生成式视频世界模型（Generative Video World Model）&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;代表：NVIDIA Cosmos 等&lt;/p&gt;
+&lt;p&gt;核心逻辑：condition + history → future observations，生成未来视频帧。&lt;/p&gt;
+&lt;p&gt;目标偏向：data generation、simulation、prediction、perception。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;C. 交互式世界模型（Interactive World Model）&lt;/strong&gt;&lt;/p&gt;</description></item></channel></rss>

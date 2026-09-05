@@ -1,0 +1,122 @@
+<!doctype html><html lang=zh-CN><head><meta charset=UTF-8><meta name=viewport content="width=device-width,initial-scale=1"><title>从代码理解 RSSM（一）：RSSM 在 DreamerV3 中的位置与 stochastic 状态 - WorldSense 技术笔记</title><meta name=description content="系列开篇：先定位 RSSM 在 DreamerV3 中的角色，澄清 stochastic state 不是“整数再 one-hot”，再看真实 observation 如何进入 RSSM（observe 的调用层次）。"><meta name=baidu-site-verification content="codeva-RcngxmWb36"><link rel=stylesheet href="/css/style.css?v=20260815"><script async src="https://www.googletagmanager.com/gtag/js?id=G-6EQ7ZKS9L8"></script><script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag("js",new Date),gtag("config","G-6EQ7ZKS9L8")</script><script async src=https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js></script><link rel=canonical href=https://www.worldsensetech.com/zh/articles/2026-08-19-rssm-code-walkthrough/><link rel=alternate hreflang=en-US href=https://www.worldsensetech.com/en/articles/2026-08-19-rssm-code-walkthrough/><link rel=alternate hreflang=x-default href=https://www.worldsensetech.com/zh/articles/2026-08-19-rssm-code-walkthrough/><meta property="og:title" content="从代码理解 RSSM（一）：RSSM 在 DreamerV3 中的位置与 stochastic 状态"><meta property="og:description" content="系列开篇：先定位 RSSM 在 DreamerV3 中的角色，澄清 stochastic state 不是“整数再 one-hot”，再看真实 observation 如何进入 RSSM（observe 的调用层次）。"><meta property="og:type" content="article"><meta property="og:url" content="https://www.worldsensetech.com/zh/articles/2026-08-19-rssm-code-walkthrough/"><meta property="og:site_name" content="WorldSense 技术笔记"><meta property="og:image" content="https://www.worldsensetech.com/images/avatar.png"><meta property="article:published_time" content="2026-08-19T00:00:00Z"><meta property="article:modified_time" content="2026-08-19T00:00:00Z"><meta property="article:author" content="侯晓琴"><meta property="article:tag" content="RSSM"><meta property="article:tag" content="DreamerV3"><meta property="article:tag" content="世界模型"><meta property="article:tag" content="状态空间模型"><meta property="article:tag" content="代码解析"><meta property="article:tag" content="RSSM系列"><meta name=twitter:card content="summary_large_image"><meta name=twitter:title content="从代码理解 RSSM（一）：RSSM 在 DreamerV3 中的位置与 stochastic 状态"><meta name=twitter:description content="系列开篇：先定位 RSSM 在 DreamerV3 中的角色，澄清 stochastic state 不是“整数再 one-hot”，再看真实 observation 如何进入 RSSM（observe 的调用层次）。"><meta name=twitter:image content="https://www.worldsensetech.com/images/avatar.png"><script type=application/ld+json>{"@context":"https://schema.org","@type":"Article","headline":"从代码理解 RSSM（一）：RSSM 在 DreamerV3 中的位置与 stochastic 状态","description":"系列开篇：先定位 RSSM 在 DreamerV3 中的角色，澄清 stochastic state 不是“整数再 one-hot”，再看真实 observation 如何进入 RSSM（observe 的调用层次）。","url":"https://www.worldsensetech.com/zh/articles/2026-08-19-rssm-code-walkthrough/","datePublished":"2026-08-19T00:00:00Z","dateModified":"2026-08-19T00:00:00Z","articleBody":"系列开篇：先定位 RSSM 在 DreamerV3 中的角色，澄清 stochastic state 不是“整数再 one-hot”，再看真实 observation 如何进入 RSSM（observe 的调用层次）。","articleSection":"世界模型","keywords":["RSSM","DreamerV3","世界模型","状态空间模型","代码解析","RSSM系列"],"isAccessibleForFree":true,"wordCount":540,"inLanguage":"zh-CN","author":{"@type":"Person","name":"侯晓琴","url":"https://www.worldsensetech.com/about/"},"publisher":{"@type":"Organization","name":"WorldSense 技术笔记","logo":{"@type":"ImageObject","url":"https://www.worldsensetech.com/images/avatar.png","width":512,"height":512}},"mainEntityOfPage":{"@type":"WebPage","@id":"https://www.worldsensetech.com/zh/articles/2026-08-19-rssm-code-walkthrough/"},"image":["https://www.worldsensetech.com/images/avatar.png"]}</script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.18.5/dist/katex.min.css integrity=sha384-2dNi/m6JtSiviznrOIZ5fTiZ5As0In2QwkuXSgoqcQtCNplvJAbt+jveeN+8en73 crossorigin=anonymous><script defer src=https://cdn.jsdelivr.net/npm/katex@0.18.5/dist/katex.min.js integrity=sha384-TTF8eEsEKInX2meLzP5V1z/npGYIElXYGksx93f0qBZHu6IL3PdzVB8objytx+TR crossorigin=anonymous></script><script defer src=https://cdn.jsdelivr.net/npm/katex@0.18.5/dist/contrib/auto-render.min.js integrity=sha384-bjyGPfbij8/NDKJhSGZNP/khQVgtHUE5exjm4Ydllo42FwIgYsdLO2lXGmRBf5Mz crossorigin=anonymous onload='renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"\\[",right:"\\]",display:!0},{left:"$",right:"$",display:!1},{left:"\\(",right:"\\)",display:!1}],throwOnError:!1})'></script></head><body><header><div class=header-inner><a href=/zh/ class=site-title>WorldSense 技术笔记</a><nav><a href=/zh/>文章</a>
+<a href=/zh/categories/>分类</a>
+<a href=/zh/archive/>归档</a>
+<a href=/zh/about/>关于</a>
+<a href=https://github.com/houxq8888/worldsensetech.github.io target=_blank>GitHub</a>
+<a href=https://www.worldsensetech.com/en/articles/2026-08-19-rssm-code-walkthrough/>English</a></nav></div></header><div class=article-header><h1>从代码理解 RSSM（一）：RSSM 在 DreamerV3 中的位置与 stochastic 状态</h1><div class=article-info>2026年8月19日 · 阅读约10分钟
+· RSSM, DreamerV3, 世界模型, 状态空间模型, 代码解析, RSSM系列</div></div><div class=toc><details class=toc-container open><summary>目录</summary><nav id=TableOfContents><ul><li><a href=#一先看-rssm-在-dreamerv3-中的位置>一、先看 RSSM 在 DreamerV3 中的位置</a></li><li><a href=#二先解决一个最容易误解的问题stoch-到底是什么>二、先解决一个最容易误解的问题：<code>stoch</code> 到底是什么？</a></li><li><a href=#三observe真实-observation-是怎么进入-rssm-的>三、Observe：真实 observation 是怎么进入 RSSM 的？</a></li></ul></nav></details></div><main class=article-content><blockquote><p><strong>《从代码理解 RSSM》系列 · 第 1 篇 / 共 6 篇</strong></p><p>系列目录（当前在第 1 篇，已加粗；上/下一篇见文末导航）：
+<strong>1. <a href=/zh/articles/2026-08-19-rssm-code-walkthrough/>（一）RSSM 的位置与 stochastic 状态</a></strong>
+2. <a href=/zh/articles/2026-08-20-rssm-stochastic-state/>（二）先验/后验、straight-through 与 unimix</a>
+3. <a href=/zh/articles/2026-08-21-rssm-deterministic-core/>（三）_core()、deter=8192 与 Block GRU</a>
+4. <a href=/zh/articles/2026-08-22-rssm-kl-balancing/>（四）KL balancing、Free Nats 与最终 KL</a>
+5. <a href=/zh/articles/2026-08-23-rssm-imagine-reset/>（五）Imagine、Observe/Imagine 区别与 Reset</a>
+6. <a href=/zh/articles/2026-08-24-rssm-recap/>（六）默认配置、四条公式与对照表</a></p></blockquote><blockquote><p><strong>源码阅读提示</strong></p><p>本文有意不从"标准 RSSM 伪代码"开始，而是按照 <code>rssm.py</code> 的实际执行路径展开。阅读时可以重点关注下面几个函数：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-text data-lang=text><span style=display:flex><span>observe()   → sequence-level wrapper，沿时间维调用 _observe()
+</span></span><span style=display:flex><span>_observe()  → 单个时间步的状态推断（真实轨迹）
+</span></span><span style=display:flex><span>_core()     → 单个时间步的 deterministic dynamics
+</span></span><span style=display:flex><span>imagine()   → 无 observation 的 latent rollout
+</span></span></code></pre></div><p>这里最容易混淆的一点是：<strong><code>observe()</code> 并不是一个"处理单步 transition"的函数</strong>。它只是 sequence-level 的封装，内部通过 Ninjax 的 <code>nj.scan(...)</code> 沿着时间维度反复调用 <code>_observe()</code>；真正处理单个时间步的是 <code>_observe()</code> 与 <code>_core()</code>。把 <code>observe() / _observe() / _core() / imagine()</code> 这一层调用关系理清，基本就能理解 DreamerV3 RSSM 的主体。</p><p>（你后面会在"Sequence training"一节看到 <code>nj.scan</code> 的具体展开；这里先记一句话：<strong>第一次出现 <code>observe()</code> 时，它和 <code>_observe()</code>、<code>nj.scan</code> 是同一件事的三个层次</strong>。）</p></blockquote><p>前面两篇文章分别介绍了 RSSM 的基本原理和世界模型的发展路线。</p><p>理论解决的是"RSSM 为什么这样设计"，但真正打开 DreamerV3 的源码后，会发现还有很多细节是论文公式没有直接告诉你的：</p><ul><li>为什么 stochastic state 不是普通的 Gaussian 向量？</li><li><code>GRU</code> 到底接收什么输入？</li><li>prior 和 posterior 在代码里分别对应什么？</li><li>为什么 DreamerV3 要计算两个 KL？</li><li><code>stop_gradient</code> 在 KL balancing 中到底起什么作用？</li><li>imagination 阶段没有 observation，RSSM 是怎么继续运行的？</li><li><code>stoch=32, classes=64</code> 到底意味着什么？</li><li><code>deter=8192</code> 为什么这么大，还能训练得动？</li></ul><p>这篇文章不再从一个通用的 Gaussian RSSM 伪代码出发，而是<strong>直接沿着 DreamerV3 仓库中的 <code>dreamerv3/rssm.py</code> 追踪数据流</strong>，把源码中的计算路径和 RSSM 数学公式对应起来。</p><blockquote><p><strong>源码说明</strong></p><p>本文参考的是 DreamerV3 开源仓库当前 <code>main</code> 分支中的 <code>dreamerv3/rssm.py</code> 与 <code>configs.yaml</code>。该仓库 README 将自身描述为 DreamerV3 的 reimplementation，因此本文统一称其为"DreamerV3 开源实现"，而不是 Google/DeepMind 官方代码。</p><p>为了方便阅读，文中会对 JAX、Ninjax、dtype 和 <code>scan</code> 等工程代码进行适当简化，但核心计算逻辑以源码为准。文中凡是涉及"默认配置"的地方，都明确区分了 <strong>RSSM 架构参数</strong> 与 <strong>World model / agent 的 loss 配置</strong>，避免把某个 agent 的超参误读成 RSSM 本身的结构。</p></blockquote><hr><h2 id=一先看-rssm-在-dreamerv3-中的位置>一、先看 RSSM 在 DreamerV3 中的位置</h2><p>DreamerV3 的世界模型可以粗略理解为：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-text data-lang=text><span style=display:flex><span>Observation
+</span></span><span style=display:flex><span>     │
+</span></span><span style=display:flex><span>     ▼
+</span></span><span style=display:flex><span>  Encoder
+</span></span><span style=display:flex><span>     │
+</span></span><span style=display:flex><span>     ▼
+</span></span><span style=display:flex><span> observation token
+</span></span><span style=display:flex><span>     │
+</span></span><span style=display:flex><span>     ▼
+</span></span><span style=display:flex><span> ┌─────────────────────────────┐
+</span></span><span style=display:flex><span> │            RSSM             │
+</span></span><span style=display:flex><span> │                             │
+</span></span><span style=display:flex><span> │  deterministic state h_t    │
+</span></span><span style=display:flex><span> │            +                │
+</span></span><span style=display:flex><span> │  stochastic state z_t       │
+</span></span><span style=display:flex><span> └─────────────────────────────┘
+</span></span><span style=display:flex><span>     │
+</span></span><span style=display:flex><span>     ▼
+</span></span><span style=display:flex><span> latent feature
+</span></span><span style=display:flex><span>     │
+</span></span><span style=display:flex><span>     ├──► Decoder       重建 observation
+</span></span><span style=display:flex><span>     ├──► Reward Head   预测 reward
+</span></span><span style=display:flex><span>     ├──► Continue Head
+</span></span><span style=display:flex><span>     └──► Actor/Critic  想象轨迹上的策略与价值
+</span></span></code></pre></div><p>RSSM 要解决的问题可以概括成一句话：</p><blockquote><p><strong>根据过去的 latent state 和 action，维护一个可以不断向未来滚动的隐状态。</strong></p></blockquote><p>这个状态由两部分组成：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-text data-lang=text><span style=display:flex><span>s_t = (h_t, z_t)
+</span></span></code></pre></div><p>其中：</p><ul><li><code>h_t</code>：deterministic state，负责保存时序上下文；</li><li><code>z_t</code>：stochastic state，表示当前状态中的随机 latent。</li></ul><p>这里要先强调一个重要区分（后面"为什么 8192"一节还会展开）：<strong>最终喂给 Decoder / Reward / Actor-Critic 的不是单独的 <code>h_t</code> 或 <code>z_t</code>，而是二者的拼接 <code>feature = concat(h_t, z_t)</code></strong>。所以 <code>8192</code> 并不是"latent state 总维度"。</p><p>DreamerV3 的一个关键变化就在这里：</p><blockquote><p><strong><code>z_t</code> 不是传统连续 Gaussian RSSM 中的一个普通向量，而是多个 categorical latent variable。</strong></p></blockquote><hr><h2 id=二先解决一个最容易误解的问题stoch-到底是什么>二、先解决一个最容易误解的问题：<code>stoch</code> 到底是什么？</h2><p>很多 RSSM 教程会直接写：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-text data-lang=text><span style=display:flex><span>z_t ~ Normal(μ_t, σ_t)
+</span></span></code></pre></div><p>然后通过：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-text data-lang=text><span style=display:flex><span>z = μ + σ × ε
+</span></span></code></pre></div><p>完成采样。</p><p>这种写法可以帮助理解经典连续 RSSM，但<strong>不能直接套到 DreamerV3 的实现上</strong>。</p><p>DreamerV3 使用的是 categorical latent。</p><p>默认配置（注意：下面混排了"RSSM 架构"与"world-model 训练"两类参数，正式拆分见"默认 RSSM 配置"一节）：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-yaml data-lang=yaml><span style=display:flex><span><span style=color:#ff79c6>rssm</span>:
+</span></span><span style=display:flex><span>  <span style=color:#ff79c6>deter</span>: <span style=color:#bd93f9>8192</span>
+</span></span><span style=display:flex><span>  <span style=color:#ff79c6>hidden</span>: <span style=color:#bd93f9>1024</span>
+</span></span><span style=display:flex><span>  <span style=color:#ff79c6>stoch</span>: <span style=color:#bd93f9>32</span>
+</span></span><span style=display:flex><span>  <span style=color:#ff79c6>classes</span>: <span style=color:#bd93f9>64</span>
+</span></span><span style=display:flex><span>  <span style=color:#ff79c6>unimix</span>: <span style=color:#bd93f9>0.01</span>
+</span></span><span style=display:flex><span>  <span style=color:#ff79c6>blocks</span>: <span style=color:#bd93f9>8</span>
+</span></span></code></pre></div><p>因此 stochastic state 的形状是：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-text data-lang=text><span style=display:flex><span>[B, 32, 64]
+</span></span></code></pre></div><p>也就是说：</p><ul><li>一共有 <code>32</code> 个 categorical variable；</li><li>每个 variable 有 <code>64</code> 个类别；</li><li>每个 variable 在网络前向计算中对应一个 64 维的 <strong>one-hot categorical representation</strong>。</li></ul><p>如果把它展平：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-text data-lang=text><span style=display:flex><span>32 × 64 = 2048
+</span></span></code></pre></div><p>所以可以把整个 stochastic state 看成一个 2048 维向量，但<strong>语义上不能简单把它理解成一个 2048 维普通 categorical variable</strong>。</p><p>更准确地说：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-text data-lang=text><span style=display:flex><span>z_t = [z_t^1, z_t^2, ..., z_t^32]
+</span></span></code></pre></div><p>其中：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-text data-lang=text><span style=display:flex><span>z_t^i ∈ {1, ..., 64}
+</span></span></code></pre></div><p>每个 <code>z_t^i</code> 都是一个 64 类 categorical variable，它们构成的是一个 <strong>factorized categorical distribution</strong>（因子化的类别分布），而不是一个 2048 类的单一分布。</p><p>源码中的 <code>_logit()</code> 正是在做这件事：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-python data-lang=python><span style=display:flex><span>x <span style=color:#ff79c6>=</span> Linear(<span style=color:#ff79c6>...</span>, <span style=font-style:italic>self</span><span style=color:#ff79c6>.</span>stoch <span style=color:#ff79c6>*</span> <span style=font-style:italic>self</span><span style=color:#ff79c6>.</span>classes)(x)
+</span></span><span style=display:flex><span><span style=color:#ff79c6>return</span> x<span style=color:#ff79c6>.</span>reshape(
+</span></span><span style=display:flex><span>    x<span style=color:#ff79c6>.</span>shape[:<span style=color:#ff79c6>-</span><span style=color:#bd93f9>1</span>] <span style=color:#ff79c6>+</span> (<span style=font-style:italic>self</span><span style=color:#ff79c6>.</span>stoch, <span style=font-style:italic>self</span><span style=color:#ff79c6>.</span>classes)
+</span></span><span style=display:flex><span>)
+</span></span></code></pre></div><p>也就是：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-text data-lang=text><span style=display:flex><span>Linear
+</span></span><span style=display:flex><span>  │
+</span></span><span style=display:flex><span>  ▼
+</span></span><span style=display:flex><span>32 × 64 logits
+</span></span><span style=display:flex><span>  │
+</span></span><span style=display:flex><span>  ▼
+</span></span><span style=display:flex><span>[B, 32, 64]
+</span></span></code></pre></div><hr><h2 id=三observe真实-observation-是怎么进入-rssm-的>三、Observe：真实 observation 是怎么进入 RSSM 的？</h2><p>理解 DreamerV3 RSSM，最重要的入口就是：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-python data-lang=python><span style=display:flex><span>observe(<span style=color:#ff79c6>...</span>)
+</span></span></code></pre></div><p>但回到开头那句提醒：<strong>公开接口 <code>observe()</code> 本身不处理单步 transition</strong>。它的核心作用是 sequence-level 的封装，通过 <code>nj.scan</code> 把下面这段 <code>_observe()</code> 沿着时间维反复调用。所以读者继续往下看源码时，应当把"处理单个时间步逻辑"的那段代码理解为 <code>_observe()</code>，而不是 <code>observe()</code>。</p><p><code>_observe()</code> 的核心逻辑可以简化成：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-python data-lang=python><span style=display:flex><span><span style=color:#ff79c6>def</span> <span style=color:#50fa7b>_observe</span>(carry, tokens, action, reset, training):
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    deter, stoch, action <span style=color:#ff79c6>=</span> mask(
+</span></span><span style=display:flex><span>        carry[<span style=color:#f1fa8c>&#34;deter&#34;</span>],
+</span></span><span style=display:flex><span>        carry[<span style=color:#f1fa8c>&#34;stoch&#34;</span>],
+</span></span><span style=display:flex><span>        action,
+</span></span><span style=display:flex><span>        <span style=color:#ff79c6>~</span>reset
+</span></span><span style=display:flex><span>    )
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    action <span style=color:#ff79c6>=</span> preprocess_action(action)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#6272a4># 关键：这里没有 observation</span>
+</span></span><span style=display:flex><span>    deter <span style=color:#ff79c6>=</span> <span style=font-style:italic>self</span><span style=color:#ff79c6>.</span>_core(
+</span></span><span style=display:flex><span>        deter,
+</span></span><span style=display:flex><span>        stoch,
+</span></span><span style=display:flex><span>        action
+</span></span><span style=display:flex><span>    )
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#6272a4># observation token 在这里才进入</span>
+</span></span><span style=display:flex><span>    x <span style=color:#ff79c6>=</span> concat([deter, tokens])
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    logit <span style=color:#ff79c6>=</span> posterior_network(x)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    stoch <span style=color:#ff79c6>=</span> sample(logit)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#ff79c6>return</span> {
+</span></span><span style=display:flex><span>        <span style=color:#f1fa8c>&#34;deter&#34;</span>: deter,
+</span></span><span style=display:flex><span>        <span style=color:#f1fa8c>&#34;stoch&#34;</span>: stoch,
+</span></span><span style=display:flex><span>    }
+</span></span></code></pre></div><p>这里有一个非常关键的细节：</p><blockquote><p><strong><code>_core()</code> 不读取当前 observation。</strong></p></blockquote><p>当前 observation embedding，也就是 <code>tokens</code>，是在 deterministic transition 完成以后，才进入 posterior 网络。</p><p>所以整个过程实际上是：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-text data-lang=text><span style=display:flex><span>z_{t-1} ─────┐
+</span></span><span style=display:flex><span>             │
+</span></span><span style=display:flex><span>h_{t-1} ─────┼──► RSSM Core ──► h_t
+</span></span><span style=display:flex><span>             │
+</span></span><span style=display:flex><span>a_{t-1} ─────┘
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>                         │
+</span></span><span style=display:flex><span>                         ▼
+</span></span><span style=display:flex><span>                  posterior network
+</span></span><span style=display:flex><span>                         ▲
+</span></span><span style=display:flex><span>                         │
+</span></span><span style=display:flex><span>                      token_t
+</span></span><span style=display:flex><span>                         │
+</span></span><span style=display:flex><span>                         ▼
+</span></span><span style=display:flex><span>                       z_t
+</span></span></code></pre></div><p>这和很多"GRU 输入 observation + action"的简化 RSSM 写法是不一样的。</p><hr></main><hr><div class=article-actions><button id=btn-like class="action-btn like-btn">
+<span class=icon>♡</span>
+<span>点赞</span>
+(<span id=like-count>0</span>)
+</button>
+<button id=btn-bookmark class="action-btn bookmark-btn">
+<span class=icon>☆</span>
+<span>收藏</span></button></div><div class=article-nav><a href=/zh/articles/2026-08-18-world-model-ai-trend/>← 世界模型风口被放大了：技术辨析与冷思考</a>
+<a href=/zh/articles/2026-08-20-rssm-stochastic-state/>从代码理解 RSSM（二）：先验/后验、straight-through 采样与 unimix →</a></div><div class=comments-section><h3>评论</h3><div id=giscus-container></div></div><div class=author-box><div class=author-avatar>W</div><div class=author-info><div class=author-name>侯晓琴</div><p>西北工业大学硕士，十余年自动化与 AI 工程经验。著有《Visual C++入门很容易》《C++程序设计经典300例》。目前聚焦世界模型与具身智能方向，记录从传统自动化到机器人 AI 的转型之路。</p></div></div><script src=/js/blog-interactions.js></script><footer><p>&copy; 2026 WorldSense · <a href=https://www.worldsensetech.com>www.worldsensetech.com</a></p><p style="font-size:.8rem;color:#999;margin:4px 0"><a href=https://beian.miit.gov.cn/ target=_blank rel=noopener style=color:#999>沪ICP备2026041639号-1</a>
+<span style="margin:0 6px">|</span>
+<a href="http://www.beian.gov.cn/portal/registerSystemInfo?recordcode=31011402022270" target=_blank rel=noopener style=color:#999;display:inline-flex;align-items:center;gap:3px><img src=/images/logo01.6189a29f.png alt style=width:14px;height:14px;vertical-align:middle>沪公网安备31011402022270号</a></p><span id=busuanzi_container_site_pv style=font-size:.8rem;color:#999>总访问量 <span id=busuanzi_value_site_pv style=color:#2563eb></span> 次
+</span><span id=busuanzi_container_page_pv style=font-size:.8rem;color:#999;margin-left:12px>本文阅读 <span id=busuanzi_value_page_pv style=color:#2563eb></span> 次</span></footer><script src="/js/ga4-tracker.js?v=20260828"></script></body></html>

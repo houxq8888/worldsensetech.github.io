@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>GPU并行 on WorldSense 技术笔记</title><link>https://www.worldsensetech.com/zh/tags/gpu%E5%B9%B6%E8%A1%8C/</link><description>Recent content in GPU并行 on WorldSense 技术笔记</description><generator>Hugo</generator><language>zh-CN</language><lastBuildDate>Sun, 09 Aug 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://www.worldsensetech.com/zh/tags/gpu%E5%B9%B6%E8%A1%8C/index.xml" rel="self" type="application/rss+xml"/><item><title>机器人训练为什么需要虚拟世界？MuJoCo 和 Isaac Sim 全面对比</title><link>https://www.worldsensetech.com/zh/articles/mujoco-vs-isaac-sim/</link><pubDate>Sun, 09 Aug 2026 00:00:00 +0000</pubDate><guid>https://www.worldsensetech.com/zh/articles/mujoco-vs-isaac-sim/</guid><description>&lt;p&gt;上一篇我们聊了域随机化的工程实现。但不管是域随机化、策略训练、还是 Sim-to-Real 验证，都离不开一个基础工具：仿真环境。&lt;/p&gt;
+&lt;p&gt;为什么仿真对具身智能这么重要？原因很直接：真实世界的机器人数据太贵、太慢、太危险。你不可能让一台真实机器人每天尝试几百万次抓取来学习——硬件磨损、时间成本、安全风险都不允许。仿真环境提供了一个可无限重试、可完全控制变量的训练场所，是当前具身智能规模化训练的核心基础设施。&lt;/p&gt;
+&lt;p&gt;目前这个领域最主流的两个选择是 MuJoCo 和 NVIDIA Isaac Sim。这篇文章从五个维度做系统对比：物理引擎、渲染能力、RL 训练效率、生态工具、适用场景，帮你根据项目需求做出选择。&lt;/p&gt;
+&lt;h2 id="物理引擎对比"&gt;物理引擎对比&lt;/h2&gt;
+&lt;h3 id="mujoco"&gt;MuJoCo&lt;/h3&gt;
+&lt;p&gt;MuJoCo（Multi-Joint dynamics with Contact）由 Emo Todorov 团队开发，2021年被 DeepMind 收购后开源。它的核心优势是：&lt;/p&gt;
+&lt;p&gt;接触动力学精度高。MuJoCo 使用约束-based 的接触模型，能准确模拟摩擦、碰撞、关节限位等。对于机器人操作任务（抓取、推、插装），接触精度至关重要。&lt;/p&gt;
+&lt;p&gt;计算速度快。MuJoCo 的求解器高度优化，单线程就能跑很快。对于需要大量 rollouts 的强化学习训练，速度是硬指标。&lt;/p&gt;
+&lt;p&gt;数值稳定性好。MuJoCo 的积分器和约束求解器经过多年打磨，不容易出现仿真崩溃（比如物体穿模、关节爆炸）。&lt;/p&gt;
+&lt;p&gt;渲染能力近年来有所增强，但设计重点不同。MuJoCo 近年来增强了渲染能力，支持相机观测、深度图等视觉输入，DM Control pixels benchmark、RoboSuite 图像任务、Dreamer 系列视觉控制实验都基于 MuJoCo 运行。但它的设计重点仍然是高效动力学模拟和控制研究，而不是大规模照片级合成数据生成。如果需要照片级逼真的图像输入，Isaac Sim 仍有明显优势。&lt;/p&gt;
+&lt;h3 id="isaac-sim"&gt;Isaac Sim&lt;/h3&gt;
+&lt;p&gt;Isaac Sim 是 NVIDIA 基于 Omniverse 平台开发的机器人仿真器。它的核心优势是：&lt;/p&gt;
+&lt;p&gt;GPU 加速物理。Isaac Sim 基于 NVIDIA PhysX 5，并通过 GPU 加速和 Isaac Lab 的并行环境管理支持大规模机器人学习训练。这种架构源自 Isaac Gym 的 GPU pipeline，在 Isaac Lab 的 vectorized environments 中得到延续。&lt;/p&gt;</description></item></channel></rss>

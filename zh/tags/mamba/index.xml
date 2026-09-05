@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Mamba on WorldSense 技术笔记</title><link>https://www.worldsensetech.com/zh/tags/mamba/</link><description>Recent content in Mamba on WorldSense 技术笔记</description><generator>Hugo</generator><language>zh-CN</language><lastBuildDate>Fri, 04 Sep 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://www.worldsensetech.com/zh/tags/mamba/index.xml" rel="self" type="application/rss+xml"/><item><title>从 RSSM 到现代 Latent Dynamics：世界模型的"引擎"如何演进</title><link>https://www.worldsensetech.com/zh/articles/2026-09-04-rssm-beyond/</link><pubDate>Fri, 04 Sep 2026 00:00:00 +0000</pubDate><guid>https://www.worldsensetech.com/zh/articles/2026-09-04-rssm-beyond/</guid><description>&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;关于本文的讨论范围：&lt;/strong&gt; 本文涉及的&amp;quot;状态空间建模&amp;quot;包含两个相关但不同的层面：一类是用于环境动力学建模的 latent state-space models（如 RSSM、TD-MPC2 的 latent dynamics），另一类是用于高效序列处理的 SSM architectures（如 S4、Mamba）。二者形式上相似，但不能直接等同。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;在&lt;a href="https://www.worldsensetech.com/zh/articles/rssm-deep-dive/"&gt;之前的 RSSM 系列&lt;/a&gt;中，我详细拆解了 RSSM 的架构细节——确定性路径与随机性路径的双轨设计、categorical latent 的选择、KL balancing 的训练技巧、以及 imagine 阶段的 reset 策略。&lt;/p&gt;
+&lt;p&gt;但那组文章主要聚焦在 RSSM 本身。今天想换一个视角：&lt;strong&gt;把 RSSM 放在更大的状态空间建模（state-space modeling）演进中看，它的位置是什么？在它之后，世界模型的&amp;quot;引擎&amp;quot;正在往哪个方向走？&lt;/strong&gt;&lt;/p&gt;
+&lt;h2 id="rssm-的核心设计选择"&gt;RSSM 的核心设计选择&lt;/h2&gt;
+&lt;p&gt;先快速回顾。RSSM（Recurrent State-Space Model）的核心是一个双轨隐状态结构：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; h_t (deterministic) z_t (stochastic)
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; │ │
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; GRU update categorical prior
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; │ │
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; └────────┬───────────────┘
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; ↓
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; p(o_t | h_t, z_t)
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; observation model
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;确定性路径 h_t&lt;/strong&gt; 由 h_t = f(h_{t-1}, z_{t-1}, a_{t-1}) 递归更新，负责积累历史信息。&lt;strong&gt;随机性路径 z_t&lt;/strong&gt; 通过 categorical prior/posterior 建模 latent state 的不确定性。两者共同构成 RSSM 的 latent state s_t = (h_t, z_t)，并为 observation model 等预测头提供条件。从 POMDP 视角看，这个 latent state 可以理解为对历史观测与动作所形成 belief state 的一种参数化近似；它并不要求恢复环境的&amp;quot;真实物理状态&amp;quot;，而是学习一个足以支持预测和控制的 latent representation。&lt;/p&gt;</description></item></channel></rss>

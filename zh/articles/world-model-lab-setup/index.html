@@ -1,0 +1,298 @@
+<!doctype html><html lang=zh-CN><head><meta charset=UTF-8><meta name=viewport content="width=device-width,initial-scale=1"><title>从零搭建世界模型实验环境：MuJoCo + DreamerV3 实战指南 - WorldSense 技术笔记</title><meta name=description content="从零搭建世界模型实验环境：安装 MuJoCo、配置 DreamerV3 代码库、跑通第一个训练任务。覆盖环境踩坑、依赖版本兼容和训练参数配置。"><meta name=baidu-site-verification content="codeva-RcngxmWb36"><link rel=stylesheet href="/css/style.css?v=20260815"><script async src="https://www.googletagmanager.com/gtag/js?id=G-6EQ7ZKS9L8"></script><script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag("js",new Date),gtag("config","G-6EQ7ZKS9L8")</script><script async src=https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js></script><link rel=canonical href=https://www.worldsensetech.com/zh/articles/world-model-lab-setup/><link rel=alternate hreflang=en-US href=https://www.worldsensetech.com/en/articles/world-model-lab-setup/><link rel=alternate hreflang=x-default href=https://www.worldsensetech.com/zh/articles/world-model-lab-setup/><meta property="og:title" content="从零搭建世界模型实验环境：MuJoCo + DreamerV3 实战指南"><meta property="og:description" content="从零搭建世界模型实验环境：安装 MuJoCo、配置 DreamerV3 代码库、跑通第一个训练任务。覆盖环境踩坑、依赖版本兼容和训练参数配置。"><meta property="og:type" content="article"><meta property="og:url" content="https://www.worldsensetech.com/zh/articles/world-model-lab-setup/"><meta property="og:site_name" content="WorldSense 技术笔记"><meta property="og:image" content="https://www.worldsensetech.com/images/avatar.png"><meta property="article:published_time" content="2026-08-05T00:00:00Z"><meta property="article:modified_time" content="2026-08-05T00:00:00Z"><meta property="article:author" content="侯晓琴"><meta property="article:tag" content="实战教程"><meta property="article:tag" content="MuJoCo"><meta property="article:tag" content="DreamerV3"><meta property="article:tag" content="环境搭建"><meta property="article:tag" content="强化学习"><meta property="article:tag" content="JAX"><meta property="article:tag" content="入门"><meta name=twitter:card content="summary_large_image"><meta name=twitter:title content="从零搭建世界模型实验环境：MuJoCo + DreamerV3 实战指南"><meta name=twitter:description content="从零搭建世界模型实验环境：安装 MuJoCo、配置 DreamerV3 代码库、跑通第一个训练任务。覆盖环境踩坑、依赖版本兼容和训练参数配置。"><meta name=twitter:image content="https://www.worldsensetech.com/images/avatar.png"><script type=application/ld+json>{"@context":"https://schema.org","@type":"Article","headline":"从零搭建世界模型实验环境：MuJoCo + DreamerV3 实战指南","description":"从零搭建世界模型实验环境：安装 MuJoCo、配置 DreamerV3 代码库、跑通第一个训练任务。覆盖环境踩坑、依赖版本兼容和训练参数配置。","url":"https://www.worldsensetech.com/zh/articles/world-model-lab-setup/","datePublished":"2026-08-05T00:00:00Z","dateModified":"2026-08-05T00:00:00Z","articleBody":"从零搭建世界模型实验环境：安装 MuJoCo、配置 DreamerV3 代码库、跑通第一个训练任务。覆盖环境踩坑、依赖版本兼容和训练参数配置。","articleSection":"世界模型","keywords":["实战教程","MuJoCo","DreamerV3","环境搭建","强化学习","JAX","入门"],"isAccessibleForFree":true,"wordCount":1654,"inLanguage":"zh-CN","author":{"@type":"Person","name":"侯晓琴","url":"https://www.worldsensetech.com/about/"},"publisher":{"@type":"Organization","name":"WorldSense 技术笔记","logo":{"@type":"ImageObject","url":"https://www.worldsensetech.com/images/avatar.png","width":512,"height":512}},"mainEntityOfPage":{"@type":"WebPage","@id":"https://www.worldsensetech.com/zh/articles/world-model-lab-setup/"},"image":["https://www.worldsensetech.com/images/avatar.png"]}</script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.18.5/dist/katex.min.css integrity=sha384-2dNi/m6JtSiviznrOIZ5fTiZ5As0In2QwkuXSgoqcQtCNplvJAbt+jveeN+8en73 crossorigin=anonymous><script defer src=https://cdn.jsdelivr.net/npm/katex@0.18.5/dist/katex.min.js integrity=sha384-TTF8eEsEKInX2meLzP5V1z/npGYIElXYGksx93f0qBZHu6IL3PdzVB8objytx+TR crossorigin=anonymous></script><script defer src=https://cdn.jsdelivr.net/npm/katex@0.18.5/dist/contrib/auto-render.min.js integrity=sha384-bjyGPfbij8/NDKJhSGZNP/khQVgtHUE5exjm4Ydllo42FwIgYsdLO2lXGmRBf5Mz crossorigin=anonymous onload='renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"\\[",right:"\\]",display:!0},{left:"$",right:"$",display:!1},{left:"\\(",right:"\\)",display:!1}],throwOnError:!1})'></script></head><body><header><div class=header-inner><a href=/zh/ class=site-title>WorldSense 技术笔记</a><nav><a href=/zh/>文章</a>
+<a href=/zh/categories/>分类</a>
+<a href=/zh/archive/>归档</a>
+<a href=/zh/about/>关于</a>
+<a href=https://github.com/houxq8888/worldsensetech.github.io target=_blank>GitHub</a>
+<a href=https://www.worldsensetech.com/en/articles/world-model-lab-setup/>English</a></nav></div></header><div class=article-header><h1>从零搭建世界模型实验环境：MuJoCo + DreamerV3 实战指南</h1><div class=article-info>2026年8月5日 · 阅读约34分钟
+· 实战教程, MuJoCo, DreamerV3, 环境搭建, 强化学习, JAX, 入门</div></div><div class=toc><details class=toc-container open><summary>目录</summary><nav id=TableOfContents><ul><li><a href=#工具选型为什么是这两个>工具选型：为什么是这两个</a></li><li><a href=#第一步环境准备>第一步：环境准备</a></li><li><a href=#第二步安装-mujoco>第二步：安装 MuJoCo</a></li><li><a href=#第三步安装-dreamerv3>第三步：安装 DreamerV3</a></li><li><a href=#了解代码结构不是黑盒>了解代码结构：不是黑盒</a></li><li><a href=#第四步跑第一个实验>第四步：跑第一个实验</a></li><li><a href=#第五步查看训练日志>第五步：查看训练日志</a></li><li><a href=#进阶观察世界模型的想象>进阶：观察世界模型的"想象"</a><ul><li><a href=#什么是想象>什么是"想象"</a></li><li><a href=#如何观察想象质量>如何观察想象质量</a></li><li><a href=#在代码中实现>在代码中实现</a></li><li><a href=#如何判断想象质量>如何判断想象质量</a></li><li><a href=#想象空间的评估指标>想象空间的评估指标</a></li></ul></li><li><a href=#第六步理解训练输出>第六步：理解训练输出</a></li><li><a href=#常见问题排查>常见问题排查</a></li><li><a href=#下一步从-mujoco-到-isaac-sim>下一步：从 MuJoCo 到 Isaac Sim</a></li><li><a href=#可选使用-docker-一键部署>可选：使用 Docker 一键部署</a></li><li><a href=#总结>总结</a></li></ul></nav></details></div><main class=article-content><p>前面写了好几篇世界模型的理论文章——从 RSSM 的数学原理到 Sim-to-Real 迁移，到 VLA 和世界模型的对比。有读者问：道理我都懂了，怎么动手跑起来？</p><p>今天这篇就是回答这个问题的。我会手把手带你搭建一个完整的世界模型实验环境，从安装到训练到可视化，一步步走通。跑通之后，你就可以在这个基础上做自己的实验了。</p><p>我们选用的工具链是：MuJoCo（物理仿真）+ DreamerV3（世界模型）。如果你需要更高保真度的渲染，后面可以替换为 Isaac Sim，但入门阶段 MuJoCo 足够了。</p><h2 id=工具选型为什么是这两个>工具选型：为什么是这两个</h2><p>MuJoCo：目前机器人仿真领域最主流的引擎之一。物理精度高、API 简洁、速度快。2021 年被 DeepMind 收购后开源免费，现在是机器人学习研究的事实标准，也是连续控制世界模型研究中最常用的 benchmark 之一。</p><p>DreamerV3：Danijar Hafner 等人开发的世界模型算法，是 Dreamer 系列的第三代。它用 RSSM（循环状态空间模型）学习环境动态，在想象空间中训练 Actor-Critic 策略。代码开源，文档清晰，是学习世界模型最好的起点。需要注意的是，DreamerV3 底层基于JAX + Haiku框架，而非 TensorFlow。</p><p>日志格式说明：DreamerV3（commit e3f02248）输出自己的日志格式（<code>metrics.jsonl</code> 和 <code>scores.jsonl</code>），不使用 TensorBoard 的 event files。虽然名字里带"json"，但这是 JSON Lines 格式（每行一个 JSON 对象），可以用 Python 直接读取和可视化。本教程会教你如何用 Python 分析这些日志。</p><p>如果你本地机器内存不足（低于 32GB），建议使用云端资源：</p><ul><li>Google Colab：免费 GPU，内存约 12-25GB，适合快速验证。注意 Colab 的 session 有时长限制</li><li>AutoDL / 矩池云：国内云平台，按小时计费，GPU 机型丰富</li><li>AWS / GCP / Azure：按需启动 GPU 实例，适合长期实验</li></ul><p>云端运行的好处是不受本地硬件限制，坏处是需要上传下载数据和模型。对于入门学习，Google Colab 是最经济的选择。</p><h2 id=第一步环境准备>第一步：环境准备</h2><p>先确认你的系统环境。本教程在以下环境验证通过：</p><ul><li>操作系统：Ubuntu 22.04.5 LTS（Jammy Jellyfish），内核 6.8.0-124-generic，x86_64 架构。也适用于 Ubuntu 20.04/22.04 其他版本，macOS 和 WSL2</li><li>Python：3.10 或 3.11（DreamerV3 对 Python 版本有要求）</li><li>GPU：可选但强烈推荐。有 NVIDIA GPU 可以显著加速训练</li><li>内存：至少 32GB（实测 14GB + 4GB swap 仍会在 JAX 编译阶段 OOM）。如果使用 Google Colab 或云服务器，选择高内存配置</li></ul><p>创建一个新的 conda 环境：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-fallback data-lang=fallback><span style=display:flex><span>`conda create -n worldmodel python=3.11
+</span></span><span style=display:flex><span>conda activate worldmodel`
+</span></span></code></pre></div><p>如果你有 NVIDIA GPU，需要安装带 CUDA 支持的 JAX（DreamerV3 的底层框架）。默认的 <code>pip install jax</code> 只装 CPU 版，GPU 用户需要显式指定：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-fallback data-lang=fallback><span style=display:flex><span>`# GPU 用户（CUDA 12）
+</span></span><span style=display:flex><span>pip install &#34;jax[cuda12]&#34;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span># 如果需要指定 CUDA 版本，参考 JAX 官方文档：
+</span></span><span style=display:flex><span># https://jax.readthedocs.io/en/latest/installation.html`
+</span></span></code></pre></div><p>安装完成后，验证 GPU 是否被正确识别：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-fallback data-lang=fallback><span style=display:flex><span>`python -c &#34;import jax; print(jax.devices())&#34;`
+</span></span></code></pre></div><p>如果输出包含 <code>GpuDevice(id=0)</code>，说明 GPU 配置成功。如果只看到 <code>CpuDevice(id=0)</code>，说明 JAX 没有使用 GPU——需要检查 NVIDIA 驱动和 CUDA 版本是否匹配。</p><h2 id=第二步安装-mujoco>第二步：安装 MuJoCo</h2><p>MuJoCo 现在可以通过 pip 直接安装，比以前方便很多：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-fallback data-lang=fallback><span style=display:flex><span>`pip install mujoco`
+</span></span></code></pre></div><p>验证安装是否成功：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-fallback data-lang=fallback><span style=display:flex><span>`python -c &#34;import mujoco; print(mujoco.__version__)&#34;`
+</span></span></code></pre></div><p>如果输出版本号，说明安装成功。</p><p>如果你想要可视化渲染（看到机器人的 3D 画面），还需要安装渲染后端。这一步是很多新人踩坑的地方——尤其是在远程服务器上。</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-fallback data-lang=fallback><span style=display:flex><span>`# 安装渲染依赖
+</span></span><span style=display:flex><span>pip install mujoco[extras]
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span># Linux 无 GPU 或 headless 服务器，还需要安装 OSMesa
+</span></span><span style=display:flex><span>sudo apt-get install libosmesa6-dev`
+</span></span></code></pre></div><p>在远程服务器或无显示器的机器上，必须显式设置渲染后端环境变量，否则会报 GLFW 错误：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-gdscript3 data-lang=gdscript3><span style=display:flex><span>`<span style=color:#6272a4># 有 NVIDIA GPU 的服务器</span>
+</span></span><span style=display:flex><span><span style=color:#ff79c6>export</span> MUJOCO_GL<span style=color:#ff79c6>=</span>egl
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#6272a4># 无 GPU 的服务器</span>
+</span></span><span style=display:flex><span><span style=color:#ff79c6>export</span> MUJOCO_GL<span style=color:#ff79c6>=</span>osmesa`
+</span></span></code></pre></div><p>建议把这行加到 <code>~/.bashrc</code> 中，避免每次重新设置。可以用以下命令确认 GPU 状态：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-fallback data-lang=fallback><span style=display:flex><span>`nvidia-smi`
+</span></span></code></pre></div><h2 id=第三步安装-dreamerv3>第三步：安装 DreamerV3</h2><p>DreamerV3 的官方代码在 GitHub 上。需要说明的是，DreamerV3 不是一个传统的 Python 包——它的代码结构、依赖管理和运行入口在不同版本间有过变化。为了保证可复现性，建议锁定到一个特定的 commit：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-fallback data-lang=fallback><span style=display:flex><span>`git clone https://github.com/danijar/dreamerv3.git
+</span></span><span style=display:flex><span>cd dreamerv3
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span># 锁定到本教程验证过的 commit（避免后续版本变动导致命令不兼容）
+</span></span><span style=display:flex><span>git checkout e3f02248
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>pip install -r requirements.txt`
+</span></span></code></pre></div><p>注意：requirements.txt 中包含 <code>ale_py==0.9.0</code>（Atari 游戏环境依赖），该版本在 PyPI 上已下架。如果你只做 MuJoCo/DM Control 任务，可以跳过这个包：<code>grep -v "ale_py" requirements.txt | grep -v "autorom" | pip install -r /dev/stdin</code>。或者手动编辑 requirements.txt，删除 <code>ale_py</code> 和 <code>autorom</code> 两行后再安装。</p><p>如果你要用 MuJoCo 环境做实验，还需要安装 DeepMind 的控制库：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-fallback data-lang=fallback><span style=display:flex><span>`# DeepMind Control Suite（包含 MuJoCo 预定义任务）
+</span></span><span style=display:flex><span>pip install dm-control`
+</span></span></code></pre></div><p>注意：网上有些教程会写 <code>pip install dm-control-suite</code>，这个包不存在。正确的包名是 <code>dm-control</code>。</p><h2 id=了解代码结构不是黑盒>了解代码结构：不是黑盒</h2><p>在跑实验之前，先看一下 DreamerV3 的代码结构，知道核心组件在哪里。否则你只是在运行一个黑盒：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-fallback data-lang=fallback><span style=display:flex><span>`dreamerv3/
+</span></span><span style=display:flex><span>── dreamerv3/                  # 核心算法
+</span></span><span style=display:flex><span>│   ├── agent.py                # Agent 主逻辑（Actor、Critic、世界模型训练）
+</span></span><span style=display:flex><span>│   ├── rssm.py                 # RSSM 核心实现（循环状态空间模型）
+</span></span><span style=display:flex><span>│   ├── configs.yaml            # 超参数配置（defaults、dmc_vision、dmc_proprio、atari 等预设）
+</span></span><span style=display:flex><span>│   └── main.py                 # 训练入口
+</span></span><span style=display:flex><span>├── embodied/                   # 通用框架
+</span></span><span style=display:flex><span>│   ├── core/                   # 基础设施
+</span></span><span style=display:flex><span>│   │   ├── replay.py           # 经验回放缓冲区
+</span></span><span style=display:flex><span>│   │   ├── streams.py          # 数据流处理
+</span></span><span style=display:flex><span>│   │   ├── wrappers.py         # 环境封装
+</span></span><span style=display:flex><span>│   │   └── ...
+</span></span><span style=display:flex><span>│   ├── envs/                   # 环境适配
+</span></span><span style=display:flex><span>│   │   ├── dmc.py              # DM Control（MuJoCo 任务）
+</span></span><span style=display:flex><span>│   │   ├── atari.py            # Atari 游戏
+</span></span><span style=display:flex><span>│   │   ├── from_gym.py         # Gymnasium 适配
+</span></span><span style=display:flex><span>│   │   └── ...
+</span></span><span style=display:flex><span>│   ├── jax/                    # JAX/Haiku 实现
+</span></span><span style=display:flex><span>│   │   ├── agent.py            # JAX 版 Agent
+</span></span><span style=display:flex><span>│   │   ├── nets.py             # 神经网络定义
+</span></span><span style=display:flex><span>│   │   ├── heads.py            # 输出头（预测观测、奖励等）
+</span></span><span style=display:flex><span>│   │   ├── opt.py              # 优化器
+</span></span><span style=display:flex><span>│   │   └── ...
+</span></span><span style=display:flex><span>│   └── run/                    # 训练流程
+</span></span><span style=display:flex><span>│       ├── train.py            # 训练循环
+</span></span><span style=display:flex><span>│       ├── parallel.py         # 并行训练
+</span></span><span style=display:flex><span>│       └── train_eval.py       # 训练 + 评估
+</span></span><span style=display:flex><span>├── scores/                     # 预置的 benchmark 分数
+</span></span><span style=display:flex><span>├── Dockerfile                  # Docker 配置
+</span></span><span style=display:flex><span>├── requirements.txt            # Python 依赖
+</span></span><span style=display:flex><span>├── baselines.yaml              # 基线配置
+</span></span><span style=display:flex><span>├── plot.py                     # 可视化脚本
+</span></span><span style=display:flex><span>└── README.md`
+</span></span></code></pre></div><p>几个关键位置：</p><ul><li>RSSM（循环状态空间模型）：在 <code>dreamerv3/rssm.py</code> 中实现，这是世界模型的核心——负责编码观测、预测未来状态</li><li>Agent 逻辑：在 <code>dreamerv3/agent.py</code> 中，包含 Actor、Critic、想象训练的完整流程</li><li>神经网络定义：在 <code>embodied/jax/nets.py</code> 和 <code>heads.py</code> 中，JAX/Haiku 框架实现</li><li>DM Control 适配：在 <code>embodied/envs/dmc.py</code> 中，封装 MuJoCo 任务接口</li><li>训练入口：<code>dreamerv3/main.py</code>，解析配置并启动训练</li><li>超参数配置：<code>dreamerv3/configs.yaml</code>，包含 defaults、dmc_vision、dmc_proprio 等预设配置</li></ul><p>了解这些位置后，你可以直接去看 RSSM 的前向传播是怎么写的，比读论文更直观。</p><h2 id=第四步跑第一个实验>第四步：跑第一个实验</h2><p>环境都装好了，现在来训练一个世界模型。第一个实验我们选一个相对简单的任务：Cartpole Balance——让小车学会把杆子保持在竖直位置。这个任务动作维度低、收敛快，适合验证环境是否配置正确。
+️ 无 GPU 用户必读：JAX 平台配置</p><p>DreamerV3 的默认配置（<code>dreamerv3/configs.yaml</code> 第 73 行）将 JAX 计算平台设为 <code>cuda</code>。如果你的机器没有 NVIDIA GPU，JAX 在初始化时会因找不到 CUDA 设备而直接崩溃，报错信息如下：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-fallback data-lang=fallback><span style=display:flex><span>File &#34;jax/_src/xla_bridge.py&#34;, line 903, in backends
+</span></span><span style=display:flex><span>    assert _default_backend is not None
+</span></span><span style=display:flex><span>AssertionError
+</span></span></code></pre></div><p>这不是你的代码有问题，而是 DreamerV3 默认假设你有 GPU。解决方法：在所有训练命令后加上 <code>--jax.platform cpu</code> 参数，强制 JAX 使用 CPU 后端。下面的命令已包含此参数。</p><p>另外，<code>embodied/jax/internal.py</code> 中的 <code>jax.config.update('jax_platforms', platform)</code> 会覆盖环境变量 <code>JAX_PLATFORMS</code>，所以单独设置环境变量 <code>export JAX_PLATFORMS=cpu</code> 是无效的——必须通过命令行参数覆盖。</p><p>在运行之前，先确认当前仓库支持哪些任务名和配置。建议先查看：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-fallback data-lang=fallback><span style=display:flex><span>`# 查看可用的任务和配置
+</span></span><span style=display:flex><span>python dreamerv3/main.py --help`
+</span></span></code></pre></div><p>确认任务名后，运行训练命令：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-fallback data-lang=fallback><span style=display:flex><span>`python dreamerv3/main.py \
+</span></span><span style=display:flex><span>  --logdir ~/logdir/wm_cartpole_balance \
+</span></span><span style=display:flex><span>  --configs defaults dmc_vision \
+</span></span><span style=display:flex><span>  --task dmc_cartpole_balance \
+</span></span><span style=display:flex><span>  --run.steps 1e6 \
+</span></span><span style=display:flex><span>  --jax.platform cpu`
+</span></span></code></pre></div><p>重要：<code>--jax.platform cpu</code> 参数告诉 JAX 使用 CPU 后端。DreamerV3 默认配置（<code>configs.yaml</code> 第 73 行）将 JAX 平台设为 <code>cuda</code>，如果你的机器没有 NVIDIA GPU，JAX 会因找不到 CUDA 设备而崩溃（报 <code>AssertionError</code>）。有 GPU 的用户可以省略此参数，或改为 <code>--jax.platform gpu</code>。</p><p>参数说明：</p><ul><li><code>--logdir</code>：日志和模型保存路径</li><li><code>--configs</code>：预设配置，defaults 是基础配置，dmc_vision 是 MuJoCo 视觉任务配置，dmc_proprio 是本体感知配置（具体名称以 configs.yaml 为准）</li><li><code>--task</code>：具体任务名，cartpole_balance 是小车平衡任务</li><li><code>--run.steps 1e6</code>：训练 100 万步</li><li><code>--jax.platform cpu</code>：指定 JAX 使用 CPU 后端（无 GPU 环境必须加）</li></ul><p>关于训练时间：这取决于你的硬件配置。单卡消费级 GPU（如 RTX 3060 以上）大约几十分钟到几小时；如果没有 GPU，纯 CPU 训练可能需要一天甚至更久。整体跨度从几十分钟到数十小时不等。</p><p>如果你只是想快速验证流程是否跑通，可以先用少量步数：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-fallback data-lang=fallback><span style=display:flex><span>`python dreamerv3/main.py \
+</span></span><span style=display:flex><span>  --logdir ~/logdir/wm_test \
+</span></span><span style=display:flex><span>  --configs defaults dmc_vision \
+</span></span><span style=display:flex><span>  --task dmc_cartpole_balance \
+</span></span><span style=display:flex><span>  --run.steps 1e4 \
+</span></span><span style=display:flex><span>  --jax.platform cpu`
+</span></span></code></pre></div><p>1 万步大概几分钟就能跑完（GPU），足以验证整个流程。CPU 环境会慢一些，但也能在合理时间内跑完。</p><p>Cartpole Balance 跑通之后，可以逐步升级难度：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-fallback data-lang=fallback><span style=display:flex><span>`# 难度递增推荐
+</span></span><span style=display:flex><span>dmc_cartpole_balance    # ⭐ 入门
+</span></span><span style=display:flex><span>dmc_walker_stand        # ⭐⭐ 站立
+</span></span><span style=display:flex><span>dmc_cheetah_run         # ⭐⭐⭐ 奔跑
+</span></span><span style=display:flex><span>dmc_walker_walk         # ⭐⭐⭐ 行走（多关节协调）
+</span></span><span style=display:flex><span>dmc_humanoid_walk       # ⭐⭐⭐⭐⭐ 人形行走（最难）`
+</span></span></code></pre></div><h2 id=第五步查看训练日志>第五步：查看训练日志</h2><p>DreamerV3（commit e3f02248）不使用 TensorBoard 格式，而是输出自己的日志文件。训练过程中，日志会写入 logdir 下的两个文件：</p><ul><li><code>metrics.jsonl</code>：训练指标，每约 2000 步写入一行，包含 replay buffer 状态、FPS、内存占用等</li><li><code>scores.jsonl</code>：episode 分数，每完成一个 episode 写入一行</li></ul><p>训练运行时，终端会定期输出指标摘要：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-fallback data-lang=fallback><span style=display:flex><span>`--------------------[Agent Step 1_984]--------------------
+</span></span><span style=display:flex><span>Metrics filtered by: &#39;score|length|fps|ratio|train/loss/|train/rand/&#39;
+</span></span><span style=display:flex><span>replay/replay_ratio 1.08 / fps/policy 8.96 / fps/train 0`
+</span></span></code></pre></div><p>你可以直接查看日志文件：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-fallback data-lang=fallback><span style=display:flex><span>`# 查看训练指标
+</span></span><span style=display:flex><span>cat ~/logdir/wm_test/metrics.jsonl
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span># 查看 episode 分数（需要完成至少一个 episode 才有数据）
+</span></span><span style=display:flex><span>cat ~/logdir/wm_test/scores.jsonl`
+</span></span></code></pre></div><p>用 Python 画训练曲线：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-gdscript3 data-lang=gdscript3><span style=display:flex><span>`import json
+</span></span><span style=display:flex><span>import matplotlib<span style=color:#ff79c6>.</span>pyplot as plt
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#6272a4># 读取 metrics.jsonl</span>
+</span></span><span style=display:flex><span>with open(<span style=color:#f1fa8c>&#39;/home/ubunu2204/logdir/wm_test/metrics.jsonl&#39;</span>) as f:
+</span></span><span style=display:flex><span>    metrics <span style=color:#ff79c6>=</span> [json<span style=color:#ff79c6>.</span>loads(line) <span style=color:#ff79c6>for</span> line <span style=color:#ff79c6>in</span> f]
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#8be9fd;font-style:italic>print</span>(<span style=color:#f1fa8c>&#39;指标键名:&#39;</span>, list(metrics[<span style=color:#bd93f9>0</span>]<span style=color:#ff79c6>.</span>keys()) <span style=color:#ff79c6>if</span> metrics <span style=color:#ff79c6>else</span> <span style=color:#f1fa8c>&#39;No data&#39;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#6272a4># 画 replay buffer 增长曲线</span>
+</span></span><span style=display:flex><span>steps <span style=color:#ff79c6>=</span> [m[<span style=color:#f1fa8c>&#39;step&#39;</span>] <span style=color:#ff79c6>for</span> m <span style=color:#ff79c6>in</span> metrics]
+</span></span><span style=display:flex><span>items <span style=color:#ff79c6>=</span> [m<span style=color:#ff79c6>.</span>get(<span style=color:#f1fa8c>&#39;replay/items&#39;</span>, <span style=color:#bd93f9>0</span>) <span style=color:#ff79c6>for</span> m <span style=color:#ff79c6>in</span> metrics]
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>plt<span style=color:#ff79c6>.</span>figure(figsize<span style=color:#ff79c6>=</span>(<span style=color:#bd93f9>10</span>, <span style=color:#bd93f9>5</span>))
+</span></span><span style=display:flex><span>plt<span style=color:#ff79c6>.</span>plot(steps, items)
+</span></span><span style=display:flex><span>plt<span style=color:#ff79c6>.</span>xlabel(<span style=color:#f1fa8c>&#39;Agent Steps&#39;</span>)
+</span></span><span style=display:flex><span>plt<span style=color:#ff79c6>.</span>ylabel(<span style=color:#f1fa8c>&#39;Replay Items&#39;</span>)
+</span></span><span style=display:flex><span>plt<span style=color:#ff79c6>.</span>title(<span style=color:#f1fa8c>&#39;DreamerV3 Training Progress&#39;</span>)
+</span></span><span style=display:flex><span>plt<span style=color:#ff79c6>.</span>savefig(<span style=color:#f1fa8c>&#39;training_progress.png&#39;</span>)
+</span></span><span style=display:flex><span>plt<span style=color:#ff79c6>.</span>show()
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#6272a4># 如果有 scores.jsonl 数据，画 episode return</span>
+</span></span><span style=display:flex><span>try:
+</span></span><span style=display:flex><span>    with open(<span style=color:#f1fa8c>&#39;/home/ubunu2204/logdir/wm_test/scores.jsonl&#39;</span>) as f:
+</span></span><span style=display:flex><span>        scores <span style=color:#ff79c6>=</span> [json<span style=color:#ff79c6>.</span>loads(line) <span style=color:#ff79c6>for</span> line <span style=color:#ff79c6>in</span> f]
+</span></span><span style=display:flex><span>    <span style=color:#ff79c6>if</span> scores:
+</span></span><span style=display:flex><span>        plt<span style=color:#ff79c6>.</span>figure(figsize<span style=color:#ff79c6>=</span>(<span style=color:#bd93f9>10</span>, <span style=color:#bd93f9>5</span>))
+</span></span><span style=display:flex><span>        plt<span style=color:#ff79c6>.</span>plot([s<span style=color:#ff79c6>.</span>get(<span style=color:#f1fa8c>&#39;step&#39;</span>, i) <span style=color:#ff79c6>for</span> i, s <span style=color:#ff79c6>in</span> enumerate(scores)],
+</span></span><span style=display:flex><span>                 [s<span style=color:#ff79c6>.</span>get(<span style=color:#f1fa8c>&#39;score&#39;</span>, s<span style=color:#ff79c6>.</span>get(<span style=color:#f1fa8c>&#39;return&#39;</span>, <span style=color:#bd93f9>0</span>)) <span style=color:#ff79c6>for</span> s <span style=color:#ff79c6>in</span> scores])
+</span></span><span style=display:flex><span>        plt<span style=color:#ff79c6>.</span>xlabel(<span style=color:#f1fa8c>&#39;Step&#39;</span>)
+</span></span><span style=display:flex><span>        plt<span style=color:#ff79c6>.</span>ylabel(<span style=color:#f1fa8c>&#39;Episode Score&#39;</span>)
+</span></span><span style=display:flex><span>        plt<span style=color:#ff79c6>.</span>title(<span style=color:#f1fa8c>&#39;Episode Returns&#39;</span>)
+</span></span><span style=display:flex><span>        plt<span style=color:#ff79c6>.</span>savefig(<span style=color:#f1fa8c>&#39;episode_scores.png&#39;</span>)
+</span></span><span style=display:flex><span>        plt<span style=color:#ff79c6>.</span>show()
+</span></span><span style=display:flex><span>except:
+</span></span><span style=display:flex><span>    <span style=color:#8be9fd;font-style:italic>print</span>(<span style=color:#f1fa8c>&#39;scores.jsonl 暂无数据，需要更多训练步数&#39;</span>)`
+</span></span></code></pre></div><p>运行后会生成类似这样的图表（这是从实际训练日志中绘制的数据点）：
+<img src=/images/training_progress.png alt="DreamerV3 Training Progress - Replay Buffer Growth and Memory Usage"> 图：训练日志可视化示例。左图为 replay buffer 增长，右图为内存占用。数据点来自实际训练运行。</p><p>注意：训练初期（前 ~2000 步）replay buffer 还在填充，此时不会写入 metrics。需要足够步数完成第一个 episode 后，scores.jsonl 才会有数据。Cartpole Balance 任务通常需要几千到几万步才能完成第一个 episode。</p><h2 id=进阶观察世界模型的想象>进阶：观察世界模型的"想象"</h2><p>这篇文章的标题是"世界模型"，但到目前为止我们主要在看策略训练。世界模型最核心的能力其实是想象——给定当前状态和动作，预测未来会发生什么。DreamerV3 的策略就是在想象空间中训练的，所以理解这个能力很重要。</p><h3 id=什么是想象>什么是"想象"</h3><p>想象（imagination）在 DreamerV3 中的具体含义是：RSSM 从当前 latent state 出发，不依赖真实环境，自主推演未来多步。每一步 RSSM 都会输出：</p><ul><li>下一个 latent state：编码后的未来状态</li><li>预测观测：通过 decoder 重建的画面（64×64 像素）</li><li>预测奖励：估计的即时奖励</li><li>预测终止：episode 是否结束</li></ul><p>这个过程完全在模型内部进行，不需要和真实环境交互。Actor-Critic 策略就是在这个想象空间中训练的——Actor 选择动作，Critic 评估价值，都在"脑海"中完成。</p><h3 id=如何观察想象质量>如何观察想象质量</h3><p>最直观的方式是对比想象画面和真实画面。具体做法：</p><ol><li>从真实环境中采集一段轨迹（比如 100 步）</li><li>用 RSSM encoder 编码第一步观测，得到初始 latent state</li><li>从第二步开始，用真实动作驱动 RSSM 做 rollout（teacher forcing）</li><li>每一步用 decoder 重建画面，和真实画面对比</li></ol><p>如果世界模型学得好，重建画面应该和真实画面非常接近。随着推演步数增加，误差会逐渐累积，画面可能变模糊——这是正常的。</p><h3 id=在代码中实现>在代码中实现</h3><p>以下是一个简化的 rollout 分析脚本，展示如何加载训练好的模型并做想象推演：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-gdscript3 data-lang=gdscript3><span style=display:flex><span>`import pickle
+</span></span><span style=display:flex><span>import numpy as np
+</span></span><span style=display:flex><span>import matplotlib<span style=color:#ff79c6>.</span>pyplot as plt
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#6272a4># 加载训练好的 checkpoint</span>
+</span></span><span style=display:flex><span>with open(<span style=color:#f1fa8c>&#39;~/logdir/wm_cartpole_balance/ckpt/latest/agent.pkl&#39;</span>, <span style=color:#f1fa8c>&#39;rb&#39;</span>) as f:
+</span></span><span style=display:flex><span>    agent <span style=color:#ff79c6>=</span> pickle<span style=color:#ff79c6>.</span>load(f)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#6272a4># 从 replay buffer 采样一段真实轨迹</span>
+</span></span><span style=display:flex><span><span style=color:#6272a4># （实际实现需要访问 replay buffer，这里简化）</span>
+</span></span><span style=display:flex><span>real_obs <span style=color:#ff79c6>=</span> sample_trajectory(length<span style=color:#ff79c6>=</span><span style=color:#bd93f9>100</span>)  <span style=color:#6272a4># shape: (100, 64, 64, 3)</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#6272a4># 编码第一步观测</span>
+</span></span><span style=display:flex><span>latent <span style=color:#ff79c6>=</span> agent<span style=color:#ff79c6>.</span>dynamics<span style=color:#ff79c6>.</span>encoder(real_obs[<span style=color:#bd93f9>0</span>])
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#6272a4># 用真实动作驱动 rollout（teacher forcing）</span>
+</span></span><span style=display:flex><span>reconstructed <span style=color:#ff79c6>=</span> []
+</span></span><span style=display:flex><span><span style=color:#ff79c6>for</span> t <span style=color:#ff79c6>in</span> <span style=color:#8be9fd;font-style:italic>range</span>(<span style=color:#bd93f9>1</span>, <span style=color:#bd93f9>100</span>):
+</span></span><span style=display:flex><span>    action <span style=color:#ff79c6>=</span> real_actions[t<span style=color:#ff79c6>-</span><span style=color:#bd93f9>1</span>]  <span style=color:#6272a4># 真实动作</span>
+</span></span><span style=display:flex><span>    latent, _ <span style=color:#ff79c6>=</span> agent<span style=color:#ff79c6>.</span>dynamics<span style=color:#ff79c6>.</span>transition(latent, action)
+</span></span><span style=display:flex><span>    pred_obs <span style=color:#ff79c6>=</span> agent<span style=color:#ff79c6>.</span>dynamics<span style=color:#ff79c6>.</span>decoder(latent)
+</span></span><span style=display:flex><span>    reconstructed<span style=color:#ff79c6>.</span>append(pred_obs)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#6272a4># 对比重建画面和真实画面</span>
+</span></span><span style=display:flex><span>fig, axes <span style=color:#ff79c6>=</span> plt<span style=color:#ff79c6>.</span>subplots(<span style=color:#bd93f9>2</span>, <span style=color:#bd93f9>5</span>, figsize<span style=color:#ff79c6>=</span>(<span style=color:#bd93f9>15</span>, <span style=color:#bd93f9>6</span>))
+</span></span><span style=display:flex><span><span style=color:#ff79c6>for</span> i <span style=color:#ff79c6>in</span> <span style=color:#8be9fd;font-style:italic>range</span>(<span style=color:#bd93f9>5</span>):
+</span></span><span style=display:flex><span>    idx <span style=color:#ff79c6>=</span> i <span style=color:#ff79c6>*</span> <span style=color:#bd93f9>20</span>  <span style=color:#6272a4># 每隔 20 步看一帧</span>
+</span></span><span style=display:flex><span>    axes[<span style=color:#bd93f9>0</span>, i]<span style=color:#ff79c6>.</span>imshow(real_obs[idx])
+</span></span><span style=display:flex><span>    axes[<span style=color:#bd93f9>0</span>, i]<span style=color:#ff79c6>.</span>set_title(f<span style=color:#f1fa8c>&#39;Real t={idx}&#39;</span>)
+</span></span><span style=display:flex><span>    axes[<span style=color:#bd93f9>0</span>, i]<span style=color:#ff79c6>.</span>axis(<span style=color:#f1fa8c>&#39;off&#39;</span>)
+</span></span><span style=display:flex><span>    axes[<span style=color:#bd93f9>1</span>, i]<span style=color:#ff79c6>.</span>imshow(reconstructed[idx<span style=color:#ff79c6>-</span><span style=color:#bd93f9>1</span>])
+</span></span><span style=display:flex><span>    axes[<span style=color:#bd93f9>1</span>, i]<span style=color:#ff79c6>.</span>set_title(f<span style=color:#f1fa8c>&#39;Reconstructed t={idx}&#39;</span>)
+</span></span><span style=display:flex><span>    axes[<span style=color:#bd93f9>1</span>, i]<span style=color:#ff79c6>.</span>axis(<span style=color:#f1fa8c>&#39;off&#39;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>plt<span style=color:#ff79c6>.</span>tight_layout()
+</span></span><span style=display:flex><span>plt<span style=color:#ff79c6>.</span>savefig(<span style=color:#f1fa8c>&#39;imagination_comparison.png&#39;</span>)
+</span></span><span style=display:flex><span>plt<span style=color:#ff79c6>.</span>show()`
+</span></span></code></pre></div><h3 id=如何判断想象质量>如何判断想象质量</h3><p>观察对比图时，关注以下几点：</p><ul><li>短期预测（1-10 步）：重建画面应该和真实画面几乎一致。如果差距很大，说明模型还没学好</li><li>中期预测（10-50 步）：画面可能开始模糊，但整体结构应该保持（比如 cartpole 的杆子还在、位置大致正确）</li><li>长期预测（50+ 步）：画面可能严重失真，这是正常的——误差会累积</li></ul><p>另一个判断标准是想象空间中的策略表现。如果 Actor 在想象空间中训练出的策略，放到真实环境中也能 work，说明想象质量足够好。反之，如果策略在真实环境中表现很差，可能是想象空间和真实环境差距太大。</p><h3 id=想象空间的评估指标>想象空间的评估指标</h3><p>在 <code>metrics.jsonl</code> 中，你可以关注以下和想象相关的指标（键名可能因版本而异）：</p><ul><li><code>train/loss/dyn</code>：世界模型的动态预测损失，下降说明预测能力在提升</li><li><code>train/loss/dec</code>：decoder 的重建损失，下降说明画面重建质量在提升</li><li><code>train/loss/rew</code>：奖励预测损失，下降说明奖励预测更准确</li></ul><p>这些损失下降是必要条件，但不是充分条件——低重建误差不等于好的控制策略。最终还是要看 <code>scores.jsonl</code> 中的 episode return 是否上升。</p><h2 id=第六步理解训练输出>第六步：理解训练输出</h2><p>训练完成后，logdir 下的目录结构如下（基于 commit e3f02248 实际验证）：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-fallback data-lang=fallback><span style=display:flex><span>`~/logdir/wm_cartpole_balance/
+</span></span><span style=display:flex><span>├── config.yaml               # 训练配置（完整超参数记录）
+</span></span><span style=display:flex><span>├── metrics.jsonl             # 训练指标（JSON Lines 格式，每~2000 步一行）
+</span></span><span style=display:flex><span>├── scores.jsonl              # Episode 分数（JSON Lines 格式，每完成一个 episode 一行）
+</span></span><span style=display:flex><span>├── ckpt/                     # 模型检查点
+</span></span><span style=display:flex><span>│   ├── latest                # 最新 checkpoint 路径
+</span></span><span style=display:flex><span>│   └── 20260804T194935F161160/
+</span></span><span style=display:flex><span>│       ├── step.pkl          # 训练步数
+</span></span><span style=display:flex><span>│       ├── agent.pkl         # 模型权重（约 2GB）
+</span></span><span style=display:flex><span>│       ├── replay.pkl        # Replay buffer 状态
+</span></span><span style=display:flex><span>│       └── done              # 保存完成标记
+</span></span><span style=display:flex><span>├── replay/                   # Replay buffer 数据
+</span></span><span style=display:flex><span>└── scope/                    # 性能监控指标
+</span></span><span style=display:flex><span>    ├── fps-train.float       # 训练 FPS
+</span></span><span style=display:flex><span>    ├── fps-policy.float      # 策略 FPS
+</span></span><span style=display:flex><span>    ├── replay-*.float        # Replay buffer 统计
+</span></span><span style=display:flex><span>    └── usage-psutil-*.float  # 系统资源占用（CPU/内存）`
+</span></span></code></pre></div><p>关键文件说明：</p><ul><li>metrics.jsonl：包含 replay buffer 状态、FPS、内存占用等训练指标。每行是一个 JSON 对象，键名如 <code>replay/items</code>、<code>fps/policy</code>、<code>usage/psutil/proc_ram_gb</code> 等</li><li>scores.jsonl：记录每个 episode 的分数和长度。需要训练足够步数完成第一个 episode 后才有数据</li><li>ckpt/agent.pkl：模型权重文件，可用于恢复训练或推理。注意单个 checkpoint 约 2GB</li><li>scope/：二进制格式的性能指标，可用 Python 读取分析训练效率</li></ul><p>用 Python 分析训练结果：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-gdscript3 data-lang=gdscript3><span style=display:flex><span>`import json
+</span></span><span style=display:flex><span>import matplotlib<span style=color:#ff79c6>.</span>pyplot as plt
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#6272a4># 读取 metrics.jsonl</span>
+</span></span><span style=display:flex><span>with open(<span style=color:#f1fa8c>&#39;~/logdir/wm_cartpole_balance/metrics.jsonl&#39;</span>) as f:
+</span></span><span style=display:flex><span>    metrics <span style=color:#ff79c6>=</span> [json<span style=color:#ff79c6>.</span>loads(line) <span style=color:#ff79c6>for</span> line <span style=color:#ff79c6>in</span> f]
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#6272a4># 打印所有指标键名</span>
+</span></span><span style=display:flex><span><span style=color:#8be9fd;font-style:italic>print</span>(<span style=color:#f1fa8c>&#39;指标键名:&#39;</span>, list(metrics[<span style=color:#bd93f9>0</span>]<span style=color:#ff79c6>.</span>keys()) <span style=color:#ff79c6>if</span> metrics <span style=color:#ff79c6>else</span> <span style=color:#f1fa8c>&#39;No data&#39;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#6272a4># 画 replay buffer 增长</span>
+</span></span><span style=display:flex><span>steps <span style=color:#ff79c6>=</span> [m[<span style=color:#f1fa8c>&#39;step&#39;</span>] <span style=color:#ff79c6>for</span> m <span style=color:#ff79c6>in</span> metrics]
+</span></span><span style=display:flex><span>items <span style=color:#ff79c6>=</span> [m<span style=color:#ff79c6>.</span>get(<span style=color:#f1fa8c>&#39;replay/items&#39;</span>, <span style=color:#bd93f9>0</span>) <span style=color:#ff79c6>for</span> m <span style=color:#ff79c6>in</span> metrics]
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>plt<span style=color:#ff79c6>.</span>figure(figsize<span style=color:#ff79c6>=</span>(<span style=color:#bd93f9>10</span>, <span style=color:#bd93f9>5</span>))
+</span></span><span style=display:flex><span>plt<span style=color:#ff79c6>.</span>plot(steps, items)
+</span></span><span style=display:flex><span>plt<span style=color:#ff79c6>.</span>xlabel(<span style=color:#f1fa8c>&#39;Agent Steps&#39;</span>)
+</span></span><span style=display:flex><span>plt<span style=color:#ff79c6>.</span>ylabel(<span style=color:#f1fa8c>&#39;Replay Items&#39;</span>)
+</span></span><span style=display:flex><span>plt<span style=color:#ff79c6>.</span>title(<span style=color:#f1fa8c>&#39;DreamerV3 Training Progress&#39;</span>)
+</span></span><span style=display:flex><span>plt<span style=color:#ff79c6>.</span>savefig(<span style=color:#f1fa8c>&#39;training_progress.png&#39;</span>)
+</span></span><span style=display:flex><span>plt<span style=color:#ff79c6>.</span>show()
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#6272a4># 读取 scores.jsonl（如果有数据）</span>
+</span></span><span style=display:flex><span>try:
+</span></span><span style=display:flex><span>    with open(<span style=color:#f1fa8c>&#39;~/logdir/wm_cartpole_balance/scores.jsonl&#39;</span>) as f:
+</span></span><span style=display:flex><span>        scores <span style=color:#ff79c6>=</span> [json<span style=color:#ff79c6>.</span>loads(line) <span style=color:#ff79c6>for</span> line <span style=color:#ff79c6>in</span> f]
+</span></span><span style=display:flex><span>    <span style=color:#ff79c6>if</span> scores:
+</span></span><span style=display:flex><span>        <span style=color:#8be9fd;font-style:italic>print</span>(f<span style=color:#f1fa8c>&#39;完成 {len(scores)} 个 episodes&#39;</span>)
+</span></span><span style=display:flex><span>        <span style=color:#8be9fd;font-style:italic>print</span>(<span style=color:#f1fa8c>&#39;最后一个 episode:&#39;</span>, scores[<span style=color:#ff79c6>-</span><span style=color:#bd93f9>1</span>])
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        plt<span style=color:#ff79c6>.</span>figure(figsize<span style=color:#ff79c6>=</span>(<span style=color:#bd93f9>10</span>, <span style=color:#bd93f9>5</span>))
+</span></span><span style=display:flex><span>        plt<span style=color:#ff79c6>.</span>plot([s<span style=color:#ff79c6>.</span>get(<span style=color:#f1fa8c>&#39;step&#39;</span>, i) <span style=color:#ff79c6>for</span> i, s <span style=color:#ff79c6>in</span> enumerate(scores)],
+</span></span><span style=display:flex><span>                 [s<span style=color:#ff79c6>.</span>get(<span style=color:#f1fa8c>&#39;score&#39;</span>, <span style=color:#bd93f9>0</span>) <span style=color:#ff79c6>for</span> s <span style=color:#ff79c6>in</span> scores])
+</span></span><span style=display:flex><span>        plt<span style=color:#ff79c6>.</span>xlabel(<span style=color:#f1fa8c>&#39;Step&#39;</span>)
+</span></span><span style=display:flex><span>        plt<span style=color:#ff79c6>.</span>ylabel(<span style=color:#f1fa8c>&#39;Episode Score&#39;</span>)
+</span></span><span style=display:flex><span>        plt<span style=color:#ff79c6>.</span>title(<span style=color:#f1fa8c>&#39;Episode Returns&#39;</span>)
+</span></span><span style=display:flex><span>        plt<span style=color:#ff79c6>.</span>savefig(<span style=color:#f1fa8c>&#39;episode_scores.png&#39;</span>)
+</span></span><span style=display:flex><span>        plt<span style=color:#ff79c6>.</span>show()
+</span></span><span style=display:flex><span>    <span style=color:#ff79c6>else</span>:
+</span></span><span style=display:flex><span>        <span style=color:#8be9fd;font-style:italic>print</span>(<span style=color:#f1fa8c>&#39;scores.jsonl 为空，需要更多训练步数&#39;</span>)
+</span></span><span style=display:flex><span>except FileNotFoundError:
+</span></span><span style=display:flex><span>    <span style=color:#8be9fd;font-style:italic>print</span>(<span style=color:#f1fa8c>&#39;scores.jsonl 不存在&#39;</span>)`
+</span></span></code></pre></div><h2 id=常见问题排查>常见问题排查</h2><p>问题 1：MuJoCo 渲染报错 &ldquo;GLFW error&rdquo;</p><p>这通常是因为没有正确配置渲染后端。如果你在远程服务器或无显示器的机器上，设置环境变量使用离屏渲染：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-gdscript3 data-lang=gdscript3><span style=display:flex><span>`<span style=color:#ff79c6>export</span> MUJOCO_GL<span style=color:#ff79c6>=</span>egl   <span style=color:#6272a4># 有 GPU</span>
+</span></span><span style=display:flex><span><span style=color:#6272a4># 或</span>
+</span></span><span style=display:flex><span><span style=color:#ff79c6>export</span> MUJOCO_GL<span style=color:#ff79c6>=</span>osmesa  <span style=color:#6272a4># 无 GPU`</span>
+</span></span></code></pre></div><p>问题 2：DreamerV3 训练很慢</p><p>几个可能的原因：没有 GPU（纯 CPU 训练会慢 10 倍以上）、batch size 太大（可以减小）、环境并行数不够。如果有 GPU，确认 JAX 正确识别了 CUDA（用 <code>jax.devices()</code> 检查）。</p><p>问题 3：训练奖励不上升</p><p>可能是学习率不合适、任务太难、或者训练步数不够。建议先换一个简单的任务（比如 reach 任务）验证流程，再切换到难任务。DreamerV3 的默认超参数在大部分 MuJoCo 任务上是调好的，一般不需要修改。</p><p>问题 4：内存溢出（OOM）</p><p>DreamerV3 需要存储 replay buffer，如果内存不够可以减小 buffer size。在 configs 里修改 <code>buffer_size=1e5</code>（默认更大）。</p><p>问题 5：进程被 Killed（OOM Killer）</p><p>如果训练运行一段时间后突然被系统杀掉（终端显示 &ldquo;Killed&rdquo;），很可能是 Linux OOM Killer 触发了。这通常发生在 JAX 编译或 replay buffer 填充阶段，内存占用会短暂飙升。解决方法：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-fallback data-lang=fallback><span style=display:flex><span>`# 检查系统内存
+</span></span><span style=display:flex><span>free -h
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span># 如果内存不足，可以：
+</span></span><span style=display:flex><span># 1. 减小 replay buffer size（在 configs.yaml 或命令行覆盖）
+</span></span><span style=display:flex><span>python dreamerv3/main.py --replay.size 1e5 ...
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span># 2. 增加 swap 空间（临时方案）
+</span></span><span style=display:flex><span>sudo fallocate -l 8G /swapfile
+</span></span><span style=display:flex><span>sudo chmod 600 /swapfile
+</span></span><span style=display:flex><span>sudo mkswap /swapfile
+</span></span><span style=display:flex><span>sudo swapon /swapfile
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span># 3. 使用更小的 batch size
+</span></span><span style=display:flex><span>python dreamerv3/main.py --batch_size 8 ...`
+</span></span></code></pre></div><p>建议至少 32GB 内存运行 DreamerV3。如果在虚拟机上运行，确保分配了足够的内存。</p><p>问题 6：JAX 报 AssertionError（无 GPU 环境）</p><p>如果你的机器没有 NVIDIA GPU，运行训练时可能会遇到 <code>jax/_src/xla_bridge.py</code> 中的 <code>AssertionError</code>。这是因为 <code>configs.yaml</code> 默认将 JAX 平台设为 <code>cuda</code>，JAX 找不到 GPU 后端就会崩溃。解决方法是在命令行加上 <code>--jax.platform cpu</code>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-fallback data-lang=fallback><span style=display:flex><span>`python dreamerv3/main.py \
+</span></span><span style=display:flex><span>  --configs defaults dmc_vision \
+</span></span><span style=display:flex><span>  --task dmc_cartpole_balance \
+</span></span><span style=display:flex><span>  --jax.platform cpu`
+</span></span></code></pre></div><p>这会覆盖配置文件中的默认值，强制 JAX 使用 CPU 后端。有 GPU 的用户不需要此参数。</p><h2 id=下一步从-mujoco-到-isaac-sim>下一步：从 MuJoCo 到 Isaac Sim</h2><p>MuJoCo 适合快速验证算法，但渲染真实度有限。如果你需要更逼真的视觉输入（比如训练一个从摄像头画面识别物体的机器人），可以升级到 NVIDIA Isaac Sim。</p><p>Isaac Sim 基于 Omniverse 平台，提供物理精确的仿真和高保真渲染。它和 MuJoCo 的 API 不同，DreamerV3 的训练流程是一样的，但从 MuJoCo 迁移到 Isaac Sim 并不只是写一个环境包装器那么简单。你需要处理的差异包括：</p><ul><li>Observation 设计：Isaac Sim 的视觉输出格式、分辨率、相机参数和 MuJoCo 不同，需要重新适配</li><li>Camera Latency：高保真渲染带来额外的延迟，可能影响训练稳定性</li><li>Physics Timestep：两个引擎的仿真频率和积分精度不同，需要调整 action repeat</li><li>Action Scaling：动作空间的范围和含义可能不同，需要重新标定</li><li>Domain Randomization：Sim-to-Real 迁移时需要重新设计随机化策略</li></ul><p>这个进阶话题我后续会单独写一篇。目前阶段，先把 MuJoCo + DreamerV3 跑通，理解世界模型的训练流程，才是最重要的。</p><h2 id=可选使用-docker-一键部署>可选：使用 Docker 一键部署</h2><p>如果你在本地环境配置上花了太多时间（CUDA 版本、MuJoCo 渲染、JAX GPU 等），可以考虑用 Docker 来保证环境一致性。以下是一个基础 Dockerfile 示例：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-fallback data-lang=fallback><span style=display:flex><span>`FROM nvidia/cuda:12.2.0-runtime-ubuntu22.04
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>RUN apt-get update &amp;&amp; apt-get install -y \
+</span></span><span style=display:flex><span>    python3.11 python3-pip libosmesa6-dev \
+</span></span><span style=display:flex><span>    libgl1-mesa-glx libglfw3-dev
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>WORKDIR /app
+</span></span><span style=display:flex><span>COPY requirements.txt .
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span># 过滤掉 ale_py（已下架）和 autorom
+</span></span><span style=display:flex><span>RUN grep -v &#34;ale_py&#34; requirements.txt | grep -v &#34;autorom&#34; | pip install --no-cache-dir -r /dev/stdin
+</span></span><span style=display:flex><span>RUN pip install &#34;jax[cuda12]&#34; mujoco dm-control
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>COPY . .
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span># 默认使用 CPU 模式；有 GPU 时去掉 --jax.platform cpu
+</span></span><span style=display:flex><span>CMD [&#34;python&#34;, &#34;dreamerv3/main.py&#34;, \
+</span></span><span style=display:flex><span>     &#34;--logdir&#34;, &#34;/app/logdir&#34;, \
+</span></span><span style=display:flex><span>     &#34;--configs&#34;, &#34;defaults&#34;, &#34;dmc_vision&#34;, \
+</span></span><span style=display:flex><span>     &#34;--task&#34;, &#34;dmc_cartpole_balance&#34;, \
+</span></span><span style=display:flex><span>     &#34;--run.steps&#34;, &#34;1e6&#34;, \
+</span></span><span style=display:flex><span>     &#34;--jax.platform&#34;, &#34;cpu&#34;]`
+</span></span></code></pre></div><p>构建和运行：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-fallback data-lang=fallback><span style=display:flex><span>`# 构建镜像
+</span></span><span style=display:flex><span>docker build -t dreamerv3 .
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span># 运行（挂载日志目录到宿主机）
+</span></span><span style=display:flex><span>docker run --gpus all -v $(pwd)/logdir:/app/logdir dreamerv3
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span># 如果只有 CPU，去掉 --gpus all
+</span></span><span style=display:flex><span>docker run -v $(pwd)/logdir:/app/logdir dreamerv3`
+</span></span></code></pre></div><p>内存注意：Docker 容器默认可以使用宿主机全部内存，但如果你用 Docker Desktop（macOS/Windows），需要在设置中分配至少 32GB 内存，否则容器内训练会因 OOM 被杀。</p><p>使用 Docker 的好处是环境完全可复现，不会因为系统差异导致"在我机器上能跑"的问题。对于团队协作和论文实验复现特别有用。</p><h2 id=总结>总结</h2><p>今天我们搭建了一个完整的世界模型实验环境：MuJoCo 负责物理仿真，DreamerV3 负责世界模型训练。我们学习了如何查看和分析训练日志（<code>metrics.jsonl</code> 和 <code>scores.jsonl</code>），用 Python 画出训练曲线。整个流程从安装到跑通第一个实验，大概需要半小时到一小时（取决于网速和是否使用 Docker）。</p><p>跑通之后，你可以尝试：</p><ul><li>逐步升级任务难度（walker stand → cheetah run → walker walk → humanoid walk）</li><li>做 imagination rollout，观察世界模型的"想象"质量</li><li>调整超参数，观察想象空间质量的变化</li><li>对比 DreamerV3 和传统 RL（比如 PPO）的样本效率</li><li>在世界模型中加入语言条件，探索语言接地的可能性</li></ul><p>实践出真知。跑过一遍实验，你对世界模型的理解会比读十篇论文更深。</p><p>下一篇文章，我打算聊一个更前沿的话题：怎么用世界模型生成合成数据来增强 VLA 的训练。这是目前 VLA 和世界模型融合的一个热门方向，敬请期待。</p></main><hr><div class=article-actions><button id=btn-like class="action-btn like-btn">
+<span class=icon>♡</span>
+<span>点赞</span>
+(<span id=like-count>0</span>)
+</button>
+<button id=btn-bookmark class="action-btn bookmark-btn">
+<span class=icon>☆</span>
+<span>收藏</span></button></div><div class=article-nav><a href=/zh/articles/abot-world-0-24h-inference/>← 从1分钟到24小时：ABot-World-0突破的核心意义</a>
+<a href=/zh/articles/world-model-synthetic-data-for-vla/>世界模型 + VLA：用想象力训练机器人 →</a></div><div class=comments-section><h3>评论</h3><div id=giscus-container></div></div><div class=author-box><div class=author-avatar>W</div><div class=author-info><div class=author-name>侯晓琴</div><p>西北工业大学硕士，十余年自动化与 AI 工程经验。著有《Visual C++入门很容易》《C++程序设计经典300例》。目前聚焦世界模型与具身智能方向，记录从传统自动化到机器人 AI 的转型之路。</p></div></div><script src=/js/blog-interactions.js></script><footer><p>&copy; 2026 WorldSense · <a href=https://www.worldsensetech.com>www.worldsensetech.com</a></p><p style="font-size:.8rem;color:#999;margin:4px 0"><a href=https://beian.miit.gov.cn/ target=_blank rel=noopener style=color:#999>沪ICP备2026041639号-1</a>
+<span style="margin:0 6px">|</span>
+<a href="http://www.beian.gov.cn/portal/registerSystemInfo?recordcode=31011402022270" target=_blank rel=noopener style=color:#999;display:inline-flex;align-items:center;gap:3px><img src=/images/logo01.6189a29f.png alt style=width:14px;height:14px;vertical-align:middle>沪公网安备31011402022270号</a></p><span id=busuanzi_container_site_pv style=font-size:.8rem;color:#999>总访问量 <span id=busuanzi_value_site_pv style=color:#2563eb></span> 次
+</span><span id=busuanzi_container_page_pv style=font-size:.8rem;color:#999;margin-left:12px>本文阅读 <span id=busuanzi_value_page_pv style=color:#2563eb></span> 次</span></footer><script src="/js/ga4-tracker.js?v=20260828"></script></body></html>

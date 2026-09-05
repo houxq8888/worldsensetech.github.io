@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Genie on WorldSense Tech Blog</title><link>https://www.worldsensetech.com/en/tags/genie/</link><description>Recent content in Genie on WorldSense Tech Blog</description><generator>Hugo</generator><language>en-US</language><lastBuildDate>Mon, 31 Aug 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://www.worldsensetech.com/en/tags/genie/index.xml" rel="self" type="application/rss+xml"/><item><title>From Dreamer to World Model Agents: Future Directions and Research Trends</title><link>https://www.worldsensetech.com/en/articles/2026-08-31-world-model-future/</link><pubDate>Mon, 31 Aug 2026 00:00:00 +0000</pubDate><guid>https://www.worldsensetech.com/en/articles/2026-08-31-world-model-future/</guid><description>&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;Dreamer Series · Part 6&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;Series directory (currently at Part 6):&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;a href="https://www.worldsensetech.com/en/articles/2026-08-25-dreamer-explained/"&gt;(1) Understanding Dreamer: How World Models Learn to &amp;lsquo;Imagine&amp;rsquo;&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.worldsensetech.com/en/articles/2026-08-27-dreamer-actor-critic/"&gt;(2) Dreamer&amp;rsquo;s Actor-Critic: Policy Optimization in Imagination&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.worldsensetech.com/en/articles/2026-08-28-dreamerv3-training-tips/"&gt;(3) DreamerV3 Training Engineering: From GPU Setup to Hyperparameter Tuning&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.worldsensetech.com/en/articles/2026-08-29-dreamerv3-gpu-guide/"&gt;(4) DreamerV3 GPU Guide: From VRAM Requirements to Cost-Performance Analysis&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.worldsensetech.com/en/articles/2026-08-30-dreamer-applications/"&gt;(5) Dreamer in Practice: From Simulation Control to Sim-to-Real&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;(6) From Dreamer to World Model Agents: Future Directions and Research Trends&lt;/strong&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;The previous five articles covered Dreamer&amp;rsquo;s architecture, principles, training, hardware, and applications. But a broader question remains: &lt;strong&gt;where is the future of world models? How will Dreamer-like methods evolve?&lt;/strong&gt;&lt;/p&gt;</description></item></channel></rss>

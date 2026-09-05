@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Dreamer系列 on WorldSense 技术笔记</title><link>https://www.worldsensetech.com/zh/tags/dreamer%E7%B3%BB%E5%88%97/</link><description>Recent content in Dreamer系列 on WorldSense 技术笔记</description><generator>Hugo</generator><language>zh-CN</language><lastBuildDate>Mon, 31 Aug 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://www.worldsensetech.com/zh/tags/dreamer%E7%B3%BB%E5%88%97/index.xml" rel="self" type="application/rss+xml"/><item><title>从 Dreamer 到世界模型智能体：未来方向与研究趋势</title><link>https://www.worldsensetech.com/zh/articles/2026-08-31-world-model-future/</link><pubDate>Mon, 31 Aug 2026 00:00:00 +0000</pubDate><guid>https://www.worldsensetech.com/zh/articles/2026-08-31-world-model-future/</guid><description>&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;Dreamer 系列 · 第 6 篇&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;系列目录（当前在第 6 篇）：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;a href="https://www.worldsensetech.com/zh/articles/2026-08-25-dreamer-explained/"&gt;（一）读懂 Dreamer：世界模型是怎么学会&amp;rsquo;想象&amp;rsquo;的？&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.worldsensetech.com/zh/articles/2026-08-27-dreamer-actor-critic/"&gt;（二）Dreamer 的 Actor-Critic：想象空间里的策略优化&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.worldsensetech.com/zh/articles/2026-08-28-dreamerv3-training-tips/"&gt;（三）DreamerV3 训练工程实践：从 GPU 配置到超参调优&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.worldsensetech.com/zh/articles/2026-08-29-dreamerv3-gpu-guide/"&gt;（四）DreamerV3 GPU 选型指南：从显存需求到性价比分析&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.worldsensetech.com/zh/articles/2026-08-30-dreamer-applications/"&gt;（五）Dreamer 的应用实践：从仿真控制到 Sim-to-Real&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;（六）从 Dreamer 到世界模型智能体：未来方向与研究趋势&lt;/strong&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;前面五篇文章从架构、原理、训练、硬件到应用，把 Dreamer 系列讲了一遍。但一个更宏观的问题是：&lt;strong&gt;世界模型的未来在哪里？Dreamer 类方法会如何演进？&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;这篇文章作为 Dreamer 系列的收官篇，从 Dreamer 出发，展望世界模型的几个重要研究方向：Transformer 世界模型、视觉预测模型（V-JEPA/Genie）、World Model + LLM Agent、以及机器人基础模型。&lt;/p&gt;
+&lt;h3 id="世界模型的三个层次"&gt;世界模型的三个层次&lt;/h3&gt;
+&lt;p&gt;在展开讨论之前，有必要先澄清&amp;quot;世界模型&amp;quot;这个概念。后文会涉及多种不同的方法，它们实际上处于世界模型的不同层次：&lt;/p&gt;
+&lt;table&gt;
+	&lt;thead&gt;
+			&lt;tr&gt;
+					&lt;th&gt;层次&lt;/th&gt;
+					&lt;th&gt;目标&lt;/th&gt;
+					&lt;th&gt;代表&lt;/th&gt;
+			&lt;/tr&gt;
+	&lt;/thead&gt;
+	&lt;tbody&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;strong&gt;表征世界模型 (Representation WM)&lt;/strong&gt;&lt;/td&gt;
+					&lt;td&gt;学习有用的世界表征&lt;/td&gt;
+					&lt;td&gt;V-JEPA、Slot Attention&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;strong&gt;动力学世界模型 (Dynamics WM)&lt;/strong&gt;&lt;/td&gt;
+					&lt;td&gt;学习 state transition，服务于预测和决策&lt;/td&gt;
+					&lt;td&gt;Dreamer、MuZero&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;strong&gt;生成式世界模型 (Simulation WM)&lt;/strong&gt;&lt;/td&gt;
+					&lt;td&gt;生成可能的未来状态，支持多模态预测&lt;/td&gt;
+					&lt;td&gt;Genie、Diffusion WM&lt;/td&gt;
+			&lt;/tr&gt;
+	&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-text" data-lang="text"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; World Model
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; |
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; ┌───────────┼───────────┐
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; | | |
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;Representation Dynamics Simulation
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; (V-JEPA) (Dreamer) (Genie)
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; | | |
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; 表征学习 策略优化 多未来生成
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;这三层不是竞争关系，而是互补的。Dreamer 属于动力学世界模型，V-JEPA 更接近表征层，Genie 和扩散模型属于生成层。理解这个分类，有助于避免把不同层次的方法混为一谈。&lt;/p&gt;</description></item><item><title>Dreamer 的应用实践：从仿真控制到 Sim-to-Real</title><link>https://www.worldsensetech.com/zh/articles/2026-08-30-dreamer-applications/</link><pubDate>Sun, 30 Aug 2026 00:00:00 +0000</pubDate><guid>https://www.worldsensetech.com/zh/articles/2026-08-30-dreamer-applications/</guid><description>&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;Dreamer 系列 · 第 5 篇&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;系列目录（当前在第 5 篇）：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;a href="https://www.worldsensetech.com/zh/articles/2026-08-25-dreamer-explained/"&gt;（一）读懂 Dreamer：世界模型是怎么学会&amp;rsquo;想象&amp;rsquo;的？&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.worldsensetech.com/zh/articles/2026-08-27-dreamer-actor-critic/"&gt;（二）Dreamer 的 Actor-Critic：想象空间里的策略优化&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.worldsensetech.com/zh/articles/2026-08-28-dreamerv3-training-tips/"&gt;（三）DreamerV3 训练工程实践：从 GPU 配置到超参调优&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.worldsensetech.com/zh/articles/2026-08-29-dreamerv3-gpu-guide/"&gt;（四）DreamerV3 GPU 选型指南：从显存需求到性价比分析&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;（五）Dreamer 的应用实践：从仿真控制到 Sim-to-Real&lt;/strong&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;前面四篇文章讲清楚了 Dreamer 的架构设计、Actor-Critic 原理、训练工程经验和硬件选型。但一个关键问题是：&lt;strong&gt;Dreamer 在实际任务中表现如何？它能用来做什么？&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;这篇文章从 Dreamer 在不同任务类型上的实际表现出发，讨论它的应用边界和 Sim-to-Real 的探索现状。&lt;/p&gt;
+&lt;h2 id="一dreamer-的任务覆盖范围"&gt;一、Dreamer 的任务覆盖范围&lt;/h2&gt;
+&lt;p&gt;Dreamer 系列（V1/V2/V3）在论文中展示了多种任务类型上的实验结果。从官方代码和论文来看，主要覆盖以下几类：&lt;/p&gt;
+&lt;h3 id="deepmind-control-suite-dmc"&gt;DeepMind Control Suite (DMC)&lt;/h3&gt;
+&lt;p&gt;DMC 是 Dreamer 论文中最核心的 benchmark，包含一系列连续控制任务：walker、cheetah、fish、reacher 等。这些任务的特点是：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;低维状态空间（通常几十维）&lt;/li&gt;
+&lt;li&gt;连续动作空间&lt;/li&gt;
+&lt;li&gt;episode 长度固定或较长&lt;/li&gt;
+&lt;li&gt;奖励信号相对密集&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;DreamerV3 在 DMC 等连续控制 benchmark 上表现优秀，尤其体现了世界模型带来的样本效率优势。但在最终性能上，不同任务中与 SAC 等强 model-free 方法各有优劣，并不存在全面碾压。从训练效率来看，Dreamer 在 DMC 上的样本效率通常优于 model-free 方法。这是因为 Dreamer 通过世界模型在想象空间中反复练习，减少了对真实环境交互的依赖。&lt;/p&gt;</description></item><item><title>DreamerV3 GPU 选型指南：从显存需求到性价比分析</title><link>https://www.worldsensetech.com/zh/articles/2026-08-29-dreamerv3-gpu-guide/</link><pubDate>Sat, 29 Aug 2026 00:00:00 +0000</pubDate><guid>https://www.worldsensetech.com/zh/articles/2026-08-29-dreamerv3-gpu-guide/</guid><description>&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;Dreamer 系列 · 第 4 篇&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;系列目录（当前在第 4 篇）：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;a href="https://www.worldsensetech.com/zh/articles/2026-08-25-dreamer-explained/"&gt;（一）读懂 Dreamer：世界模型是怎么学会&amp;rsquo;想象&amp;rsquo;的？&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.worldsensetech.com/zh/articles/2026-08-27-dreamer-actor-critic/"&gt;（二）Dreamer 的 Actor-Critic：想象空间里的策略优化&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.worldsensetech.com/zh/articles/2026-08-28-dreamerv3-training-tips/"&gt;（三）DreamerV3 训练工程实践：从 GPU 配置到超参调优&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;（四）DreamerV3 GPU 选型指南：从显存需求到性价比分析&lt;/strong&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;上一篇训练技巧文章讲了很多 GPU 相关的工程问题：显存不够怎么办、混合精度怎么设、OOM 怎么排查。但有一个更基础的问题没讲：&lt;strong&gt;你到底需要什么样的 GPU？&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;这篇文章从 DreamerV3 的实际显存占用和计算特性出发，分析不同 GPU 的适用场景，帮你做出合理选择。内容基于我在 RTX 5090D（32GB）和 AutoDL 云 GPU 上的实际训练经验。&lt;/p&gt;
+&lt;h2 id="一dreamerv3-的-gpu-需求特点"&gt;一、DreamerV3 的 GPU 需求特点&lt;/h2&gt;
+&lt;p&gt;在选 GPU 之前，先搞清楚 DreamerV3 到底吃 GPU 的哪些资源。&lt;/p&gt;
+&lt;h3 id="显存占用分析"&gt;显存占用分析&lt;/h3&gt;
+&lt;p&gt;DreamerV3 的显存占用主要来自以下几部分：&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;模型参数与训练状态&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;DreamerV3 的模型规模不算大。以默认配置为例：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;RSSM：deter=4096, stoch=32, classes=32, hidden=4096&lt;/li&gt;
+&lt;li&gt;Actor/Critic：3层 MLP，units=1024&lt;/li&gt;
+&lt;li&gt;Encoder/Decoder：取决于任务（像素输入会大很多）&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;对典型控制任务而言，模型参数通常不是显存主要来源——相比激活值和 optimizer 状态，参数占用相对较小。但训练时需要存储 parameter + gradient + Adam 的 m 和 v，合计约 4-8 倍于参数本身。&lt;/p&gt;</description></item><item><title>DreamerV3 训练工程实践：从 GPU 配置到超参调优</title><link>https://www.worldsensetech.com/zh/articles/2026-08-28-dreamerv3-training-tips/</link><pubDate>Fri, 28 Aug 2026 00:00:00 +0000</pubDate><guid>https://www.worldsensetech.com/zh/articles/2026-08-28-dreamerv3-training-tips/</guid><description>&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;Dreamer 系列 · 第 3 篇&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;系列目录（当前在第 3 篇）：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;a href="https://www.worldsensetech.com/zh/articles/2026-08-25-dreamer-explained/"&gt;（一）读懂 Dreamer：世界模型是怎么学会&amp;rsquo;想象&amp;rsquo;的？&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.worldsensetech.com/zh/articles/2026-08-27-dreamer-actor-critic/"&gt;（二）Dreamer 的 Actor-Critic：想象空间里的策略优化&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;（三）DreamerV3 训练工程实践：从 GPU 配置到超参调优&lt;/strong&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;前两篇文章从理论层面讲清楚了 Dreamer 的架构设计和 Actor-Critic 工作原理。但要把 DreamerV3 跑起来、训得好，还需要解决一堆工程问题：GPU 显存不够怎么办？超参数怎么调？训练不稳定怎么排查？&lt;/p&gt;
+&lt;p&gt;这篇文章从实战角度出发，总结 DreamerV3 训练中的工程经验和常见坑。内容基于 &lt;a href="https://github.com/danijar/dreamerv3"&gt;danijar/dreamerv3@e3f02248&lt;/a&gt; JAX reference implementation。&lt;/p&gt;
+&lt;h2 id="一环境配置jax--gpu"&gt;一、环境配置：JAX + GPU&lt;/h2&gt;
+&lt;h3 id="jax-的-gpu-支持"&gt;JAX 的 GPU 支持&lt;/h3&gt;
+&lt;p&gt;DreamerV3 使用 JAX 实现。JAX 的 GPU 支持依赖 CUDA 和 cuDNN，安装时需要注意版本匹配：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#6272a4"&gt;# 推荐安装方式（以 CUDA 12.x 为例）&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;pip install --upgrade &lt;span style="color:#f1fa8c"&gt;&amp;#34;jax[cuda12]&amp;#34;&lt;/span&gt; -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;验证 GPU 是否被正确识别：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-python" data-lang="python"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#ff79c6"&gt;import&lt;/span&gt; jax
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#8be9fd;font-style:italic"&gt;print&lt;/span&gt;(jax&lt;span style="color:#ff79c6"&gt;.&lt;/span&gt;devices()) &lt;span style="color:#6272a4"&gt;# 应该看到 GPU 设备&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;如果输出只有 &lt;code&gt;[CpuDevice]&lt;/code&gt;，说明 JAX 没有正确检测到 GPU。常见原因包括 CUDA 版本不匹配、cuDNN 未安装、或者环境变量配置问题。&lt;/p&gt;</description></item><item><title>Dreamer 的 Actor-Critic：想象空间里的策略优化是怎么工作的？</title><link>https://www.worldsensetech.com/zh/articles/2026-08-27-dreamer-actor-critic/</link><pubDate>Thu, 27 Aug 2026 00:00:00 +0000</pubDate><guid>https://www.worldsensetech.com/zh/articles/2026-08-27-dreamer-actor-critic/</guid><description>&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;Dreamer 系列 · 第 2 篇&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;系列目录（当前在第 2 篇）：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;a href="https://www.worldsensetech.com/zh/articles/2026-08-25-dreamer-explained/"&gt;（一）读懂 Dreamer：世界模型是怎么学会&amp;rsquo;想象&amp;rsquo;的？&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;&lt;a href="https://www.worldsensetech.com/zh/articles/2026-08-27-dreamer-actor-critic/"&gt;（二）Dreamer 的 Actor-Critic：想象空间里的策略优化&lt;/a&gt;&lt;/strong&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;上一篇从架构层面讲清楚了 Dreamer 的整体设计：世界模型在隐空间中预测未来，策略在想象轨迹上学习。但这留下了一个核心问题：&lt;strong&gt;策略具体怎么从想象轨迹中提取学习信号？&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;这篇文章从 DreamerV3 源码出发，把 Actor-Critic 的完整工作链路拆开来看：imagination rollout 怎么生成特征、λ-return 怎么计算、two-hot value prediction 怎么工作、symlog 变换为什么不可或缺。&lt;/p&gt;
+&lt;p&gt;本文基于 &lt;a href="https://github.com/danijar/dreamerv3"&gt;danijar/dreamerv3@e3f02248&lt;/a&gt; JAX reference implementation 开源快照，代码引用来自 &lt;code&gt;dreamerv3/agent.py&lt;/code&gt;、&lt;code&gt;dreamerv3/rssm.py&lt;/code&gt;、&lt;code&gt;embodied/jax/&lt;/code&gt; 等文件。需要注意的是，开源实现与论文描述之间存在一些工程层面的差异，本文以源码行为为准。&lt;/p&gt;
+&lt;h2 id="一从想象到策略完整链路概览"&gt;一、从想象到策略：完整链路概览&lt;/h2&gt;
+&lt;p&gt;先建立全局视角。Dreamer 的一次策略更新经过以下步骤：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-text" data-lang="text"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;replay buffer 中的真实序列
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; ↓
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; encoder + posterior → 初始 latent state (h₀, z₀)
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; ↓
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; imagine loop（15 步）：
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; actor → action → RSSM deterministic transition → prior stochastic state → next latent feature
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; ↓
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; （imagination 阶段没有 observation，stochastic state 完全由 RSSM prior rollout 产生）
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; ↓
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; 每步的 latent feature → reward predictor / continuation predictor / value predictor
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; ↓
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; λ-return 计算 → Actor loss + Critic loss
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; ↓
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; 梯度更新
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;这里的关键是：想象轨迹本身只是一串 latent features。要让策略从中学习，需要 reward model 给出即时反馈、continuation model 判断 episode 是否继续、value model 估计长期价值——三者共同构成 λ-return，然后 Actor 和 Critic 各自更新。&lt;/p&gt;</description></item><item><title>读懂 Dreamer：世界模型是怎么学会'想象'的？</title><link>https://www.worldsensetech.com/zh/articles/2026-08-25-dreamer-explained/</link><pubDate>Tue, 25 Aug 2026 00:00:00 +0000</pubDate><guid>https://www.worldsensetech.com/zh/articles/2026-08-25-dreamer-explained/</guid><description>&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;Dreamer 系列 · 第 1 篇&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;本篇从架构层面讲清楚 Dreamer 的整体设计。如果你已经读过 &lt;a href="https://www.worldsensetech.com/zh/articles/2026-08-19-rssm-code-walkthrough/"&gt;RSSM 代码解析系列&lt;/a&gt;，这篇可以帮你把零散的代码细节串成完整的架构理解。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;Dreamer 最重要的思想，不是&amp;quot;训练一个会生成未来画面的模型&amp;quot;，而是&lt;strong&gt;训练一个足够支持决策的 latent world model，然后让策略在这个内部世界里学习&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;这篇文章围绕这条主线，把 Dreamer 的设计逻辑从头到尾讲一遍。&lt;/p&gt;
+&lt;h2 id="一dreamer-到底在解决什么问题"&gt;一、Dreamer 到底在解决什么问题？&lt;/h2&gt;
+&lt;p&gt;强化学习的核心循环是：智能体与环境交互 → 获得奖励 → 改进策略。这个循环的问题在于，每一步交互都需要真实的环境计算——对于机器人控制这类复杂任务，这意味着大量的仿真时间甚至真实机器人时间。&lt;/p&gt;
+&lt;p&gt;Dreamer 的思路是：与其在真实环境中反复试错，不如先&lt;strong&gt;学一个世界模型&lt;/strong&gt;，然后在模型的&amp;quot;想象&amp;quot;中训练策略。&lt;/p&gt;
+&lt;p&gt;这听起来简单，但要做到需要解决几个关键问题：世界模型怎么表征环境状态？怎么从想象中学出有用的策略？怎么避免想象误差把策略带偏？&lt;/p&gt;
+&lt;p&gt;从 V1 到 V3，Dreamer 的演进可以粗略理解成三个方向：更好的 latent representation、更稳定的 imagination learning，以及更强的跨任务泛化能力。&lt;/p&gt;
+&lt;h2 id="二dreamer-为什么主要在-latent-space-中预测"&gt;二、Dreamer 为什么主要在 latent space 中预测？&lt;/h2&gt;
+&lt;p&gt;在讲架构之前，先建立一个最重要的直觉。&lt;/p&gt;
+&lt;p&gt;Dreamer 并不是完全不预测 observation，而是&lt;strong&gt;不需要把未来像素级视频作为策略学习的主要载体&lt;/strong&gt;。Dreamer 的关键是在 latent space 中学习对预测和决策有用的 dynamics。&lt;/p&gt;
+&lt;p&gt;假设机器人当前看到一张 1024×1024 的 RGB 图像。如果世界模型每一步都必须精确预测下一帧的每一个像素，大量计算都会浪费在与决策无关的视觉细节上。Dreamer 的做法是先把观测压缩成 latent state，再在 latent space 中预测未来。只要 latent representation 保留了与预测和决策相关的信息，就不必要求世界模型精确重建未来画面的每一个像素。&lt;/p&gt;
+&lt;p&gt;换句话说，&lt;strong&gt;Dreamer 不是预测世界&amp;quot;长什么样&amp;quot;，而是预测决策需要知道的世界状态。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;这是理解后续所有设计的核心出发点。&lt;/p&gt;
+&lt;h2 id="三全局架构图"&gt;三、全局架构图&lt;/h2&gt;
+&lt;p&gt;Dreamer 的训练可以理解成两个循环：**Observe（观察）**负责从真实环境数据学习世界模型；**Imagine（想象）**负责在 latent space 中生成未来轨迹，并利用这些轨迹训练策略。&lt;/p&gt;</description></item><item><title>RSSM状态空间模型详解：世界模型的核心引擎</title><link>https://www.worldsensetech.com/zh/articles/rssm-deep-dive/</link><pubDate>Sun, 02 Aug 2026 00:00:00 +0000</pubDate><guid>https://www.worldsensetech.com/zh/articles/rssm-deep-dive/</guid><description>&lt;p&gt;上一篇文章我们聊了世界模型的基本概念和DreamerV3的整体架构。有读者反馈说，想更深入地了解RSSM到底是怎么工作的。这篇文章就来拆解这个Dreamer系列世界模型的核心组件。&lt;/p&gt;
+&lt;p&gt;我会尽量把数学讲清楚，但不会过度形式化。毕竟我们的目标是理解原理，而不是证明定理。&lt;/p&gt;
+&lt;h2 id="为什么需要状态空间模型"&gt;为什么需要状态空间模型&lt;/h2&gt;
+&lt;p&gt;在讨论RSSM之前，先退一步想想：为什么我们需要状态空间模型？直接用RNN或者Transformer不行吗？&lt;/p&gt;
+&lt;p&gt;先说RNN。传统RNN的问题在于，它把所有信息压缩到一个确定性的隐状态向量里。这就像让你用一个数字来描述&amp;quot;今天天气怎么样&amp;quot;——不管你怎么选这个数字，都会丢失大量信息。更关键的是，RNN没有表达不确定性的能力。如果环境有随机因素（比如一阵风吹来），RNN无法表达&amp;quot;我不确定接下来会发生什么&amp;quot;。&lt;/p&gt;
+&lt;p&gt;再说Transformer。Transformer的注意力机制确实强大，但它有两个问题：一是计算复杂度随序列长度平方增长，对于需要长程记忆的机器人任务来说成本太高；二是它本质上是一个开环模型，没有显式的状态转移结构，不太适合做控制。&lt;/p&gt;
+&lt;p&gt;状态空间模型（SSM）是一个折中方案。它有显式的状态转移方程，能捕捉动态系统的本质；同时通过精心设计的状态表示，在表达能力和计算效率之间取得平衡。&lt;/p&gt;
+&lt;h2 id="rssm的核心思想双轨状态"&gt;RSSM的核心思想：双轨状态&lt;/h2&gt;
+&lt;p&gt;RSSM的全称是Recurrent State-Space Model，循环状态空间模型。它的核心创新在于把隐状态拆成了两条轨道：&lt;/p&gt;
+&lt;p&gt;确定性状态 hₜ（Deterministic State）&lt;/p&gt;
+&lt;p&gt;这个状态类似于传统RNN的隐状态，通过一个GRU（门控循环单元）更新：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;`hₜ = GRU(hₜ₋₁, zₜ₋₁, aₜ₋₁)`
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;它捕捉的是环境中的确定性规律——那些可以精确预测的部分。比如&amp;quot;如果机械臂向右移动10厘米，末端执行器的x坐标就增加10厘米&amp;quot;这种确定的物理关系。&lt;/p&gt;
+&lt;p&gt;随机性状态 zₜ（Stochastic State）&lt;/p&gt;
+&lt;p&gt;这个状态是从一个分布中采样得到的：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;`zₜ ~ p(zₜ | hₜ) # 先验（想象时）
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;zₜ ~ q(zₜ | hₜ, oₜ) # 后验（训练时）`
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;它捕捉的是环境中的不确定性——那些无法精确预测的部分。比如&amp;quot;两个表面之间的摩擦力可能在0.2到0.4之间&amp;quot;这种模糊的物理特性。&lt;/p&gt;
+&lt;p&gt;为什么要这样拆分？因为真实世界就是由确定性规律和不确定性因素共同构成的。把它们分开建模，模型就能更准确地理解环境。&lt;/p&gt;
+&lt;h2 id="完整的状态转移过程"&gt;完整的状态转移过程&lt;/h2&gt;
+&lt;p&gt;让我们一步步走一遍RSSM的状态转移过程。假设在时刻t，我们有一个观测 oₜ（比如相机图像）和一个动作 aₜ（比如关节力矩）：&lt;/p&gt;
+&lt;p&gt;第一步：更新确定性状态&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;`hₜ = GRU(hₜ₋₁, zₜ₋₁, aₜ₋₁)`
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;把上一步的确定性状态hₜ₋₁、随机性状态zₜ₋₁和动作aₜ₋₁拼在一起，通过GRU得到新的确定性状态。这一步类似于传统RNN的更新。&lt;/p&gt;
+&lt;p&gt;第二步：计算随机性状态&lt;/p&gt;
+&lt;p&gt;这里有两种模式：&lt;/p&gt;
+&lt;p&gt;训练时（有真实观测），我们用后验分布：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;`μₜ, σₜ = Encoder(hₜ, oₜ)
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;zₜ = μₜ + σₜ * ε, 其中 ε ~ N(0, I)`
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;推理时（没有真实观测，在想象中），我们用先验分布：&lt;/p&gt;</description></item></channel></rss>

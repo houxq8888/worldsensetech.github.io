@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>VRAM on WorldSense Tech Blog</title><link>https://www.worldsensetech.com/en/tags/vram/</link><description>Recent content in VRAM on WorldSense Tech Blog</description><generator>Hugo</generator><language>en-US</language><lastBuildDate>Sat, 29 Aug 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://www.worldsensetech.com/en/tags/vram/index.xml" rel="self" type="application/rss+xml"/><item><title>DreamerV3 GPU Selection Guide: From VRAM Requirements to Cost-Effectiveness Analysis</title><link>https://www.worldsensetech.com/en/articles/2026-08-29-dreamerv3-gpu-guide/</link><pubDate>Sat, 29 Aug 2026 00:00:00 +0000</pubDate><guid>https://www.worldsensetech.com/en/articles/2026-08-29-dreamerv3-gpu-guide/</guid><description>&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;Dreamer Series - Part 4&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;Series directory (currently at Part 4):&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;a href="https://www.worldsensetech.com/en/articles/2026-08-25-dreamer-explained/"&gt;(Part 1) Understanding Dreamer: How World Models Learn to &amp;lsquo;Imagine&amp;rsquo;&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.worldsensetech.com/en/articles/2026-08-27-dreamer-actor-critic/"&gt;(Part 2) Dreamer&amp;rsquo;s Actor-Critic: Policy Optimization in Imagination&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.worldsensetech.com/en/articles/2026-08-28-dreamerv3-training-tips/"&gt;(Part 3) DreamerV3 Training Tips: Lessons from Real-World Debugging&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;(Part 4) DreamerV3 GPU Selection Guide: From VRAM Requirements to Cost-Effectiveness Analysis&lt;/strong&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;The previous article covered many GPU-related engineering issues: what to do when VRAM runs out, how to set up mixed precision, how to debug OOM errors. But there&amp;rsquo;s a more fundamental question we didn&amp;rsquo;t address: &lt;strong&gt;what kind of GPU do you actually need?&lt;/strong&gt;&lt;/p&gt;</description></item></channel></rss>

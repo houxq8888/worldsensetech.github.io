@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>I-JEPA on WorldSense 技术笔记</title><link>https://www.worldsensetech.com/zh/tags/i-jepa/</link><description>Recent content in I-JEPA on WorldSense 技术笔记</description><generator>Hugo</generator><language>zh-CN</language><lastBuildDate>Wed, 02 Sep 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://www.worldsensetech.com/zh/tags/i-jepa/index.xml" rel="self" type="application/rss+xml"/><item><title>JEPA 深度解读：从 I-JEPA 到 V-JEPA 2-AC，预测性表征如何走向世界模型</title><link>https://www.worldsensetech.com/zh/articles/2026-09-02-jepa-deep-dive/</link><pubDate>Wed, 02 Sep 2026 00:00:00 +0000</pubDate><guid>https://www.worldsensetech.com/zh/articles/2026-09-02-jepa-deep-dive/</guid><description>&lt;p&gt;在&lt;a href="https://www.worldsensetech.com/zh/articles/2026-09-01-world-model-h2-review/"&gt;上一篇世界模型盘点&lt;/a&gt;里，我花了大量篇幅讨论 Cosmos、Genie 3、Marble 这些项目，但有一个方向我只做了概述——JEPA。&lt;/p&gt;
+&lt;p&gt;这不是因为 JEPA 不重要。恰恰相反，&lt;strong&gt;JEPA 可能是当前世界模型方向最有理论深度的一条路线&lt;/strong&gt;。它背后站着 Yann LeCun，有从 I-JEPA 到 V-JEPA 2-AC 的完整技术演进，有 AMI Labs 10.3 亿美元的融资验证，而且它代表了一种和以像素生成为主要训练目标的世界模型截然不同的技术思路。&lt;/p&gt;
+&lt;p&gt;这篇文章把 JEPA 系列从第一篇到最新一篇做一个完整的技术拆解。&lt;/p&gt;
+&lt;h2 id="一jepa-的核心思想一句话版本"&gt;一、JEPA 的核心思想：一句话版本&lt;/h2&gt;
+&lt;p&gt;&lt;strong&gt;不要预测像素，预测表征。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;这句话与以像素或视觉观测生成为主要训练目标的一类世界模型形成了鲜明对比。JEPA 并不是认为生成像素没有价值，而是认为：如果目标是学习可用于预测、理解和决策的抽象世界表征，那么要求模型重建所有观测细节未必是最优的学习目标。&lt;/p&gt;
+&lt;p&gt;生成式世界模型的逻辑是：给定历史观测，预测未来像素。JEPA 的逻辑是：给定历史观测，预测未来观测的&lt;strong&gt;抽象表征&lt;/strong&gt;——在表征空间做预测，而不是在像素空间做预测。&lt;/p&gt;
+&lt;p&gt;为什么这个区别很重要？因为像素空间包含大量与任务无关的细节：光照变化、纹理细节、随机噪声。要求模型精确预测这些细节，不仅浪费模型容量，还会引入大量无用的梯度信号，拖慢学习速度。&lt;/p&gt;
+&lt;p&gt;LeCun 在 2022 年的&lt;a href="https://openreview.net/forum?id=BZ5a1r-kVsf"&gt;位置论文&lt;/a&gt;里把这个问题说得很清楚：&lt;strong&gt;对于学习高层语义和世界状态表示而言，要求模型精确预测所有像素并不是理想的学习目标。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;这不是说像素级预测没有价值——视频生成确实很酷。JEPA 的论点是：如果你的目标是学习对下游任务有用的世界表征，那么在表征空间做预测是更高效的学习策略。&lt;/p&gt;
+&lt;p&gt;但这个策略也留下了一个贯穿全文的核心问题：&lt;strong&gt;JEPA 主动过滤掉的那些&amp;quot;不可预测的像素细节&amp;quot;，会不会恰好是机器人控制所需要的信息？&lt;/strong&gt; 这个问题在第九节的开放讨论中会回到。&lt;/p&gt;
+&lt;h2 id="二i-jepa在图像上证明这条路走得通2023"&gt;二、I-JEPA：在图像上证明这条路走得通（2023）&lt;/h2&gt;
+&lt;h3 id="论文信息"&gt;论文信息&lt;/h3&gt;
+&lt;p&gt;&lt;em&gt;Self-Supervised Learning from Images with a Joint-Embedding Predictive Architecture&lt;/em&gt;，Meta AI，CVPR 2023。&lt;a href="https://arxiv.org/abs/2301.08243"&gt;论文&lt;/a&gt;，&lt;a href="https://github.com/facebookresearch/ijepa"&gt;代码&lt;/a&gt;。&lt;/p&gt;
+&lt;h3 id="架构"&gt;架构&lt;/h3&gt;
+&lt;p&gt;I-JEPA 的架构有三个核心组件：&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Context Encoder（上下文编码器）&lt;/strong&gt;：一个 Vision Transformer，接收可见区域的图像 patch，输出对应的表征。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Target Encoder（目标编码器）&lt;/strong&gt;：架构和 Context Encoder 相同，但参数通过指数移动平均（EMA）更新——不直接参与梯度计算，而是缓慢跟踪 Context Encoder 的参数变化。它负责把被遮蔽区域编码成目标表征。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Predictor（预测器）&lt;/strong&gt;：一个比编码器轻量得多的 Transformer（embedding dimension 384 vs 编码器的更大维度），接收 Context Encoder 的可见表征，预测被遮蔽区域在 Target Encoder 表征空间中的表示。&lt;/p&gt;</description></item></channel></rss>

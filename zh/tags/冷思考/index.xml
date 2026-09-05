@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>冷思考 on WorldSense 技术笔记</title><link>https://www.worldsensetech.com/zh/tags/%E5%86%B7%E6%80%9D%E8%80%83/</link><description>Recent content in 冷思考 on WorldSense 技术笔记</description><generator>Hugo</generator><language>zh-CN</language><lastBuildDate>Tue, 18 Aug 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://www.worldsensetech.com/zh/tags/%E5%86%B7%E6%80%9D%E8%80%83/index.xml" rel="self" type="application/rss+xml"/><item><title>世界模型风口被放大了：技术辨析与冷思考</title><link>https://www.worldsensetech.com/zh/articles/2026-08-18-world-model-ai-trend/</link><pubDate>Tue, 18 Aug 2026 00:00:00 +0000</pubDate><guid>https://www.worldsensetech.com/zh/articles/2026-08-18-world-model-ai-trend/</guid><description>&lt;!-- raw HTML omitted --&gt;
+&lt;p&gt;说说我的看法：世界模型不是风口叙事，它是一个真实存在的技术方向，但目前市面上大量讨论关注的是生成能力，而不是世界模型真正需要解决的环境预测、因果建模和规划问题。&lt;/p&gt;
+&lt;h2 id="先厘清一个概念现在大家说的世界模型其实不是一回事"&gt;先厘清一个概念：现在大家说的&amp;quot;世界模型&amp;quot;其实不是一回事&lt;/h2&gt;
+&lt;p&gt;LeCun 提的世界模型（JEPA 架构）和李飞飞讲的世界空间（World Space），两者关注的问题重叠——都涉及表征学习和世界理解——但技术路线和侧重点不同。LeCun 想在抽象表征空间做预测，避开像素级生成的计算开销；李飞飞更偏 3D 场景理解和生成。而工业界现在做的，比如游戏领域的 Genie、Genie 2，更接近 action-conditioned interactive world model——你给它一个动作，它预测下一个环境状态——但其主要能力仍集中在视觉环境生成和短时动态预测上。&lt;/p&gt;
+&lt;p&gt;这些东西有价值，但它们解决的问题不一样。如果把&amp;quot;能生成下一帧画面&amp;quot;等同于&amp;quot;形成了稳定的、可迁移的、可用于规划的环境状态表示&amp;quot;——这里说的&amp;quot;理解&amp;quot;不是人类语义理解，而是这个意思——那这个风口确实被放大了。&lt;/p&gt;
+&lt;h2 id="真正的难点不在预测在于稳定的环境表征"&gt;真正的难点不在预测，在于稳定的环境表征&lt;/h2&gt;
+&lt;p&gt;我自己跑 DreamerV3 的时候有一个很深的体会：RSSM（Recurrent State-Space Model）确实能学到一些动态规律——比如在 MuJoCo 的 cartpole 任务上，它可以在想象空间里预测杆子的摆动轨迹，训练出来的策略还能用。但如果仔细看它想象出来的状态，会发现稍微复杂一点的任务，预测就开始模糊、发散。&lt;/p&gt;
+&lt;p&gt;原因不复杂：RSSM 学习的是任务相关的隐状态动力学，而不是显式的 3D 物理世界模型。它在训练分布内表现不错，但不一定形成类似物理规律的显式表示，因此面对分布外情况时，可能无法像物理模型一样进行可靠外推。&lt;/p&gt;
+&lt;p&gt;这个差距，就是当前世界模型研究最核心的问题。&lt;/p&gt;
+&lt;h2 id="物理先验注入是重要方向之一"&gt;物理先验注入，是重要方向之一&lt;/h2&gt;
+&lt;p&gt;如果目标是提升世界模型的稳定性和泛化能力，单纯靠加大数据量、堆 transformer 层数可能不够。把物理约束——比如能量守恒、碰撞检测、刚体动力学——作为先验注入到模型结构里，是一条值得探索的路径，让模型在学动态的时候不是从零开始猜，而是沿着物理上合理的路径去学。&lt;/p&gt;
+&lt;p&gt;在我的实验中，加入特定物理约束后，部分任务上的训练稳定性和长时间预测表现有所改善——比如不容易出现&amp;quot;杆子穿模&amp;quot;或者&amp;quot;物体突然消失&amp;quot;这种在纯数据驱动模型里常见的问题。当然，物理先验不是唯一路线，scaling、多模态预训练、对象级学习也各有各的空间。&lt;/p&gt;
+&lt;h2 id="对象级世界模型另一个绕不开的方向"&gt;对象级世界模型，另一个绕不开的方向&lt;/h2&gt;
+&lt;p&gt;前面说的 RSSM、JEPA 更多是在整体 latent space 或像素空间做预测。但&amp;quot;理解物理世界&amp;quot;还有另一条路径：让模型从像素或 latent 转向实体、关系和状态变化的建模——也就是 object-centric representation。通过 slot attention、scene graph 这类方法，把场景分解为独立的对象和它们之间的交互关系，然后对每个对象的动力学分别建模。&lt;/p&gt;
+&lt;p&gt;这条路线的好处是泛化性更强——你见过桌子上的杯子被推，换到桌子上的碗被推，对象级模型更容易迁移。而整体 latent 模型可能需要重新学。&lt;/p&gt;
+&lt;h2 id="世界模型和-vla-的关系需要更准确地看"&gt;世界模型和 VLA 的关系，需要更准确地看&lt;/h2&gt;
+&lt;p&gt;现在行业里很火的 VLA（Vision-Language-Action）路线，比如 RT-2、π0，当前主流 VLA 主要优化视觉语言到动作的映射，而显式环境预测和长期规划能力仍然是其薄弱环节。需要注意的是，这些模型内部的 transformer 确实有 latent prediction 和 action chunking 机制，并非完全没有规划能力，只是这种规划是隐式的、短视的。&lt;/p&gt;</description></item></channel></rss>

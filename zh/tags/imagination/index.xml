@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Imagination on WorldSense 技术笔记</title><link>https://www.worldsensetech.com/zh/tags/imagination/</link><description>Recent content in Imagination on WorldSense 技术笔记</description><generator>Hugo</generator><language>zh-CN</language><lastBuildDate>Tue, 25 Aug 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://www.worldsensetech.com/zh/tags/imagination/index.xml" rel="self" type="application/rss+xml"/><item><title>读懂 Dreamer：世界模型是怎么学会'想象'的？</title><link>https://www.worldsensetech.com/zh/articles/2026-08-25-dreamer-explained/</link><pubDate>Tue, 25 Aug 2026 00:00:00 +0000</pubDate><guid>https://www.worldsensetech.com/zh/articles/2026-08-25-dreamer-explained/</guid><description>&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;Dreamer 系列 · 第 1 篇&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;本篇从架构层面讲清楚 Dreamer 的整体设计。如果你已经读过 &lt;a href="https://www.worldsensetech.com/zh/articles/2026-08-19-rssm-code-walkthrough/"&gt;RSSM 代码解析系列&lt;/a&gt;，这篇可以帮你把零散的代码细节串成完整的架构理解。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;Dreamer 最重要的思想，不是&amp;quot;训练一个会生成未来画面的模型&amp;quot;，而是&lt;strong&gt;训练一个足够支持决策的 latent world model，然后让策略在这个内部世界里学习&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;这篇文章围绕这条主线，把 Dreamer 的设计逻辑从头到尾讲一遍。&lt;/p&gt;
+&lt;h2 id="一dreamer-到底在解决什么问题"&gt;一、Dreamer 到底在解决什么问题？&lt;/h2&gt;
+&lt;p&gt;强化学习的核心循环是：智能体与环境交互 → 获得奖励 → 改进策略。这个循环的问题在于，每一步交互都需要真实的环境计算——对于机器人控制这类复杂任务，这意味着大量的仿真时间甚至真实机器人时间。&lt;/p&gt;
+&lt;p&gt;Dreamer 的思路是：与其在真实环境中反复试错，不如先&lt;strong&gt;学一个世界模型&lt;/strong&gt;，然后在模型的&amp;quot;想象&amp;quot;中训练策略。&lt;/p&gt;
+&lt;p&gt;这听起来简单，但要做到需要解决几个关键问题：世界模型怎么表征环境状态？怎么从想象中学出有用的策略？怎么避免想象误差把策略带偏？&lt;/p&gt;
+&lt;p&gt;从 V1 到 V3，Dreamer 的演进可以粗略理解成三个方向：更好的 latent representation、更稳定的 imagination learning，以及更强的跨任务泛化能力。&lt;/p&gt;
+&lt;h2 id="二dreamer-为什么主要在-latent-space-中预测"&gt;二、Dreamer 为什么主要在 latent space 中预测？&lt;/h2&gt;
+&lt;p&gt;在讲架构之前，先建立一个最重要的直觉。&lt;/p&gt;
+&lt;p&gt;Dreamer 并不是完全不预测 observation，而是&lt;strong&gt;不需要把未来像素级视频作为策略学习的主要载体&lt;/strong&gt;。Dreamer 的关键是在 latent space 中学习对预测和决策有用的 dynamics。&lt;/p&gt;
+&lt;p&gt;假设机器人当前看到一张 1024×1024 的 RGB 图像。如果世界模型每一步都必须精确预测下一帧的每一个像素，大量计算都会浪费在与决策无关的视觉细节上。Dreamer 的做法是先把观测压缩成 latent state，再在 latent space 中预测未来。只要 latent representation 保留了与预测和决策相关的信息，就不必要求世界模型精确重建未来画面的每一个像素。&lt;/p&gt;
+&lt;p&gt;换句话说，&lt;strong&gt;Dreamer 不是预测世界&amp;quot;长什么样&amp;quot;，而是预测决策需要知道的世界状态。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;这是理解后续所有设计的核心出发点。&lt;/p&gt;
+&lt;h2 id="三全局架构图"&gt;三、全局架构图&lt;/h2&gt;
+&lt;p&gt;Dreamer 的训练可以理解成两个循环：**Observe（观察）**负责从真实环境数据学习世界模型；**Imagine（想象）**负责在 latent space 中生成未来轨迹，并利用这些轨迹训练策略。&lt;/p&gt;</description></item></channel></rss>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>实战教程 on WorldSense 技术笔记</title><link>https://www.worldsensetech.com/zh/tags/%E5%AE%9E%E6%88%98%E6%95%99%E7%A8%8B/</link><description>Recent content in 实战教程 on WorldSense 技术笔记</description><generator>Hugo</generator><language>zh-CN</language><lastBuildDate>Wed, 05 Aug 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://www.worldsensetech.com/zh/tags/%E5%AE%9E%E6%88%98%E6%95%99%E7%A8%8B/index.xml" rel="self" type="application/rss+xml"/><item><title>从零搭建世界模型实验环境：MuJoCo + DreamerV3 实战指南</title><link>https://www.worldsensetech.com/zh/articles/world-model-lab-setup/</link><pubDate>Wed, 05 Aug 2026 00:00:00 +0000</pubDate><guid>https://www.worldsensetech.com/zh/articles/world-model-lab-setup/</guid><description>&lt;p&gt;前面写了好几篇世界模型的理论文章——从 RSSM 的数学原理到 Sim-to-Real 迁移，到 VLA 和世界模型的对比。有读者问：道理我都懂了，怎么动手跑起来？&lt;/p&gt;
+&lt;p&gt;今天这篇就是回答这个问题的。我会手把手带你搭建一个完整的世界模型实验环境，从安装到训练到可视化，一步步走通。跑通之后，你就可以在这个基础上做自己的实验了。&lt;/p&gt;
+&lt;p&gt;我们选用的工具链是：MuJoCo（物理仿真）+ DreamerV3（世界模型）。如果你需要更高保真度的渲染，后面可以替换为 Isaac Sim，但入门阶段 MuJoCo 足够了。&lt;/p&gt;
+&lt;h2 id="工具选型为什么是这两个"&gt;工具选型：为什么是这两个&lt;/h2&gt;
+&lt;p&gt;MuJoCo：目前机器人仿真领域最主流的引擎之一。物理精度高、API 简洁、速度快。2021 年被 DeepMind 收购后开源免费，现在是机器人学习研究的事实标准，也是连续控制世界模型研究中最常用的 benchmark 之一。&lt;/p&gt;
+&lt;p&gt;DreamerV3：Danijar Hafner 等人开发的世界模型算法，是 Dreamer 系列的第三代。它用 RSSM（循环状态空间模型）学习环境动态，在想象空间中训练 Actor-Critic 策略。代码开源，文档清晰，是学习世界模型最好的起点。需要注意的是，DreamerV3 底层基于JAX + Haiku框架，而非 TensorFlow。&lt;/p&gt;
+&lt;p&gt;日志格式说明：DreamerV3（commit e3f02248）输出自己的日志格式（&lt;code&gt;metrics.jsonl&lt;/code&gt; 和 &lt;code&gt;scores.jsonl&lt;/code&gt;），不使用 TensorBoard 的 event files。虽然名字里带&amp;quot;json&amp;quot;，但这是 JSON Lines 格式（每行一个 JSON 对象），可以用 Python 直接读取和可视化。本教程会教你如何用 Python 分析这些日志。&lt;/p&gt;
+&lt;p&gt;如果你本地机器内存不足（低于 32GB），建议使用云端资源：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Google Colab：免费 GPU，内存约 12-25GB，适合快速验证。注意 Colab 的 session 有时长限制&lt;/li&gt;
+&lt;li&gt;AutoDL / 矩池云：国内云平台，按小时计费，GPU 机型丰富&lt;/li&gt;
+&lt;li&gt;AWS / GCP / Azure：按需启动 GPU 实例，适合长期实验&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;云端运行的好处是不受本地硬件限制，坏处是需要上传下载数据和模型。对于入门学习，Google Colab 是最经济的选择。&lt;/p&gt;</description></item></channel></rss>

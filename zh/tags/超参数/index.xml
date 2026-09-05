@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>超参数 on WorldSense 技术笔记</title><link>https://www.worldsensetech.com/zh/tags/%E8%B6%85%E5%8F%82%E6%95%B0/</link><description>Recent content in 超参数 on WorldSense 技术笔记</description><generator>Hugo</generator><language>zh-CN</language><lastBuildDate>Fri, 28 Aug 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://www.worldsensetech.com/zh/tags/%E8%B6%85%E5%8F%82%E6%95%B0/index.xml" rel="self" type="application/rss+xml"/><item><title>DreamerV3 训练工程实践：从 GPU 配置到超参调优</title><link>https://www.worldsensetech.com/zh/articles/2026-08-28-dreamerv3-training-tips/</link><pubDate>Fri, 28 Aug 2026 00:00:00 +0000</pubDate><guid>https://www.worldsensetech.com/zh/articles/2026-08-28-dreamerv3-training-tips/</guid><description>&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;Dreamer 系列 · 第 3 篇&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;系列目录（当前在第 3 篇）：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;a href="https://www.worldsensetech.com/zh/articles/2026-08-25-dreamer-explained/"&gt;（一）读懂 Dreamer：世界模型是怎么学会&amp;rsquo;想象&amp;rsquo;的？&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.worldsensetech.com/zh/articles/2026-08-27-dreamer-actor-critic/"&gt;（二）Dreamer 的 Actor-Critic：想象空间里的策略优化&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;（三）DreamerV3 训练工程实践：从 GPU 配置到超参调优&lt;/strong&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;前两篇文章从理论层面讲清楚了 Dreamer 的架构设计和 Actor-Critic 工作原理。但要把 DreamerV3 跑起来、训得好，还需要解决一堆工程问题：GPU 显存不够怎么办？超参数怎么调？训练不稳定怎么排查？&lt;/p&gt;
+&lt;p&gt;这篇文章从实战角度出发，总结 DreamerV3 训练中的工程经验和常见坑。内容基于 &lt;a href="https://github.com/danijar/dreamerv3"&gt;danijar/dreamerv3@e3f02248&lt;/a&gt; JAX reference implementation。&lt;/p&gt;
+&lt;h2 id="一环境配置jax--gpu"&gt;一、环境配置：JAX + GPU&lt;/h2&gt;
+&lt;h3 id="jax-的-gpu-支持"&gt;JAX 的 GPU 支持&lt;/h3&gt;
+&lt;p&gt;DreamerV3 使用 JAX 实现。JAX 的 GPU 支持依赖 CUDA 和 cuDNN，安装时需要注意版本匹配：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#6272a4"&gt;# 推荐安装方式（以 CUDA 12.x 为例）&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;pip install --upgrade &lt;span style="color:#f1fa8c"&gt;&amp;#34;jax[cuda12]&amp;#34;&lt;/span&gt; -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;验证 GPU 是否被正确识别：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-python" data-lang="python"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#ff79c6"&gt;import&lt;/span&gt; jax
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#8be9fd;font-style:italic"&gt;print&lt;/span&gt;(jax&lt;span style="color:#ff79c6"&gt;.&lt;/span&gt;devices()) &lt;span style="color:#6272a4"&gt;# 应该看到 GPU 设备&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;如果输出只有 &lt;code&gt;[CpuDevice]&lt;/code&gt;，说明 JAX 没有正确检测到 GPU。常见原因包括 CUDA 版本不匹配、cuDNN 未安装、或者环境变量配置问题。&lt;/p&gt;</description></item><item><title>DreamerV3 训练技巧：从踩坑到收敛的实战经验</title><link>https://www.worldsensetech.com/zh/articles/dreamerv3-training-tips/</link><pubDate>Tue, 11 Aug 2026 00:00:00 +0000</pubDate><guid>https://www.worldsensetech.com/zh/articles/dreamerv3-training-tips/</guid><description>&lt;p&gt;上一篇文章梳理了世界模型的四条表征路线。今天我们回到 DreamerV3 的实战主题，聊聊训练过程中的那些坑和技巧。本文基于 DreamerV3 commit &lt;code&gt;e3f02248&lt;/code&gt;、JAX + Haiku、MuJoCo + DM Control 的本地实验环境，不同版本的参数名和配置可能有差异。&lt;/p&gt;
+&lt;p&gt;DreamerV3 是目前最开源、最成熟的世界模型实现之一。但如果你真的动手训练过，一定知道这个过程并不轻松——环境配置、超参数调优、训练不稳定、收敛慢……各种坑。&lt;/p&gt;
+&lt;p&gt;这篇文章总结我在训练 DreamerV3 过程中遇到的常见问题和解决方案，希望能帮你少走弯路。&lt;/p&gt;
+&lt;h2 id="环境配置的坑"&gt;环境配置的坑&lt;/h2&gt;
+&lt;h3 id="1-mujoco-版本问题"&gt;1. MuJoCo 版本问题&lt;/h3&gt;
+&lt;p&gt;DreamerV3 的官方实现基于 JAX + MuJoCo。但 MuJoCo 的版本选择很关键：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;MuJoCo 2.x vs 3.x。官方代码基于 MuJoCo 2.x，但 3.x 版本有性能改进。如果用 3.x，需要修改部分 API 调用。&lt;/li&gt;
+&lt;li&gt;mujoco-py vs mujoco。mujoco-py 是旧的 Python 绑定，已经停止维护。建议直接用官方的 mujoco 包。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;建议：优先使用与你当前 DreamerV3 commit 匹配的 MuJoCo 版本，不要一开始就升级整个环境。&lt;/p&gt;
+&lt;h3 id="2-jax-的-gpu-配置"&gt;2. JAX 的 GPU 配置&lt;/h3&gt;
+&lt;p&gt;JAX 的 GPU 支持需要正确安装 CUDA 和 cuDNN。常见问题：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;CUDA 版本不匹配。JAX 对 CUDA 版本有严格要求，安装前查看官方文档。&lt;/li&gt;
+&lt;li&gt;GPU 内存不足。JAX 默认会占用所有 GPU 内存。可以设置 &lt;code&gt;XLA_PYTHON_CLIENT_MEM_FRACTION=0.9&lt;/code&gt; 限制内存使用。如果遇到编译阶段内存峰值过高，也可以设置 &lt;code&gt;XLA_PYTHON_CLIENT_PREALLOCATE=false&lt;/code&gt; 关闭预分配。&lt;/li&gt;
+&lt;li&gt;多 GPU 问题。JAX 的多 GPU 支持和 PyTorch 不同，需要特别配置。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;下图是 DreamerV3 在 RTX 5090D 上训练时的实际 GPU 占用情况，显存占用约 25.6GB（32GB 的 78%），GPU 利用率 91%：
+![DreamerV3 训练时 GPU 占用情况](/images/nvidia smi.png) 图：RTX 5090D 上 DreamerV3 训练时的 GPU 显存占用（25.6GB / 32GB，利用率 91%）&lt;/p&gt;</description></item></channel></rss>

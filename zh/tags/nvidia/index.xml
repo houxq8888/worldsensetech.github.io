@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>NVIDIA on WorldSense 技术笔记</title><link>https://www.worldsensetech.com/zh/tags/nvidia/</link><description>Recent content in NVIDIA on WorldSense 技术笔记</description><generator>Hugo</generator><language>zh-CN</language><lastBuildDate>Fri, 14 Aug 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://www.worldsensetech.com/zh/tags/nvidia/index.xml" rel="self" type="application/rss+xml"/><item><title>Isaac Lab 入门：面向具身智能的 GPU 加速机器人学习平台</title><link>https://www.worldsensetech.com/zh/articles/isaac-lab-robot-rl/</link><pubDate>Fri, 14 Aug 2026 00:00:00 +0000</pubDate><guid>https://www.worldsensetech.com/zh/articles/isaac-lab-robot-rl/</guid><description>&lt;p&gt;过去一周，我们在 MuJoCo + DreamerV3 这条技术路线上深入了很多——从环境搭建到视觉输入训练，再到训练技巧和世界模型的架构演进。&lt;/p&gt;
+&lt;p&gt;今天换一个视角，聊聊另一套技术栈：NVIDIA 的 Isaac Lab。&lt;/p&gt;
+&lt;p&gt;如果说 MuJoCo 更强调轻量、灵活的动力学研究，适合快速原型开发和算法探索；那么 Isaac Lab 更强调 GPU 加速的大规模机器人训练和 sim-to-real pipeline。两者并不互斥——很多研究团队同时使用 MuJoCo 做算法验证和 Isaac Lab 做规模训练。&lt;/p&gt;
+&lt;h2 id="isaac-lab-是什么"&gt;Isaac Lab 是什么？&lt;/h2&gt;
+&lt;p&gt;Isaac Lab 是 NVIDIA 基于 Isaac Sim 构建的机器人学习框架，继承自 Isaac Gym 的 GPU 并行仿真思路，提供了更完整的任务抽象和工程结构。它的核心特点是：利用 GPU 加速，实现大规模并行的强化学习训练。&lt;/p&gt;
+&lt;p&gt;Isaac Lab 本身不是仿真器，也不是 RL 算法库，而是一个位于 Isaac Sim 之上的任务抽象层：&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;Isaac Sim（PhysX + Rendering）→ Isaac Lab（Task Abstraction + RL Integration）→ 训练策略&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;简单来说，Isaac Lab 解决的问题是：如何在短时间内训练出高质量的机器人策略。&lt;/p&gt;
+&lt;p&gt;传统的 RL 训练（如我们在 MuJoCo 中用 DreamerV3）通常是单环境或少量并行环境。训练一个策略可能需要几百万步，花费几小时甚至几天。而 Isaac Lab 通过 GPU 并行化，可以同时运行数千个环境，将训练时间从几天缩短到几分钟。&lt;/p&gt;</description></item></channel></rss>

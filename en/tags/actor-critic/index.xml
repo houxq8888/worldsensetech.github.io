@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Actor-Critic on WorldSense Tech Blog</title><link>https://www.worldsensetech.com/en/tags/actor-critic/</link><description>Recent content in Actor-Critic on WorldSense Tech Blog</description><generator>Hugo</generator><language>en-US</language><lastBuildDate>Thu, 27 Aug 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://www.worldsensetech.com/en/tags/actor-critic/index.xml" rel="self" type="application/rss+xml"/><item><title>Dreamer's Actor-Critic: How Policy Optimization Works in Imagination</title><link>https://www.worldsensetech.com/en/articles/2026-08-27-dreamer-actor-critic/</link><pubDate>Thu, 27 Aug 2026 00:00:00 +0000</pubDate><guid>https://www.worldsensetech.com/en/articles/2026-08-27-dreamer-actor-critic/</guid><description>&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;Dreamer Series - Part 2&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;Series directory (currently at Part 2):&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;a href="https://www.worldsensetech.com/en/articles/2026-08-25-dreamer-explained/"&gt;(Part 1) Understanding Dreamer: How World Models Learn to &amp;lsquo;Imagine&amp;rsquo;&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;&lt;a href="https://www.worldsensetech.com/en/articles/2026-08-27-dreamer-actor-critic/"&gt;(Part 2) Dreamer&amp;rsquo;s Actor-Critic: Policy Optimization in Imagination&lt;/a&gt;&lt;/strong&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;The previous article clarified Dreamer&amp;rsquo;s overall architecture: the world model predicts the future in latent space, and the policy learns on imagined trajectories. But this leaves a core question: &lt;strong&gt;how exactly does the policy extract learning signals from imagined trajectories?&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;This article dissects the complete Actor-Critic workflow from DreamerV3 source code: how imagination rollout generates features, how lambda-return is computed, how two-hot value prediction works, and why symlog transformation is indispensable.&lt;/p&gt;</description></item></channel></rss>

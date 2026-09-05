@@ -1,0 +1,256 @@
+<!doctype html><html lang=zh-CN><head><meta name=generator content="Hugo 0.164.0"><meta charset=UTF-8><meta name=viewport content="width=device-width,initial-scale=1"><title>WorldSense 技术笔记</title><meta name=description content="专注具身智能、世界模型与 Sim-to-Real 的技术博客。从算法研究到工程实践，记录机器人 AI 的探索之路。"><meta name=baidu-site-verification content="codeva-RcngxmWb36"><link rel=stylesheet href="/css/style.css?v=20260815"><script async src="https://www.googletagmanager.com/gtag/js?id=G-6EQ7ZKS9L8"></script><script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag("js",new Date),gtag("config","G-6EQ7ZKS9L8")</script><script async src=https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js></script><link rel=canonical href=https://www.worldsensetech.com/zh/><link rel=alternate hreflang=en-US href=https://www.worldsensetech.com/en/><link rel=alternate hreflang=x-default href=https://www.worldsensetech.com/zh/><link rel=alternate type=application/rss+xml href=https://www.worldsensetech.com/zh/index.xml title="WorldSense 技术笔记"><meta property="og:title" content="WorldSense 技术笔记"><meta property="og:description" content="专注具身智能、世界模型与 Sim-to-Real 的技术博客。从算法研究到工程实践，记录机器人 AI 的探索之路。"><meta property="og:type" content="website"><meta property="og:url" content="https://www.worldsensetech.com/zh/"><meta property="og:site_name" content="WorldSense 技术笔记"><meta property="og:image" content="https://www.worldsensetech.com/images/avatar.png"><meta name=twitter:card content="summary_large_image"><meta name=twitter:title content="WorldSense 技术笔记"><meta name=twitter:description content="专注具身智能、世界模型与 Sim-to-Real 的技术博客。从算法研究到工程实践，记录机器人 AI 的探索之路。"><meta name=twitter:image content="https://www.worldsensetech.com/images/avatar.png"><script type=application/ld+json>{"@context":"https://schema.org","@type":"WebSite","name":"WorldSense 技术笔记","url":"https://www.worldsensetech.com/zh/","description":"专注具身智能、世界模型与 Sim-to-Real 的技术博客。从算法研究到工程实践，记录机器人 AI 的探索之路。","inLanguage":"zh-CN","author":{"@type":"Person","name":"侯晓琴","url":"https://www.worldsensetech.com/about/"},"publisher":{"@type":"Organization","name":"WorldSense 技术笔记","logo":{"@type":"ImageObject","url":"https://www.worldsensetech.com/images/avatar.png","width":512,"height":512}},"potentialAction":{"@type":"SearchAction","target":{"@type":"EntryPoint","urlTemplate":"https://www.worldsensetech.com/zh?q={search_term_string}"},"query-input":"required name=search_term_string"}}</script></head><body><header><div class=header-inner><a href=/zh/ class=site-title>WorldSense 技术笔记</a><nav><a href=/zh/>文章</a>
+<a href=/zh/categories/>分类</a>
+<a href=/zh/archive/>归档</a>
+<a href=/zh/about/>关于</a>
+<a href=https://github.com/houxq8888/worldsensetech.github.io target=_blank>GitHub</a>
+<a href=https://www.worldsensetech.com/en/>English</a></nav></div></header><section class=hero><h1>用世界模型让机器人理解世界</h1><p>专注具身智能、世界模型与 Sim-to-Real 的技术博客。从算法研究到工程实践，记录机器人 AI 的探索之路。</p><p style=font-size:.9rem;color:#64748b;margin-top:.5rem>作者：西北工业大学硕士 · 机器人 AI 工程师 · 著有《Visual C++入门很容易》</p></section><section style="max-width:800px;margin:2rem auto;padding:0 1.5rem"><h2 style="font-size:1.3rem;color:#1e293b;margin-bottom:1rem;border-bottom:2px solid #2563eb;padding-bottom:.5rem">🔥 热门阅读</h2><div style=display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1rem><a href=/zh/articles/vla-vs-world-model/ style="text-decoration:none;padding:1rem;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;transition:all .2s"><div style=font-size:.8rem;color:#64748b>技术路线对比</div><div style="font-size:1rem;color:#1e293b;font-weight:600;margin:.5rem 0">VLA vs 世界模型，谁主沉浮？</div><div style=font-size:.85rem;color:#475569>两大技术路线的全面对比，从核心逻辑到未来融合趋势</div></a><a href=/zh/articles/rssm-deep-dive/ style="text-decoration:none;padding:1rem;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;transition:all .2s"><div style=font-size:.8rem;color:#64748b>核心技术详解</div><div style="font-size:1rem;color:#1e293b;font-weight:600;margin:.5rem 0">RSSM 状态空间模型详解</div><div style=font-size:.85rem;color:#475569>Dreamer 系列世界模型的核心引擎，从数学原理到工程实现</div></a><a href=/zh/articles/world-model-lab-setup/ style="text-decoration:none;padding:1rem;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;transition:all .2s"><div style=font-size:.8rem;color:#64748b>实战教程</div><div style="font-size:1rem;color:#1e293b;font-weight:600;margin:.5rem 0">从零搭建世界模型实验环境</div><div style=font-size:.85rem;color:#475569>MuJoCo + DreamerV3 手把手教程，从安装到训练到可视化</div></a></div></section><section style="max-width:800px;margin:2.5rem auto;padding:1.5rem;background:linear-gradient(135deg,#f0f9ff 0%,#e0f2fe 100%);border-radius:12px;border:1px solid #bae6fd"><h2 style=font-size:1.2rem;color:#0c4a6e;margin-bottom:1rem>📚 学习路径</h2><div style=display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1.5rem><div><div style=font-size:.9rem;font-weight:600;color:#0369a1;margin-bottom:.5rem>世界模型入门</div><ol style=margin:0;padding-left:1.2rem;font-size:.9rem;color:#334155;line-height:1.8><li><a href=/zh/articles/world-model-intro/ style=color:#2563eb;text-decoration:none>什么是世界模型？</a></li><li><a href=/zh/articles/rssm-deep-dive/ style=color:#2563eb;text-decoration:none>RSSM 核心引擎</a></li><li><a href=/zh/articles/vla-vs-world-model/ style=color:#2563eb;text-decoration:none>VLA vs 世界模型</a></li></ol></div><div><div style=font-size:.9rem;font-weight:600;color:#0369a1;margin-bottom:.5rem>Sim-to-Real 迁移</div><ol style=margin:0;padding-left:1.2rem;font-size:.9rem;color:#334155;line-height:1.8><li><a href=/zh/articles/sim-to-real-transfer/ style=color:#2563eb;text-decoration:none>自适应迁移方法</a></li><li><a href=/zh/articles/domain-randomization-sim-to-real/ style=color:#2563eb;text-decoration:none>域随机化详解</a></li><li><a href=/zh/articles/world-model-8year-bottleneck/ style=color:#2563eb;text-decoration:none>8年技术瓶颈</a></li></ol></div><div><div style=font-size:.9rem;font-weight:600;color:#0369a1;margin-bottom:.5rem>实践与工具</div><ol style=margin:0;padding-left:1.2rem;font-size:.9rem;color:#334155;line-height:1.8><li><a href=/zh/articles/world-model-lab-setup/ style=color:#2563eb;text-decoration:none>MuJoCo+DreamerV3</a></li><li><a href=/zh/articles/td-mpc-world-model-control/ style=color:#2563eb;text-decoration:none>TD-MPC 控制</a></li><li><a href=/zh/articles/reinforcement-learning-how-to-start/ style=color:#2563eb;text-decoration:none>强化学习入门</a></li></ol></div></div><p style="margin:1rem 0 0;font-size:.9rem;color:#64748b"><a href=/zh/categories/ style=color:#2563eb;text-decoration:none>查看全部文章 →</a></p></section><section style="max-width:800px;margin:2rem auto;padding:0 1.5rem"><h2 style="font-size:1.2rem;color:#1e293b;margin-bottom:1rem;border-bottom:1px solid #e2e8f0;padding-bottom:.5rem">最新文章</h2></section><main class=article-list><article class=article-item><div class=article-meta>2026年9月5日 · 阅读约26分钟</div><h2><a href=/zh/articles/2026-09-05-vla-pi-family/>VLA 深度解读（中）：π₀ 家族与动作接口的演进</a></h2><div><span class=tag>VLA</span>
+<span class=tag>π₀</span>
+<span class=tag>π₀.5</span>
+<span class=tag>π₀.7</span>
+<span class=tag>Flow Matching</span>
+<span class=tag>Action Chunking</span>
+<span class=tag>Physical Intelligence</span>
+<span class=tag>具身智能</span></div><p class=article-excerpt>VLA 系列三篇的中篇。π₀ 用 flow matching 实现连续动作生成，π₀.5 引入离散-连续混合 recipe，π₀.7 用 context-rich steering 和视觉子目标扩展泛化能力——拆解动作接口演进的核心技术密度，并提出 Training Interface vs …</p></article><article class=article-item><div class=article-meta>2026年9月4日 · 阅读约26分钟</div><h2><a href=/zh/articles/2026-09-04-rssm-beyond/>从 RSSM 到现代 Latent Dynamics：世界模型的"引擎"如何演进</a></h2><div><span class=tag>RSSM</span>
+<span class=tag>状态空间模型</span>
+<span class=tag>TD-MPC</span>
+<span class=tag>Mamba</span>
+<span class=tag>DreamerV3</span>
+<span class=tag>世界模型</span>
+<span class=tag>隐状态动力学</span></div><p class=article-excerpt>RSSM 是 Dreamer 系列世界模型的核心引擎，但状态空间建模的版图在过去几年发生了很大变化。本文把 RSSM 放在更大的 state-space modeling 演进中审视——区分 latent dynamics 与 sequence backbone 两个层面，讨论 TD-MPC2 的 …</p></article><article class=article-item><div class=article-meta>2026年9月3日 · 阅读约23分钟</div><h2><a href=/zh/articles/2026-09-03-vla-deep-dive/>VLA 深度解读（上）：从 RT-2 到 OpenVLA，端到端策略的基础与早期演进</a></h2><div><span class=tag>VLA</span>
+<span class=tag>RT-2</span>
+<span class=tag>OpenVLA</span>
+<span class=tag>Vision-Language-Action</span>
+<span class=tag>机器人基础模型</span>
+<span class=tag>端到端策略</span>
+<span class=tag>具身智能</span></div><p class=article-excerpt>VLA 系列三篇的上篇。从 RT-2 把互联网知识注入机器人控制，到 OpenVLA 用 7B 参数在 29 个任务上超过 55B 闭源模型，再到 OFT 揭示 action interface 才是瓶颈——逐篇拆解 VLA 的基础架构与早期演进，区分动作表示、动作生成、时序抽象、上下文 …</p></article><article class=article-item><div class=article-meta>2026年9月2日 · 阅读约43分钟</div><h2><a href=/zh/articles/2026-09-02-jepa-deep-dive/>JEPA 深度解读：从 I-JEPA 到 V-JEPA 2-AC，预测性表征如何走向世界模型</a></h2><div><span class=tag>JEPA</span>
+<span class=tag>I-JEPA</span>
+<span class=tag>V-JEPA</span>
+<span class=tag>V-JEPA 2</span>
+<span class=tag>V-JEPA 2-AC</span>
+<span class=tag>AMI Labs</span>
+<span class=tag>LeCun</span>
+<span class=tag>预测性表征学习</span>
+<span class=tag>自监督学习</span>
+<span class=tag>世界模型</span>
+<span class=tag>具身智能</span></div><p class=article-excerpt>从 2022 年的理论蓝图到 I-JEPA、V-JEPA，再到 V-JEPA 2 的视频预测、动作条件预测与机器人规划演示，LeCun 的 JEPA 路线逐步从预测性表征学习走向世界模型研究。这篇文章逐篇拆解这条技术路线，并讨论它与 Dreamer/RSSM、生成式世界模型之间的真正区别。</p></article><article class=article-item><div class=article-meta>2026年9月1日 · 阅读约27分钟</div><h2><a href=/zh/articles/2026-09-01-world-model-h2-review/>世界模型 2026：从 Cosmos、Genie 到 JEPA 的路线分化</a></h2><div><span class=tag>世界模型</span>
+<span class=tag>2026盘点</span>
+<span class=tag>NVIDIA Cosmos</span>
+<span class=tag>Genie 3</span>
+<span class=tag>AMI Labs</span>
+<span class=tag>JEPA</span>
+<span class=tag>具身智能</span>
+<span class=tag>机器人AI</span>
+<span class=tag>论文推荐</span></div><p class=article-excerpt>截至 2026 年 8 月底，世界模型方向正在经历一次深层分化。从 NVIDIA Cosmos 到 Google Genie 3，从 LeCun 的 AMI Labs 到 Fei-Fei Li 的 World Labs，不同技术路线开始走向不同的应用场景。本文尝试理清这些项目和论文之间的关系。</p></article><article class=article-item><div class=article-meta>2026年8月31日 · 阅读约37分钟</div><h2><a href=/zh/articles/2026-08-31-world-model-future/>从 Dreamer 到世界模型智能体：未来方向与研究趋势</a></h2><div><span class=tag>DreamerV3</span>
+<span class=tag>世界模型</span>
+<span class=tag>Transformer</span>
+<span class=tag>V-JEPA</span>
+<span class=tag>Genie</span>
+<span class=tag>LLM Agent</span>
+<span class=tag>Dreamer系列</span></div><p class=article-excerpt>从 DreamerV3 出发，解析 Transformer 世界模型、V-JEPA、Genie、LLM Agent 和机器人基础模型的发展路线与融合趋势。</p></article><article class=article-item><div class=article-meta>2026年8月30日 · 阅读约23分钟</div><h2><a href=/zh/articles/2026-08-30-dreamer-applications/>Dreamer 的应用实践：从仿真控制到 Sim-to-Real</a></h2><div><span class=tag>DreamerV3</span>
+<span class=tag>应用实践</span>
+<span class=tag>Sim-to-Real</span>
+<span class=tag>机器人控制</span>
+<span class=tag>Dreamer系列</span></div><p class=article-excerpt>Dreamer 系列在实际任务中的表现如何？从 DMC、Atari 到机器人控制，再到 Sim-to-Real 的探索与挑战。</p></article><article class=article-item><div class=article-meta>2026年8月29日 · 阅读约20分钟</div><h2><a href=/zh/articles/2026-08-29-dreamerv3-gpu-guide/>DreamerV3 GPU 选型指南：从显存需求到性价比分析</a></h2><div><span class=tag>DreamerV3</span>
+<span class=tag>GPU</span>
+<span class=tag>显存</span>
+<span class=tag>硬件</span>
+<span class=tag>选型</span>
+<span class=tag>Dreamer系列</span></div><p class=article-excerpt>DreamerV3 训练需要什么样的 GPU？从显存需求、计算性能到性价比分析，帮你做出合理选择。</p></article><article class=article-item><div class=article-meta>2026年8月28日 · 阅读约34分钟</div><h2><a href=/zh/articles/2026-08-28-dreamerv3-training-tips/>DreamerV3 训练工程实践：从 GPU 配置到超参调优</a></h2><div><span class=tag>DreamerV3</span>
+<span class=tag>训练技巧</span>
+<span class=tag>GPU</span>
+<span class=tag>超参数</span>
+<span class=tag>工程实践</span>
+<span class=tag>Dreamer系列</span></div><p class=article-excerpt>DreamerV3 训练中的工程实战经验：GPU 显存优化、超参数调优、常见坑与解决方案。</p></article><article class=article-item><div class=article-meta>2026年8月27日 · 阅读约33分钟</div><h2><a href=/zh/articles/2026-08-27-dreamer-actor-critic/>Dreamer 的 Actor-Critic：想象空间里的策略优化是怎么工作的？</a></h2><div><span class=tag>DreamerV3</span>
+<span class=tag>世界模型</span>
+<span class=tag>RSSM</span>
+<span class=tag>Actor-Critic</span>
+<span class=tag>想象训练</span>
+<span class=tag>Dreamer系列</span></div><p class=article-excerpt>从源码理解 Dreamer 的 Actor-Critic 设计：imagine loop、λ-return、two-hot value prediction 和 symlog 变换。</p></article><article class=article-item><div class=article-meta>2026年8月26日 · 阅读约30分钟</div><h2><a href=/zh/articles/2026-08-26-world-model-in-robotics/>机器人世界模型到底在做什么？从感知到行动的完整链路</a></h2><div><span class=tag>世界模型</span>
+<span class=tag>机器人</span>
+<span class=tag>DreamerV3</span>
+<span class=tag>RSSM</span>
+<span class=tag>感知融合</span>
+<span class=tag>Sim-to-Real</span></div><p class=article-excerpt>从传感器到执行器，拆解世界模型在机器人系统中的完整链路：感知融合、隐状态预测、策略学习、Sim-to-Real 迁移，以及不同机器人形态对世界模型的需求差异。</p></article><article class=article-item><div class=article-meta>2026年8月25日 · 阅读约20分钟</div><h2><a href=/zh/articles/2026-08-25-dreamer-explained/>读懂 Dreamer：世界模型是怎么学会'想象'的？</a></h2><div><span class=tag>DreamerV3</span>
+<span class=tag>世界模型</span>
+<span class=tag>RSSM</span>
+<span class=tag>强化学习</span>
+<span class=tag>imagination</span>
+<span class=tag>Dreamer系列</span></div><p class=article-excerpt>从 RSSM 架构到 imagination 机制，完整拆解 Dreamer 如何在隐空间中构建世界模型、生成训练数据并优化策略，附源码级解读。</p></article><article class=article-item><div class=article-meta>2026年8月24日 · 阅读约10分钟</div><h2><a href=/zh/articles/2026-08-24-rssm-recap/>从代码理解 RSSM（六）：默认配置、四条公式与代码↔数学↔语义对照</a></h2><div><span class=tag>RSSM</span>
+<span class=tag>DreamerV3</span>
+<span class=tag>世界模型</span>
+<span class=tag>状态空间模型</span>
+<span class=tag>代码解析</span>
+<span class=tag>RSSM系列</span></div><p class=article-excerpt>收尾：把 RSSM 拆成架构/训练两张配置表，压缩成四条核心公式，给出代码↔数学↔语义对照表，并从 Memory / State estimation / Prediction 重新理解 RSSM。</p></article><article class=article-item><div class=article-meta>2026年8月23日 · 阅读约7分钟</div><h2><a href=/zh/articles/2026-08-23-rssm-imagine-reset/>从代码理解 RSSM（五）：Imagine、Observe/Imagine 区别、序列训练与 Reset</a></h2><div><span class=tag>RSSM</span>
+<span class=tag>DreamerV3</span>
+<span class=tag>世界模型</span>
+<span class=tag>状态空间模型</span>
+<span class=tag>代码解析</span>
+<span class=tag>RSSM系列</span></div><p class=article-excerpt>脱离 observation 的未来模拟：imagine 的完整闭环、Observe 与 Imagine 的本质区别、为什么 imagination 不能无限长，以及 sequence training 与 reset 的作用。</p></article><article class=article-item><div class=article-meta>2026年8月22日 · 阅读约8分钟</div><h2><a href=/zh/articles/2026-08-22-rssm-kl-balancing/>从代码理解 RSSM（四）：KL balancing、Free Nats 与最终 KL 组合</a></h2><div><span class=tag>RSSM</span>
+<span class=tag>DreamerV3</span>
+<span class=tag>世界模型</span>
+<span class=tag>状态空间模型</span>
+<span class=tag>代码解析</span>
+<span class=tag>RSSM系列</span></div><p class=article-excerpt>训练世界模型的核心：Observe 阶段完整数据流、dyn/rep 两个 KL 的 gradient routing、free_nats 作为 loss floor，以及最终 KL loss 如何组合。</p></article><article class=article-item><div class=article-meta>2026年8月21日 · 阅读约9分钟</div><h2><a href=/zh/articles/2026-08-21-rssm-deterministic-core/>从代码理解 RSSM（三）：确定性转移 _core()、deter=8192 与 Block GRU</a></h2><div><span class=tag>RSSM</span>
+<span class=tag>DreamerV3</span>
+<span class=tag>世界模型</span>
+<span class=tag>状态空间模型</span>
+<span class=tag>代码解析</span>
+<span class=tag>RSSM系列</span></div><p class=article-excerpt>追踪真正的确定性动力学：_core() 如何做单步转移、为什么 deter 取 8192、Block GRU 的 block-wise 参数化，以及 posterior/prior 网络各自做什么。</p></article><article class=article-item><div class=article-meta>2026年8月20日 · 阅读约9分钟</div><h2><a href=/zh/articles/2026-08-20-rssm-stochastic-state/>从代码理解 RSSM（二）：先验/后验、straight-through 采样与 unimix</a></h2><div><span class=tag>RSSM</span>
+<span class=tag>DreamerV3</span>
+<span class=tag>世界模型</span>
+<span class=tag>状态空间模型</span>
+<span class=tag>代码解析</span>
+<span class=tag>RSSM系列</span></div><p class=article-excerpt>把源码翻译成数学，明确时间索引；理解 prior 与 posterior 两套分布、categorical 的 straight-through 采样，以及 unimix 给每个类别加概率下界的作用。</p></article><article class=article-item><div class=article-meta>2026年8月19日 · 阅读约10分钟</div><h2><a href=/zh/articles/2026-08-19-rssm-code-walkthrough/>从代码理解 RSSM（一）：RSSM 在 DreamerV3 中的位置与 stochastic 状态</a></h2><div><span class=tag>RSSM</span>
+<span class=tag>DreamerV3</span>
+<span class=tag>世界模型</span>
+<span class=tag>状态空间模型</span>
+<span class=tag>代码解析</span>
+<span class=tag>RSSM系列</span></div><p class=article-excerpt>系列开篇：先定位 RSSM 在 DreamerV3 中的角色，澄清 stochastic state 不是“整数再 one-hot”，再看真实 observation 如何进入 RSSM（observe 的调用层次）。</p></article><article class=article-item><div class=article-meta>2026年8月18日 · 阅读约8分钟</div><h2><a href=/zh/articles/2026-08-18-world-model-ai-trend/>世界模型风口被放大了：技术辨析与冷思考</a></h2><div><span class=tag>世界模型</span>
+<span class=tag>AI风口</span>
+<span class=tag>行业趋势</span>
+<span class=tag>具身智能</span>
+<span class=tag>技术辨析</span>
+<span class=tag>冷思考</span>
+<span class=tag>DreamerV3</span></div><p class=article-excerpt>世界模型的概念正在被过度消费。从技术成熟度、落地可行性到商业闭环，逐层拆解哪些是真突破、哪些是泡沫，帮你做出冷静判断。</p></article><article class=article-item><div class=article-meta>2026年8月17日 · 阅读约22分钟</div><h2><a href=/zh/articles/2026-08-17-dreamerv3-gpu-infrastructure/>跑 DreamerV3 该租云 GPU 还是自建工作站？一个工程师的成本账</a></h2><div><span class=tag>DreamerV3</span>
+<span class=tag>GPU</span>
+<span class=tag>云GPU</span>
+<span class=tag>工作站</span>
+<span class=tag>成本分析</span>
+<span class=tag>AutoDL</span>
+<span class=tag>工程实践</span></div><p class=article-excerpt>租云 GPU 按小时计费灵活但长期贵，自建工作站一次性投入大但利用率不稳定。从显存需求、训练时长到电费网费，算一笔真实的成本账。</p></article><article class=article-item><div class=article-meta>2026年8月16日 · 阅读约15分钟</div><h2><a href=/zh/articles/2026-08-16-ai-physical-shell/>为什么说 2026 年，AI 在疯狂寻找物理外壳？</a></h2><div><span class=tag>具身智能</span>
+<span class=tag>世界模型</span>
+<span class=tag>AI趋势</span>
+<span class=tag>机器人</span>
+<span class=tag>行业趋势</span>
+<span class=tag>人形机器人</span>
+<span class=tag>AI硬件</span></div><p class=article-excerpt>从人形机器人到自动驾驶，从无人机到工业机械臂——2026 年 AI 公司纷纷为算法寻找物理载体。分析这股趋势背后的技术驱动力和产业逻辑。</p></article><article class=article-item><div class=article-meta>2026年8月15日 · 阅读约11分钟</div><h2><a href=/zh/articles/isaac-lab-install-guide/>Isaac Lab 安装避坑指南：从零到跑通全流程</a></h2><div><span class=tag>Isaac Lab</span>
+<span class=tag>Isaac Sim</span>
+<span class=tag>安装教程</span>
+<span class=tag>具身智能</span>
+<span class=tag>Ubuntu</span>
+<span class=tag>GPU</span>
+<span class=tag>机器人仿真</span></div><p class=article-excerpt>Isaac Lab 从安装到跑通第一个 example 的完整流程，覆盖环境配置、常见报错排查、AutoDL 云端部署方案，帮你跳过所有坑。</p></article><article class=article-item><div class=article-meta>2026年8月14日 · 阅读约15分钟</div><h2><a href=/zh/articles/isaac-lab-robot-rl/>Isaac Lab 入门：面向具身智能的 GPU 加速机器人学习平台</a></h2><div><span class=tag>Isaac Lab</span>
+<span class=tag>Isaac Sim</span>
+<span class=tag>强化学习</span>
+<span class=tag>GPU加速</span>
+<span class=tag>NVIDIA</span>
+<span class=tag>机器人</span>
+<span class=tag>Sim-to-Real</span></div><p class=article-excerpt>Isaac Lab 是 NVIDIA 面向具身智能的 GPU 加速机器人学习平台。从平台架构、并行训练能力到与 MuJoCo 的差异，帮你理解它为什么被越来越多团队采用。</p></article><article class=article-item><div class=article-meta>2026年8月13日 · 阅读约14分钟</div><h2><a href=/zh/articles/robot-data-challenge/>机器人数据为什么比大模型数据更难？具身智能的数据闭环挑战</a></h2><div><span class=tag>机器人数据</span>
+<span class=tag>数据闭环</span>
+<span class=tag>具身智能</span>
+<span class=tag>Sim-to-Real</span>
+<span class=tag>合成数据</span>
+<span class=tag>VLA</span></div><p class=article-excerpt>大模型有互联网文本数据，但机器人没有。具身智能面临的核心数据难题：采集成本高、分布偏移大、仿真与真实鸿沟深。拆解数据闭环的挑战与可能的解法。</p></article><article class=article-item><div class=article-meta>2026年8月12日 · 阅读约19分钟</div><h2><a href=/zh/articles/world-model-transformer/>世界模型架构演进：RSSM、Transformer 与统一世界模型</a></h2><div><span class=tag>世界模型</span>
+<span class=tag>Transformer</span>
+<span class=tag>RSSM</span>
+<span class=tag>UniSim</span>
+<span class=tag>Dreamer</span>
+<span class=tag>架构演进</span></div><p class=article-excerpt>从 RSSM 的循环架构到 Transformer 的序列建模，再到 UniSim/Cosmos 的统一世界模型——梳理世界模型架构的演进脉络和未来方向。</p></article><article class=article-item><div class=article-meta>2026年8月11日 · 阅读约12分钟</div><h2><a href=/zh/articles/dreamerv3-training-tips/>DreamerV3 训练技巧：从踩坑到收敛的实战经验</a></h2><div><span class=tag>DreamerV3</span>
+<span class=tag>世界模型</span>
+<span class=tag>训练技巧</span>
+<span class=tag>强化学习</span>
+<span class=tag>MuJoCo</span>
+<span class=tag>超参数</span>
+<span class=tag>工程实践</span></div><p class=article-excerpt>训练 DreamerV3 最常踩的坑：显存溢出、奖励不收敛、超参数敏感。从 MuJoCo 环境配置到训练稳定性调优，一份实战经验总结。</p></article><article class=article-item><div class=article-meta>2026年8月10日 · 阅读约21分钟</div><h2><a href=/zh/articles/world-model-representations/>世界模型如何表示世界：四条表征路线与机器人适应能力</a></h2><div><span class=tag>世界模型</span>
+<span class=tag>表征学习</span>
+<span class=tag>DreamerV3</span>
+<span class=tag>Cosmos</span>
+<span class=tag>3D高斯</span>
+<span class=tag>物体中心</span>
+<span class=tag>RSSM</span></div><p class=article-excerpt>世界模型用什么来「表示」世界？对比像素空间、隐状态空间、3D 结构和物体中心四条表征路线，分析各自对机器人适应能力的优劣。</p></article><article class=article-item><div class=article-meta>2026年8月9日 · 阅读约16分钟</div><h2><a href=/zh/articles/mujoco-vs-isaac-sim/>机器人训练为什么需要虚拟世界？MuJoCo 和 Isaac Sim 全面对比</a></h2><div><span class=tag>MuJoCo</span>
+<span class=tag>Isaac Sim</span>
+<span class=tag>仿真环境</span>
+<span class=tag>具身智能</span>
+<span class=tag>机器人仿真</span>
+<span class=tag>强化学习</span>
+<span class=tag>GPU并行</span></div><p class=article-excerpt>从物理引擎、渲染方式、GPU 并行能力到社区生态，全面对比 MuJoCo 和 Isaac Sim 两大机器人仿真平台，帮你根据任务需求做出选择。</p></article><article class=article-item><div class=article-meta>2026年8月8日 · 阅读约13分钟</div><h2><a href=/zh/articles/domain-randomization-sim-to-real/>域随机化（Domain Randomization）：机器人 Sim-to-Real 迁移的核心技术</a></h2><div><span class=tag>域随机化</span>
+<span class=tag>Sim-to-Real</span>
+<span class=tag>机器人</span>
+<span class=tag>仿真训练</span>
+<span class=tag>DreamerV3</span>
+<span class=tag>MuJoCo</span>
+<span class=tag>Isaac Sim</span></div><p class=article-excerpt>仿真里训练的策略为什么一到真实机器人就失效？域随机化通过随机化物理参数、视觉外观和传感器噪声，让策略学会「忽略差异」，是目前最实用的 Sim-to-Real 方案。</p></article><article class=article-item><div class=article-meta>2026年8月7日 · 阅读约12分钟</div><h2><a href=/zh/articles/td-mpc-world-model-control/>TD-MPC：世界模型如何用于机器人控制？</a></h2><div><span class=tag>TD-MPC</span>
+<span class=tag>模型预测控制</span>
+<span class=tag>世界模型</span>
+<span class=tag>机器人控制</span>
+<span class=tag>DreamerV3</span>
+<span class=tag>MPC</span>
+<span class=tag>JAX</span></div><p class=article-excerpt>RSSM 不是世界模型用于机器人控制的唯一路线。TD-MPC 用模型预测控制在隐空间中直接优化动作序列，不需要显式策略网络。对比两种路线的设计哲学和适用场景。</p></article><article class=article-item><div class=article-meta>2026年8月6日 · 阅读约19分钟</div><h2><a href=/zh/articles/world-model-synthetic-data-for-vla/>世界模型 + VLA：用想象力训练机器人</a></h2><div><span class=tag>世界模型</span>
+<span class=tag>VLA</span>
+<span class=tag>合成数据</span>
+<span class=tag>DreamerV3</span>
+<span class=tag>数据增强</span>
+<span class=tag>机器人学习</span></div><p class=article-excerpt>真实机器人数据采集成本高、覆盖面窄。用训练好的世界模型生成合成数据来增强 VLA 训练，相当于让机器人在「想象」中学习，大幅提升样本效率。</p></article><article class=article-item><div class=article-meta>2026年8月5日 · 阅读约34分钟</div><h2><a href=/zh/articles/world-model-lab-setup/>从零搭建世界模型实验环境：MuJoCo + DreamerV3 实战指南</a></h2><div><span class=tag>实战教程</span>
+<span class=tag>MuJoCo</span>
+<span class=tag>DreamerV3</span>
+<span class=tag>环境搭建</span>
+<span class=tag>强化学习</span>
+<span class=tag>JAX</span>
+<span class=tag>入门</span></div><p class=article-excerpt>从零搭建世界模型实验环境：安装 MuJoCo、配置 DreamerV3 代码库、跑通第一个训练任务。覆盖环境踩坑、依赖版本兼容和训练参数配置。</p></article><article class=article-item><div class=article-meta>2026年8月5日 · 阅读约5分钟</div><h2><a href=/zh/articles/abot-world-0-24h-inference/>从1分钟到24小时：ABot-World-0突破的核心意义</a></h2><div><span class=tag>世界模型</span>
+<span class=tag>交互式生成</span>
+<span class=tag>高德</span>
+<span class=tag>ABot-World-0</span>
+<span class=tag>长时推理</span>
+<span class=tag>自动驾驶</span></div><p class=article-excerpt>高德 ABot-World-0 将交互式世界模型的推理时长从 1 分钟提升到 24 小时，这意味着什么？从技术突破到产业影响，解读这一里程碑的核心意义。</p></article><article class=article-item><div class=article-meta>2026年8月5日 · 阅读约15分钟</div><h2><a href=/zh/articles/sim-to-real-transfer/>Sim-to-Real太难？世界模型驱动的自适应迁移方法</a></h2><div><span class=tag>Sim-to-Real</span>
+<span class=tag>世界模型</span>
+<span class=tag>域适应</span>
+<span class=tag>DreamerV3</span>
+<span class=tag>域随机化</span>
+<span class=tag>机器人</span></div><p class=article-excerpt>仿真训练的策略部署到真实机器人时性能暴跌 30-50%，这就是 Sim-to-Real Gap。世界模型通过生成合成数据和自适应迁移，正在提供一条新的解决思路。</p></article><article class=article-item><div class=article-meta>2026年8月4日 · 阅读约7分钟</div><h2><a href=/zh/articles/embodied-ai-rl-prospects/>具身智能、强化学习的前景如何？</a></h2><div><span class=tag>具身智能</span>
+<span class=tag>强化学习</span>
+<span class=tag>职业前景</span>
+<span class=tag>世界模型</span>
+<span class=tag>机器人AI</span>
+<span class=tag>行业趋势</span></div><p class=article-excerpt>强化学习和具身智能正处于从实验室走向产业的关键阶段。从技术成熟度、岗位需求到薪资水平，聊聊这个方向值不值得 all-in。</p></article><article class=article-item><div class=article-meta>2026年8月4日 · 阅读约14分钟</div><h2><a href=/zh/articles/vla-vs-world-model/>VLA vs 世界模型，谁主沉浮？</a></h2><div><span class=tag>VLA</span>
+<span class=tag>世界模型</span>
+<span class=tag>技术路线</span>
+<span class=tag>机器人AI</span>
+<span class=tag>具身智能</span>
+<span class=tag>DreamerV3</span>
+<span class=tag>RT-2</span>
+<span class=tag>OpenVLA</span></div><p class=article-excerpt>对比 RT-2、OpenVIA、π0 等 VLA 方案与 DreamerV3、Genie 等世界模型方案，分析两条技术路线在架构设计、数据来源、泛化能力上的核心差异，以及未来融合趋势。</p></article><article class=article-item><div class=article-meta>2026年8月3日 · 阅读约5分钟</div><h2><a href=/zh/articles/world-model-good-direction/>世界模型（world model）当下是一个好的方向吗？</a></h2><div><span class=tag>世界模型</span>
+<span class=tag>具身智能</span>
+<span class=tag>职业方向</span>
+<span class=tag>行业趋势</span>
+<span class=tag>机器人AI</span>
+<span class=tag>DreamerV3</span></div><p class=article-excerpt>作为在这个方向摸爬滚打了大半年的工程师，从技术前景、产业需求、职业路径三个维度，聊聊世界模型到底值不值得投入。</p></article><article class=article-item><div class=article-meta>2026年8月3日 · 阅读约7分钟</div><h2><a href=/zh/articles/reinforcement-learning-how-to-start/>强化学习应该怎么入门？</a></h2><div><span class=tag>强化学习</span>
+<span class=tag>入门指南</span>
+<span class=tag>学习路径</span>
+<span class=tag>PyTorch</span>
+<span class=tag>MuJoCo</span>
+<span class=tag>世界模型</span>
+<span class=tag>具身智能</span></div><p class=article-excerpt>从传统自动化到强化学习，我自己踩过不少坑。从数学基础、编程框架到实战项目，分享一条对工程师最高效的入门路径。</p></article><article class=article-item><div class=article-meta>2026年8月3日 · 阅读约7分钟</div><h2><a href=/zh/articles/embodied-ai-2026-breakthrough/>你认为具身智能领域在2026年会有什么突破性进展？</a></h2><div><span class=tag>具身智能</span>
+<span class=tag>2026预测</span>
+<span class=tag>世界模型</span>
+<span class=tag>人形机器人</span>
+<span class=tag>VLA</span>
+<span class=tag>DreamerV3</span></div><p class=article-excerpt>从世界模型到 VLA，从灵巧手操作到全身运动控制——2026 年具身智能最可能突破的方向在哪里？结合最新论文和产业动态做预判。</p></article><article class=article-item><div class=article-meta>2026年8月3日 · 阅读约5分钟</div><h2><a href=/zh/articles/world-model-8year-bottleneck/>回看世界模型8年进展，始终没突破的瓶颈是什么？</a></h2><div><span class=tag>世界模型</span>
+<span class=tag>Sim-to-Real</span>
+<span class=tag>技术瓶颈</span>
+<span class=tag>泛化能力</span>
+<span class=tag>DreamerV3</span>
+<span class=tag>具身智能</span></div><p class=article-excerpt>从 2018 到 2026，世界模型在泛化能力、Sim-to-Real 迁移、长时预测三个方面始终没有根本性突破。结合最新综述和实践经验，分析瓶颈在哪里、为什么难突破。</p></article><article class=article-item><div class=article-meta>2026年8月3日 · 阅读约5分钟</div><h2><a href=/zh/articles/world-model-2026-trend/>2026年，「世界模型」会是下一个AI风口么？</a></h2><div><span class=tag>世界模型</span>
+<span class=tag>AI风口</span>
+<span class=tag>行业趋势</span>
+<span class=tag>具身智能</span>
+<span class=tag>机器人AI</span>
+<span class=tag>DreamerV3</span></div><p class=article-excerpt>是世界模型的风口，但不是所有人的风口。从技术成熟度、落地场景到职业选择，冷静分析 2026 年世界模型方向的真实机会与风险。</p></article><article class=article-item><div class=article-meta>2026年8月2日 · 阅读约11分钟</div><h2><a href=/zh/articles/rssm-deep-dive/>RSSM状态空间模型详解：世界模型的核心引擎</a></h2><div><span class=tag>RSSM</span>
+<span class=tag>状态空间模型</span>
+<span class=tag>DreamerV3</span>
+<span class=tag>隐状态</span>
+<span class=tag>强化学习</span>
+<span class=tag>世界模型</span>
+<span class=tag>Dreamer系列</span></div><p class=article-excerpt>深入拆解 Dreamer 系列世界模型的核心组件 RSSM：确定性路径与随机性路径的双轨设计、隐状态预测机制、KL 散度平衡与想象训练，附源码级解读。</p></article><article class=article-item><div class=article-meta>2026年8月1日 · 阅读约11分钟</div><h2><a href=/zh/articles/world-model-intro/>什么是机器人世界模型？一个工程师的深度解读</a></h2><div><span class=tag>世界模型</span>
+<span class=tag>DreamerV3</span>
+<span class=tag>RSSM</span>
+<span class=tag>入门</span>
+<span class=tag>机器人AI</span>
+<span class=tag>Sim-to-Real</span>
+<span class=tag>具身智能</span></div><p class=article-excerpt>从 DreamerV3 到 RSSM，系统解读机器人世界模型的核心概念、技术架构与工程实践，帮你理解 AI 如何从「理解语言」走向「理解世界」。</p></article><article class=article-item><div class=article-meta>2026年7月31日 · 阅读约11分钟</div><h2><a href=/zh/articles/embodied-ai-guide/>没有博士学位，也能进入具身智能领域吗？</a></h2><div><span class=tag>具身智能</span>
+<span class=tag>职业转型</span>
+<span class=tag>学习路径</span>
+<span class=tag>世界模型</span>
+<span class=tag>强化学习</span>
+<span class=tag>机器人AI</span></div><p class=article-excerpt>本科毕业、三年嵌入式经验，如何转入具身智能方向？从学习路径、技能储备、项目实战到职业选择，一份工程师视角的转型指南。</p></article></main><div id=admin-stats style="display:none;max-width:800px;margin:2rem auto;padding:1.5rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px"><h3 style="margin:0 0 1rem;font-size:1.1rem;color:#1a1a2e">全站统计</h3><div id=stats-content style=font-size:.9rem;color:#64748b>加载中...</div></div><script>(function(){var e,t,n,s,o=new URLSearchParams(window.location.search);if(o.get("stats")!=="1")return;if(t=document.getElementById("admin-stats"),e=document.getElementById("stats-content"),!t||!e)return;t.style.display="block",s="https://vkbbaulinnpgywowgztp.supabase.co/rest/v1/blog_stats?select=*",n="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZrYmJhdWxpbm5wZ3l3b3dnenRwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU3OTM3MDMsImV4cCI6MjEwMTM2OTcwM30.oB4arqje9FP2x5Ws1yvCkGCTUPzmtY7XH5wes41egwc",fetch(s,{headers:{apikey:n,Authorization:"Bearer "+n}}).then(function(e){return e.json()}).then(function(t){if(!t||t.length===0){e.innerHTML="<p>暂无数据</p>";return}var n=0,s=0,o=t.map(function(e){return n+=e.likes||0,s+=e.bookmarks||0,'<tr><td style="padding:0.5rem; border-bottom:1px solid #e2e8f0;">'+e.path+'</td><td style="padding:0.5rem; border-bottom:1px solid #e2e8f0; text-align:center;">'+(e.likes||0)+'</td><td style="padding:0.5rem; border-bottom:1px solid #e2e8f0; text-align:center;">'+(e.bookmarks||0)+"</td></tr>"}).join("");e.innerHTML='<table style="width:100%; border-collapse:collapse; margin-bottom:1rem;"><thead><tr style="background:#e2e8f0;"><th style="padding:0.5rem; text-align:left;">文章路径</th><th style="padding:0.5rem; text-align:center;">点赞</th><th style="padding:0.5rem; text-align:center;">收藏</th></tr></thead><tbody>'+o+'</tbody><tfoot><tr style="background:#f1f5f9; font-weight:600;"><td style="padding:0.5rem;">总计</td><td style="padding:0.5rem; text-align:center;">'+n+'</td><td style="padding:0.5rem; text-align:center;">'+s+"</td></tr></tfoot></table>"}).catch(function(t){e.innerHTML='<p style="color:#ef4444;">加载失败: '+t.message+"</p>"})})()</script><footer><p>&copy; 2026 WorldSense · <a href=https://www.worldsensetech.com>www.worldsensetech.com</a></p><p style="font-size:.8rem;color:#999;margin:4px 0"><a href=https://beian.miit.gov.cn/ target=_blank rel=noopener style=color:#999>沪ICP备2026041639号-1</a>
+<span style="margin:0 6px">|</span>
+<a href="http://www.beian.gov.cn/portal/registerSystemInfo?recordcode=31011402022270" target=_blank rel=noopener style=color:#999;display:inline-flex;align-items:center;gap:3px><img src=/images/logo01.6189a29f.png alt style=width:14px;height:14px;vertical-align:middle>沪公网安备31011402022270号</a></p><span id=busuanzi_container_site_pv style=font-size:.8rem;color:#999>总访问量 <span id=busuanzi_value_site_pv style=color:#2563eb></span> 次</span></footer><script src="/js/ga4-tracker.js?v=20260828"></script></body></html>

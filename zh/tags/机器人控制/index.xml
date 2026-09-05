@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>机器人控制 on WorldSense 技术笔记</title><link>https://www.worldsensetech.com/zh/tags/%E6%9C%BA%E5%99%A8%E4%BA%BA%E6%8E%A7%E5%88%B6/</link><description>Recent content in 机器人控制 on WorldSense 技术笔记</description><generator>Hugo</generator><language>zh-CN</language><lastBuildDate>Sun, 30 Aug 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://www.worldsensetech.com/zh/tags/%E6%9C%BA%E5%99%A8%E4%BA%BA%E6%8E%A7%E5%88%B6/index.xml" rel="self" type="application/rss+xml"/><item><title>Dreamer 的应用实践：从仿真控制到 Sim-to-Real</title><link>https://www.worldsensetech.com/zh/articles/2026-08-30-dreamer-applications/</link><pubDate>Sun, 30 Aug 2026 00:00:00 +0000</pubDate><guid>https://www.worldsensetech.com/zh/articles/2026-08-30-dreamer-applications/</guid><description>&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;Dreamer 系列 · 第 5 篇&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;系列目录（当前在第 5 篇）：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;a href="https://www.worldsensetech.com/zh/articles/2026-08-25-dreamer-explained/"&gt;（一）读懂 Dreamer：世界模型是怎么学会&amp;rsquo;想象&amp;rsquo;的？&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.worldsensetech.com/zh/articles/2026-08-27-dreamer-actor-critic/"&gt;（二）Dreamer 的 Actor-Critic：想象空间里的策略优化&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.worldsensetech.com/zh/articles/2026-08-28-dreamerv3-training-tips/"&gt;（三）DreamerV3 训练工程实践：从 GPU 配置到超参调优&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.worldsensetech.com/zh/articles/2026-08-29-dreamerv3-gpu-guide/"&gt;（四）DreamerV3 GPU 选型指南：从显存需求到性价比分析&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;（五）Dreamer 的应用实践：从仿真控制到 Sim-to-Real&lt;/strong&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;前面四篇文章讲清楚了 Dreamer 的架构设计、Actor-Critic 原理、训练工程经验和硬件选型。但一个关键问题是：&lt;strong&gt;Dreamer 在实际任务中表现如何？它能用来做什么？&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;这篇文章从 Dreamer 在不同任务类型上的实际表现出发，讨论它的应用边界和 Sim-to-Real 的探索现状。&lt;/p&gt;
+&lt;h2 id="一dreamer-的任务覆盖范围"&gt;一、Dreamer 的任务覆盖范围&lt;/h2&gt;
+&lt;p&gt;Dreamer 系列（V1/V2/V3）在论文中展示了多种任务类型上的实验结果。从官方代码和论文来看，主要覆盖以下几类：&lt;/p&gt;
+&lt;h3 id="deepmind-control-suite-dmc"&gt;DeepMind Control Suite (DMC)&lt;/h3&gt;
+&lt;p&gt;DMC 是 Dreamer 论文中最核心的 benchmark，包含一系列连续控制任务：walker、cheetah、fish、reacher 等。这些任务的特点是：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;低维状态空间（通常几十维）&lt;/li&gt;
+&lt;li&gt;连续动作空间&lt;/li&gt;
+&lt;li&gt;episode 长度固定或较长&lt;/li&gt;
+&lt;li&gt;奖励信号相对密集&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;DreamerV3 在 DMC 等连续控制 benchmark 上表现优秀，尤其体现了世界模型带来的样本效率优势。但在最终性能上，不同任务中与 SAC 等强 model-free 方法各有优劣，并不存在全面碾压。从训练效率来看，Dreamer 在 DMC 上的样本效率通常优于 model-free 方法。这是因为 Dreamer 通过世界模型在想象空间中反复练习，减少了对真实环境交互的依赖。&lt;/p&gt;</description></item><item><title>TD-MPC：世界模型如何用于机器人控制？</title><link>https://www.worldsensetech.com/zh/articles/td-mpc-world-model-control/</link><pubDate>Fri, 07 Aug 2026 00:00:00 +0000</pubDate><guid>https://www.worldsensetech.com/zh/articles/td-mpc-world-model-control/</guid><description>&lt;p&gt;上一篇文章我们拆解了 RSSM 的双轨状态设计，理解了 Dreamer 系列如何在隐空间中&amp;quot;想象&amp;quot;未来。但 RSSM 并不是世界模型用于机器人控制的唯一路线。今天聊另一条重要路线：TD-MPC（Temporal Difference Model Predictive Control）。&lt;/p&gt;
+&lt;p&gt;如果说 Dreamer 的核心是利用学习到的世界模型，在隐空间中进行 imagined rollout，并通过 actor-critic 方法优化策略，那 TD-MPC 的核心思路更直接：学一个世界模型，然后在模型里做规划（planning），选出最优动作序列直接执行。它不把策略网络作为唯一决策方式，而是利用世界模型进行在线规划，并结合学习到的策略先验提高搜索效率。&lt;/p&gt;
+&lt;h2 id="为什么需要-model-predictive-control"&gt;为什么需要 Model Predictive Control&lt;/h2&gt;
+&lt;p&gt;先退一步。传统的强化学习（比如 DQN、PPO）学的是一个策略 π(a|s)——给定当前状态，直接输出动作。这个策略是在大量试错中训练出来的，一旦训练完成，推理时只需要前向传播一次。&lt;/p&gt;
+&lt;p&gt;但这种方式有两个问题：&lt;/p&gt;
+&lt;p&gt;第一，样本效率低。策略需要大量交互数据才能学好，而真实机器人的交互成本很高。&lt;/p&gt;
+&lt;p&gt;第二，缺乏&amp;quot;前瞻性&amp;quot;。策略网络只看当前状态就决定动作，不会主动&amp;quot;想一想如果我这样做，接下来几步会怎样&amp;quot;。&lt;/p&gt;
+&lt;p&gt;Model Predictive Control（MPC）的思路完全不同：在每个时间步，基于当前状态，在模型中模拟多条未来轨迹，评估每条轨迹的累积回报，选择回报最高的那条轨迹的第一个动作执行。然后到下一个时间步，重新规划。&lt;/p&gt;
+&lt;p&gt;这就像下棋：不是靠直觉走一步，而是向前推演几步，选最好的走法。&lt;/p&gt;
+&lt;h2 id="td-mpc-的核心设计"&gt;TD-MPC 的核心设计&lt;/h2&gt;
+&lt;p&gt;TD-MPC（Hansen et al., 2022）的关键贡献在于：它证明了一个面向控制任务学习的隐空间动力学模型，可以与 MPC 规划结合，并通过 TD 学习目标获得高效控制能力。注意，MPC 和 model-based RL 的结合并不是新概念——TD-MPC 的创新在于用 TD 目标替代重建损失来训练世界模型。&lt;/p&gt;
+&lt;h3 id="世界模型的结构"&gt;世界模型的结构&lt;/h3&gt;
+&lt;p&gt;TD-MPC 的核心组件包括状态编码器、隐空间动力学模型、奖励预测模型，以及用于价值评估的 Q 网络：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;状态编码器（Encoder）&lt;/li&gt;
+&lt;/ol&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;`z_t = Encoder(o_t)`
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;把高维观测（比如图像）压缩到一个低维的隐状态 z_t。这个隐状态不需要像 RSSM 那样拆成确定性和随机性两部分——TD-MPC 用的是确定性隐状态，结构更简单。&lt;/p&gt;
+&lt;ol start="2"&gt;
+&lt;li&gt;动力学模型（Dynamics Model）&lt;/li&gt;
+&lt;/ol&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;`z_{t+1} = f(z_t, a_t)`
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;给定当前隐状态和动作，预测下一步的隐状态。这就是世界模型的核心——它学会了环境的状态转移规律。&lt;/p&gt;</description></item></channel></rss>

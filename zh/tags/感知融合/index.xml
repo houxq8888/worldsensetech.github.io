@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>感知融合 on WorldSense 技术笔记</title><link>https://www.worldsensetech.com/zh/tags/%E6%84%9F%E7%9F%A5%E8%9E%8D%E5%90%88/</link><description>Recent content in 感知融合 on WorldSense 技术笔记</description><generator>Hugo</generator><language>zh-CN</language><lastBuildDate>Wed, 26 Aug 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://www.worldsensetech.com/zh/tags/%E6%84%9F%E7%9F%A5%E8%9E%8D%E5%90%88/index.xml" rel="self" type="application/rss+xml"/><item><title>机器人世界模型到底在做什么？从感知到行动的完整链路</title><link>https://www.worldsensetech.com/zh/articles/2026-08-26-world-model-in-robotics/</link><pubDate>Wed, 26 Aug 2026 00:00:00 +0000</pubDate><guid>https://www.worldsensetech.com/zh/articles/2026-08-26-world-model-in-robotics/</guid><description>&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;Dreamer 系列 · 第 2 篇&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;a href="https://www.worldsensetech.com/zh/articles/2026-08-25-dreamer-explained/"&gt;上一篇&lt;/a&gt;从架构层面拆解了 Dreamer 的整体设计。这篇把视角拉远一步：世界模型在整个机器人系统中到底处于什么位置？从传感器数据到最终执行动作，中间经历了哪些环节？本文不讨论如何训练一个通用机器人世界模型，而讨论它在机器人系统中的功能位置。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id="一一个根本区别机器人世界模型和语言模型完全不同"&gt;一、一个根本区别：机器人世界模型和语言模型完全不同&lt;/h2&gt;
+&lt;p&gt;过去几年，&amp;ldquo;模型&amp;quot;这个词在 AI 领域被反复使用。语言模型预测下一个 token，视觉模型预测下一帧图像，自动驾驶模型预测交通参与者的行为。它们都在做某种&amp;quot;预测&amp;rdquo;，但预测的对象和约束条件差异很大。&lt;/p&gt;
+&lt;p&gt;机器人世界模型面对的问题有一个根本不同：&lt;strong&gt;它需要学习 action-conditioned future dynamics&lt;/strong&gt;——给定当前观察和行动，预测未来可能出现的状态、观测以及任务相关结果。注意这里用&amp;quot;观测&amp;quot;而不是&amp;quot;状态&amp;quot;，因为不同类型的世界模型预测的对象不同：Dreamer RSSM 在 latent space 中预测（latent → latent），video world model 在像素空间预测（action + video → future video），&amp;ldquo;state&amp;quot;并不是统一接口。&lt;/p&gt;
+&lt;p&gt;想象一个场景：桌上的机械臂要推开一个杯子。在真正执行之前，它需要预测：手接触杯子后，杯子会往哪个方向滑？如果杯子太重推不动怎么办？如果桌面很滑，杯子会不会飞出去？&lt;/p&gt;
+&lt;p&gt;这种预测不是从语言中学到的&amp;quot;杯子通常放在桌上&amp;quot;这种语义知识，而是&amp;quot;手以某个角度接触杯子、施加某个力，杯子会沿桌面滑动大约 10cm&amp;quot;这种与行动相关的未来预测。&lt;/p&gt;
+&lt;p&gt;我觉得这是理解机器人世界模型最重要的出发点。语言模型通过海量文本学会了语言结构，视觉模型通过海量图像学会了视觉规律，而机器人世界模型需要通过交互经验学会行动与后果之间的关系。&lt;/p&gt;
+&lt;p&gt;但这里有一个很重要的区分：世界模型并不需要显式恢复完整的物理规律。它可能只需要在 latent space 中预测：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-text" data-lang="text"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;latent_t + action
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; ↓
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;latent_{t+1}
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; ↓
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;未来任务相关结果
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;而不需要真的知道：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-text" data-lang="text"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;摩擦系数 = 0.31
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;质量 = 247g
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;接触力 = 1.8N
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;世界模型不是为了&amp;quot;还原世界&amp;rdquo;，而是为了预测行动相关的未来。&lt;/strong&gt; 这条主线会贯穿整篇文章。&lt;/p&gt;
+&lt;h2 id="二机器人世界模型到底在预测什么"&gt;二、机器人世界模型到底在预测什么？&lt;/h2&gt;
+&lt;p&gt;用一句话概括：世界模型学习的是&amp;quot;如果执行某个动作，决策相关的状态会怎么变化&amp;quot;。&lt;/p&gt;
+&lt;p&gt;技术上说，世界模型学习状态转移动态（state transition dynamics），并通常额外学习 reward、continuation 等任务相关预测头：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-text" data-lang="text"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;WorldModel:
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; dynamics: (s_t, a_t) → s_{t+1}
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; heads: s_{t+1} → r_t, γ_t, ...
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;实际实现中，世界模型通常不是直接预测完整的原始状态，而是在隐空间中预测 latent dynamics。&lt;/p&gt;</description></item></channel></rss>
