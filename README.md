@@ -154,7 +154,7 @@ rsync -avz public/ user@server:/path/to/webroot/
 
 - **域名** · [worldsensetech.com](https://www.worldsensetech.com)
 - **作者** · [侯晓琴 · Hou Xiaoqin](https://github.com/houxq8888)
-- **微信公众号** · WorldSenseTech
+- **微信公众号** · houxq8888
 - **构建工具** · Hugo 0.164 extended + 自定义 `worldsense` 主题
 - **部署** · GitHub Actions → GitHub Pages + 阿里云 ECS 双活
 - **备案** · 沪ICP备2026041639号-1 · 沪公网安备31011402022270号
