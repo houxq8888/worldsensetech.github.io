@@ -5,7 +5,7 @@ date: 2026-08-28
 draft: false
 categories: ["世界模型"]
 tags: ["DreamerV3", "训练技巧", "GPU", "超参数", "工程实践", "Dreamer系列"]
-description: "DreamerV3 训练中的工程实战经验：GPU 显存优化、超参数调优、常见坑与解决方案。"
+description: "把 DreamerV3 从零跑通到自己项目里可以复用，中间会踩的工程坑远不止论文里那几行超参。这篇整理我们在 GPU 显存优化、actor-critic 稳定训练、reward normalization，以及常见 NaN、不收敛、学习曲线异常等问题的定位思路和解决方案——适合已经跑通 baseline、想把 DreamerV3 真正用起来的同学。"
 toc: true
 related_articles:
   - 2026-08-25-dreamer-explained

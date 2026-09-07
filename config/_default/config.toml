@@ -20,6 +20,18 @@ defaultContentLanguageInSubdir = true
     [languages.zh.params]
       description = "专注具身智能、世界模型与 Sim-to-Real 的技术博客。从算法研究到工程实践，记录机器人 AI 的探索之路。"
       author = "侯晓琴"
+
+    [languages.zh.params.sectionMeta.about]
+      titleSuffix = "· 站长、路线与联系方式"
+      description = "WorldSense 技术笔记由侯晓琴个人维护，专注具身智能、世界模型与 Sim-to-Real 方向的算法研究与工程实践。本页介绍站点定位、内容规划、作者背景与联系方式。"
+
+    [languages.zh.params.sectionMeta.archive]
+      titleSuffix = "· 全部文章按时间排列"
+      description = "WorldSense 技术笔记的完整文章归档，按发布时间倒序列出所有已发布内容，覆盖具身智能、世界模型、VLA、模仿学习与强化学习、Sim-to-Real、机器人数据与触觉力控等主题。"
+
+    [languages.zh.params.sectionMeta.articles]
+      titleSuffix = "· 具身智能与世界模型技术笔记"
+      description = "WorldSense 技术笔记文章列表页，聚焦具身智能、世界模型、VLA、模仿学习与强化学习、Sim-to-Real、机器人数据与触觉力控等方向的算法研究与工程实践笔记。"
     [[languages.zh.menu.main]]
       name = "首页"
       url = "/"
@@ -46,6 +58,18 @@ defaultContentLanguageInSubdir = true
     [languages.en.params]
       description = "A tech blog focused on Embodied AI, World Models, and Sim-to-Real transfer. From algorithm research to engineering practice, documenting the journey of robot AI."
       author = "Hou Xiaoqin"
+
+    [languages.en.params.sectionMeta.about]
+      titleSuffix = "· Who runs this blog and why"
+      description = "WorldSense Tech Blog is maintained by Hou Xiaoqin, covering Embodied AI, World Models, and Sim-to-Real transfer. This page describes the site's mission, content roadmap, author background, and contact information."
+
+    [languages.en.params.sectionMeta.archive]
+      titleSuffix = "· Every post, in chronological order"
+      description = "Complete chronological archive of the WorldSense Tech Blog, listing every published post on Embodied AI, World Models, VLA, Imitation & Reinforcement Learning, Sim-to-Real, robot data, and tactile & force control."
+
+    [languages.en.params.sectionMeta.articles]
+      titleSuffix = "· Notes on Embodied AI and World Models"
+      description = "Article index of the WorldSense Tech Blog, focused on Embodied AI, World Models, VLA, Imitation & Reinforcement Learning, Sim-to-Real, robot data, and tactile & force control."
     [[languages.en.menu.main]]
       name = "Home"
       url = "/"

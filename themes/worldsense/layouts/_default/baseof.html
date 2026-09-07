@@ -3,8 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ if not .IsHome }}{{ .Title }} - {{ .Site.Title }}{{ else }}{{ .Site.Title }}{{ end }}</title>
-    <meta name="description" content="{{ with .Description }}{{ . }}{{ else }}{{ .Site.Params.description }}{{ end }}">
+{{- /* 分层 fallback：front matter → sectionMeta → site params */ -}}
+{{- $key := "" -}}
+{{- if .IsHome -}}
+  {{- $key = "home" -}}
+{{- else if eq .Kind "section" -}}
+  {{- $key = .Section -}}
+{{- else if and .File (eq .Kind "page") (not .Section) -}}
+  {{- $key = .File.ContentBaseName -}}
+{{- end -}}
+{{- $meta := dict -}}
+{{- if ne $key "" -}}
+  {{- with .Site.Params.sectionMeta -}}
+    {{- with index . $key -}}{{ $meta = . }}{{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- $suffix := $meta.titleSuffix | default "" -}}
+{{- $desc := "" -}}
+{{- if .Description -}}
+  {{- $desc = .Description -}}
+{{- else if $meta.description -}}
+  {{- $desc = $meta.description -}}
+{{- else -}}
+  {{- $desc = .Site.Params.description -}}
+{{- end -}}
+    <title>{{ if .IsHome }}{{ .Site.Title }}{{ with $suffix }} {{ . }}{{ end }}{{ else }}{{ .Title }}{{ with $suffix }} {{ . }}{{ end }} - {{ .Site.Title }}{{ end }}</title>
+    <meta name="description" content="{{ $desc }}">
     <meta name="baidu-site-verification" content="codeva-RcngxmWb36">
     <link rel="stylesheet" href="{{ "css/style.css" | relURL }}?v=20260815">
 
@@ -32,8 +56,8 @@
     {{ end }}
 
     <!-- Open Graph -->
-    <meta property="og:title" content="{{ .Title }}">
-    <meta property="og:description" content="{{ with .Description }}{{ . }}{{ else }}{{ .Site.Params.description }}{{ end }}">
+    <meta property="og:title" content="{{ .Title }}{{ with $suffix }} {{ . }}{{ end }}">
+    <meta property="og:description" content="{{ $desc }}">
     <meta property="og:type" content="{{ if .IsPage }}article{{ else }}website{{ end }}">
     <meta property="og:url" content="{{ .Permalink }}">
     <meta property="og:site_name" content="{{ .Site.Title }}">
@@ -55,8 +79,8 @@
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="{{ .Title }}">
-    <meta name="twitter:description" content="{{ with .Description }}{{ . }}{{ else }}{{ .Site.Params.description }}{{ end }}">
+    <meta name="twitter:title" content="{{ .Title }}{{ with $suffix }} {{ . }}{{ end }}">
+    <meta name="twitter:description" content="{{ $desc }}">
     {{ with .Params.images }}
     {{ range first 1 . }}
     <meta name="twitter:image" content="{{ . | absURL }}">
@@ -72,7 +96,7 @@
         "@context": "https://schema.org",
         "@type": "Article",
         "headline": {{ .Title }},
-        "description": {{ with .Description }}{{ . }}{{ else }}{{ .Site.Params.description }}{{ end }},
+        "description": {{ $desc }},
         "url": {{ .Permalink }},
         "datePublished": {{ .Date.Format "2006-01-02T15:04:05Z07:00" }},
         "dateModified": {{ .Lastmod.Format "2006-01-02T15:04:05Z07:00" }},

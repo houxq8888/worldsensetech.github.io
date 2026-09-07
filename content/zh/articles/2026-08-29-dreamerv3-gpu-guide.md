@@ -5,7 +5,7 @@ date: 2026-08-29
 draft: false
 categories: ["世界模型"]
 tags: ["DreamerV3", "GPU", "显存", "硬件", "选型", "Dreamer系列"]
-description: "DreamerV3 训练需要什么样的 GPU？从显存需求、计算性能到性价比分析，帮你做出合理选择。"
+description: "跑 DreamerV3 到底需要什么样的 GPU？这篇从显存需求、单步耗时、多任务并行能力和性价比四个维度，对比 4090 / A100 / H100 在不同任务规模下的实测表现，并给出一份按预算区分的选型建议——避免买了卡跑不满，也避免预算被不必要地抬高。"
 toc: true
 related_articles:
   - 2026-08-17-dreamerv3-gpu-infrastructure
