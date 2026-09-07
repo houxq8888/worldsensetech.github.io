@@ -77,17 +77,132 @@ jobs:
           script: |
             chown -R www-data:www-data /var/www/worldsense
             chmod -R 755 /var/www/worldsense
-      
-      - name: Submit to Baidu
+
+      # ------------------------------------------------------------------
+      # IndexNow：Bing / Yandex / Seznam / Naver 共享队列，一次提交覆盖多家
+      # 需要在 GitHub repo Settings → Secrets → Actions 添加：
+      #   INDEXNOW_KEY = 与 static/<KEY>.txt 同名的一串 32 位 hex
+      # 若 secret 未配置，脚本会静默跳过，不影响主部署
+      # ------------------------------------------------------------------
+      - name: Push URLs to IndexNow
+        env:
+          INDEXNOW_KEY: ${{ secrets.INDEXNOW_KEY }}
         run: |
-          SITEMAP_URL="https://worldsensetech.com/sitemap.xml"
-          BAIDU_TOKEN="${{ secrets.BAIDU_PUSH_TOKEN }}"
-          
-          if [ -n "$BAIDU_TOKEN" ]; then
-            curl -s "$SITEMAP_URL" | grep -oP '(?<=<loc>)[^<]+' | head -10 > urls.txt
-            if [ -s urls.txt ]; then
-              curl -H "Content-Type: text/plain" \
-                   --data-binary @urls.txt \
-                   "http://data.zz.baidu.com/urls?site=https://worldsensetech.com&token=$BAIDU_TOKEN"
-            fi
-          fi
+          python3 - <<'PY'
+          import os, glob, re, json, time, urllib.request, urllib.error
+          from pathlib import Path
+
+          KEY = os.environ.get("INDEXNOW_KEY", "").strip()
+          if not KEY:
+              print("[skip] INDEXNOW_KEY secret 未配置，跳过 IndexNow 推送")
+              raise SystemExit(0)
+
+          HOST = "www.worldsensetech.com"
+          KEY_LOCATION = f"https://{HOST}/{KEY}.txt"
+          ENDPOINT = "https://api.indexnow.org/indexnow"
+          ALLOWED = (f"https://{HOST}/", "https://worldsensetech.com/")
+
+          loc_re = re.compile(r"<loc>(.*?)</loc>")
+          urls = []
+          for sm in glob.glob("public/**/sitemap*.xml", recursive=True):
+              for m in loc_re.finditer(Path(sm).read_text(encoding="utf-8")):
+                  u = m.group(1).strip()
+                  if any(u.startswith(p) for p in ALLOWED):
+                      urls.append(u)
+          urls = list(dict.fromkeys(urls))
+          print(f"[IndexNow] 从 public/ 提取到 {len(urls)} 条本站 URL")
+          if not urls:
+              raise SystemExit(0)
+
+          # 等 keyLocation 上线（GitHub Pages / 阿里云 Nginx 可能缓存）
+          reachable = False
+          for attempt in range(1, 11):
+              try:
+                  req = urllib.request.Request(KEY_LOCATION, method="HEAD")
+                  with urllib.request.urlopen(req, timeout=10) as r:
+                      if r.status == 200:
+                          print(f"[IndexNow] keyLocation 可达（第 {attempt} 次尝试）")
+                          reachable = True
+                          break
+              except Exception as e:
+                  print(f"[IndexNow] keyLocation 未就绪 ({attempt}/10): {e}")
+              time.sleep(15)
+          if not reachable:
+              print("[IndexNow] 警告：150 秒内 keyLocation 仍不可达，继续尝试推送（可能被 IndexNow 拒 403）")
+
+          BATCH = 1000
+          for i in range(0, len(urls), BATCH):
+              batch = urls[i:i+BATCH]
+              payload = json.dumps({
+                  "host": HOST,
+                  "key": KEY,
+                  "keyLocation": KEY_LOCATION,
+                  "urlList": batch,
+              }).encode("utf-8")
+              req = urllib.request.Request(
+                  ENDPOINT, data=payload,
+                  headers={"Content-Type": "application/json; charset=utf-8"},
+                  method="POST",
+              )
+              try:
+                  with urllib.request.urlopen(req, timeout=30) as resp:
+                      print(f"[IndexNow] 批次 {i//BATCH + 1}: HTTP {resp.status} · {len(batch)} 条已接受")
+              except urllib.error.HTTPError as e:
+                  body = e.read().decode("utf-8", errors="replace")[:200]
+                  print(f"[IndexNow] 批次 {i//BATCH + 1}: HTTP {e.code} — {body}")
+                  if e.code == 403:
+                      print("[IndexNow] 403：确认 static/<KEY>.txt 已部署、内容与 INDEXNOW_KEY 一致")
+              except Exception as e:
+                  print(f"[IndexNow] 批次 {i//BATCH + 1}: 网络错误 {e}")
+          PY
+
+      # ------------------------------------------------------------------
+      # 百度推送：同样从 public/ 本地 sitemap 抓，避免线上 sitemap 抓取
+      # 偶发 SSL 抖动导致整段语言目录被跳过（此前 zh/sitemap.xml 出过这个）
+      # 需要在 secrets 里配置：BAIDU_PUSH_TOKEN
+      # ------------------------------------------------------------------
+      - name: Submit to Baidu
+        env:
+          BAIDU_TOKEN: ${{ secrets.BAIDU_PUSH_TOKEN }}
+        run: |
+          python3 - <<'PY'
+          import os, glob, re, urllib.request, urllib.error
+          from pathlib import Path
+
+          TOKEN = os.environ.get("BAIDU_TOKEN", "").strip()
+          if not TOKEN:
+              print("[skip] BAIDU_PUSH_TOKEN secret 未配置，跳过百度推送")
+              raise SystemExit(0)
+
+          SITE = "https://www.worldsensetech.com"
+          API = f"http://data.zz.baidu.com/urls?site={SITE}&token={TOKEN}"
+          ALLOWED = (f"{SITE}/", "https://worldsensetech.com/")
+
+          loc_re = re.compile(r"<loc>(.*?)</loc>")
+          urls = []
+          for sm in glob.glob("public/**/sitemap*.xml", recursive=True):
+              for m in loc_re.finditer(Path(sm).read_text(encoding="utf-8")):
+                  u = m.group(1).strip()
+                  if any(u.startswith(p) for p in ALLOWED):
+                      urls.append(u)
+          urls = list(dict.fromkeys(urls))
+          print(f"[Baidu] 提取到 {len(urls)} 条 URL")
+          if not urls:
+              raise SystemExit(0)
+
+          data = "\n".join(urls).encode("utf-8")
+          req = urllib.request.Request(
+              API, data=data,
+              headers={"Content-Type": "text/plain"},
+              method="POST",
+          )
+          try:
+              with urllib.request.urlopen(req, timeout=30) as resp:
+                  body = resp.read().decode("utf-8", errors="replace")
+                  print(f"[Baidu] HTTP {resp.status}: {body}")
+          except urllib.error.HTTPError as e:
+              body = e.read().decode("utf-8", errors="replace")[:300]
+              print(f"[Baidu] HTTP {e.code}: {body}")
+          except Exception as e:
+              print(f"[Baidu] 网络错误: {e}")
+          PY
