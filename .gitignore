@@ -22,6 +22,7 @@ Desktop.ini
 .workbuddy/
 baidu-push.py
 .baidu-pushed.json
+.baidu-state/
 indexnow-push.py
 .indexnow-pushed.json
 __pycache__/

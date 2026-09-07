@@ -157,27 +157,40 @@ jobs:
           PY
 
       # ------------------------------------------------------------------
-      # 百度推送：同样从 public/ 本地 sitemap 抓，避免线上 sitemap 抓取
-      # 偶发 SSL 抖动导致整段语言目录被跳过（此前 zh/sitemap.xml 出过这个）
-      # 需要在 secrets 里配置：BAIDU_PUSH_TOKEN
+      # 百度推送：账号配额 10 条/天（新站默认），一次性推 378 条会被 400 拒。
+      # 策略：用 actions/cache 持久化"已推游标"，每天最多推 10 条未推 URL，
+      # 只有百度返回 success 才前进游标；over quota 时保持原游标等明天重试。
+      # 首轮 378 条约需 38 天走完；之后每天只推新增页面。
       # ------------------------------------------------------------------
-      - name: Submit to Baidu
+      - name: Restore Baidu push cursor
+        uses: actions/cache@v4
+        with:
+          path: .baidu-state
+          key: baidu-cursor-v1
+          restore-keys: |
+            baidu-cursor-v1
+
+      - name: Submit to Baidu (10/day, persistent cursor)
         env:
           BAIDU_TOKEN: ${{ secrets.BAIDU_PUSH_TOKEN }}
         run: |
           python3 - <<'PY'
-          import os, glob, re, urllib.request, urllib.error
+          import os, glob, re, json, urllib.request, urllib.error
           from pathlib import Path
+          from datetime import datetime, timezone
 
           TOKEN = os.environ.get("BAIDU_TOKEN", "").strip()
-          if not TOKEN:
-              print("[skip] BAIDU_PUSH_TOKEN secret 未配置，跳过百度推送")
-              raise SystemExit(0)
-
+          STATE_DIR = Path(".baidu-state")
+          STATE_FILE = STATE_DIR / "pushed.json"
+          DAILY_BATCH = 10
           SITE = "https://www.worldsensetech.com"
-          API = f"http://data.zz.baidu.com/urls?site={SITE}&token={TOKEN}"
           ALLOWED = (f"{SITE}/", "https://worldsensetech.com/")
 
+          if not TOKEN:
+              print("[Baidu][skip] BAIDU_PUSH_TOKEN 未配置")
+              raise SystemExit(0)
+
+          # 1) 从本地 build 产物提取全量本站 URL（避免线上 sitemap SSL 抖动）
           loc_re = re.compile(r"<loc>(.*?)</loc>")
           urls = []
           for sm in glob.glob("public/**/sitemap*.xml", recursive=True):
@@ -186,23 +199,73 @@ jobs:
                   if any(u.startswith(p) for p in ALLOWED):
                       urls.append(u)
           urls = list(dict.fromkeys(urls))
-          print(f"[Baidu] 提取到 {len(urls)} 条 URL")
+          print(f"[Baidu] 本站 URL 共 {len(urls)} 条")
           if not urls:
               raise SystemExit(0)
 
-          data = "\n".join(urls).encode("utf-8")
+          # 2) 读已推游标（来自 actions/cache）
+          STATE_DIR.mkdir(exist_ok=True)
+          pushed = set()
+          if STATE_FILE.exists():
+              try:
+                  data = json.loads(STATE_FILE.read_text(encoding="utf-8"))
+                  pushed = set(data.get("urls", []))
+                  print(f"[Baidu] 已推 {len(pushed)} 条 · 上次更新 {data.get('updated', '?')}")
+              except Exception as e:
+                  print(f"[Baidu] 游标文件损坏（{e}），从头开始")
+
+          # 3) 差集 → 取今日 10 条
+          todo = [u for u in urls if u not in pushed]
+          if not todo:
+              print("[Baidu] 全部 URL 已推完，本轮跳过。有新页面时会自动补进队列")
+              raise SystemExit(0)
+          batch = todo[:DAILY_BATCH]
+          print(f"[Baidu] 待推 {len(todo)} 条 · 本轮取 {len(batch)} 条")
+          for u in batch:
+              print(f"       · {u}")
+
+          # 4) POST 到百度普通收录 API
+          API = f"http://data.zz.baidu.com/urls?site={SITE}&token={TOKEN}"
+          payload = "\n".join(batch).encode("utf-8")
           req = urllib.request.Request(
-              API, data=data,
+              API, data=payload,
               headers={"Content-Type": "text/plain"},
               method="POST",
           )
           try:
               with urllib.request.urlopen(req, timeout=30) as resp:
                   body = resp.read().decode("utf-8", errors="replace")
-                  print(f"[Baidu] HTTP {resp.status}: {body}")
+                  status = resp.status
           except urllib.error.HTTPError as e:
-              body = e.read().decode("utf-8", errors="replace")[:300]
-              print(f"[Baidu] HTTP {e.code}: {body}")
+              body = e.read().decode("utf-8", errors="replace")
+              status = e.code
           except Exception as e:
-              print(f"[Baidu] 网络错误: {e}")
+              print(f"[Baidu] 网络错误: {e} · 游标不前进")
+              raise SystemExit(0)
+
+          print(f"[Baidu] HTTP {status}: {body[:300]}")
+
+          # 5) 只有百度返回 success 才前进游标；over quota / error 保持原样等明日
+          try:
+              result = json.loads(body)
+          except Exception:
+              result = {}
+          success = int(result.get("success") or 0)
+          if success > 0:
+              newly = batch[:success]
+              pushed.update(newly)
+              STATE_FILE.write_text(json.dumps({
+                  "urls": sorted(pushed),
+                  "count": len(pushed),
+                  "total": len(urls),
+                  "remain": result.get("remain"),
+                  "updated": datetime.now(timezone.utc).isoformat(),
+              }, ensure_ascii=False, indent=2), encoding="utf-8")
+              print(
+                  f"[Baidu] 游标 +{success} · 累计 {len(pushed)}/{len(urls)}"
+                  f" · 剩余今日配额 {result.get('remain', '?')}"
+              )
+          else:
+              msg = result.get("message") or result.get("error") or f"http_{status}"
+              print(f"[Baidu] 未成功（{msg}）· 游标不前进，明天重试")
           PY
