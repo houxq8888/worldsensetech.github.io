@@ -25,39 +25,41 @@ related_articles:
 先把整篇文章的分析框架放在开头、后面每一节都会回到这张图。
 
 ```text
-                        WORLD
-                          │
-              ┌───────────┴───────────┐
-              ▼                       ▼
-            Vision                  Contact
-              │                       │
-              ▼                       ▼
-        World state            Contact state
-              │                       │
-              └───────────┬───────────┘
-                          ▼
-                    State estimator
-                          ▼
-                 Task-relevant latent
-                          ▼
-                        Policy
-                          ▼
-                Motion / Force reference
-                          ▼
+                          WORLD
+                            │
+              ┌─────────────┼──────────────┐
+              ▼             ▼              ▼
+            Vision       Contact      Proprioception
+              │             │              │
+              ▼             ▼              ▼
+         World state  Contact state   Robot state
+              │             │         (q, q̇, τ, EE pose)
+              └─────────────┼──────────────┘
+                            ▼
+                  State / Belief estimator
+                            ▼
+                 Task-relevant latent state
+                            ▼
+                          Policy
+                            ▼
+                 Motion / Force reference
+                            ▼
                  High-frequency controller
-                          ▼
-                        Robot
-                          ▼
-                       Contact  ────┐
-                          │         │
-                    tactile / force │
-                          └─────────┘  ↺
+                            ▼
+                          Robot
+                            ▼
+                        Contact  ────┐
+                          │          │
+                    tactile / force  │
+                          └──────────┘  ↺
 
      ── 一条横跨全链路的隐性层 ──
      Calibration · Synchronization · Registration
      时间戳对齐 · 坐标系对齐 · sensor-to-robot 标定 ·
      tactile-to-contact-frame 注册
 ```
+
+三条输入通道里、Vision 给的是 world state、Contact 给的是 contact state、Proprioception 给的是 robot state——三者一起喂进 state / belief estimator、才凑成一条 manipulation policy 真正在用的观测。少了 proprioception 这一路、"state estimator" 到底在估什么其实是说不圆的。之所以写成 "state / belief"、是为了接 §5.1 里那套 POMDP 语言：*只要接触状态在被摸之前是 hidden 的、估计问题就自动变成 belief update 问题*。
 
 这条链路里、"触觉传感器测到了东西" ≠ "机器人知道发生了什么" ≠ "机器人据此改变了动作"。这三步是三种不同的能力、缺哪一步、闭环就断在哪一步。而在它们之下、还压着一层常被论文忽略的工程层——*不同模态之间的时间戳对齐、坐标系对齐、sensor-to-robot 外参标定、tactile-to-contact-frame 注册*。缺这一层、再漂亮的 tactile encoder 也很难稳定进入 policy / controller。全文其余章节其实都是在解释：**为什么这条链路里从 raw signal 到 task-relevant latent 的那一段、目前还没有像视觉那样形成统一技术栈。**
 
@@ -88,7 +90,29 @@ related_articles:
 
 ### 2.1 先把几个词分清：tactile / force / proprioception / force control
 
-这一篇里它们容易被混着说、但严格讲是几层。*先说"感觉"这一侧*：**视觉**告诉你外部世界状态；**触觉（tactile）** 告诉你局部接触状态——接触位置、压力分布、剪切、滑移、纹理；**力 / 力矩感知（force sensing）** 告诉你机器人整体受到多大外力、外力矩；**本体感觉（proprioception）** 告诉你机器人自身关节、末端当前在哪、以什么姿态运动。*再说"动作"这一侧*：**力控（force control）** 则是拿这些反馈去主动调节行为。
+这一篇里它们容易被混着说、但严格讲是几层。为了避免后文再把 "tactile / force / contact sensing" 混着用、先给一棵小分类树：
+
+```text
+Contact sensing（接触感知 · 全文 umbrella 术语）
+├── Tactile                                (field-level · 局部)
+│   ├── pressure distribution
+│   ├── deformation / geometry
+│   ├── shear force
+│   ├── vibration / texture
+│   └── contact location & area
+│
+├── Force / torque                         (wrench-level · 整体)
+│   └── net external wrench on end-effector
+│
+└── Proprioceptive / actuator signals      (robot state · 内部)
+    ├── joint encoders  →  q, q̇
+    ├── motor current / joint torque  →  τ
+    └── kinematics / EE pose
+```
+
+本文讨论的是更大的 **contact sensing / contact feedback** 问题、tactile 和 force sensing 是其中两类重要实现、proprioception 则是把它们串起来用到决策上的第三条通道。
+
+*先说"感觉"这一侧*：**视觉**告诉你外部世界状态；**tactile** 告诉你局部接触状态——接触位置、压力分布、剪切、滑移、纹理；**force / torque sensing** 告诉你机器人整体受到多大外力、外力矩；**proprioception** 告诉你机器人自身关节、末端当前在哪、以什么姿态运动。*再说"动作"这一侧*：**力控（force control）** 则是拿这些反馈去主动调节行为。
 
 一个末端装了六维力/力矩传感器的机械臂、直接得到的是"末端受到的合力与合力矩"；一块高分辨率指尖触觉阵列、直接得到的是"接触位置与压力空间分布"。两者*并非等价*、也*并非互斥*——前者是 wrench-level 观测、后者是 field-level 观测。对多接触点、局部滑移、接触几何重构这类问题、field-level 观测通常更丰富；对整体负载、碰撞检测这类问题、wrist F/T 反而更稳、更便宜、更成熟。
 
@@ -102,11 +126,14 @@ Calibration · Synchronization · Registration
   ↓
 Raw observation            (压力阵列 / RGB / 6-axis wrench / joint current)
   ↓
-Contact perception         (哪里有接触、接触面积、法向/剪切分离)
+Contact perception         (哪里有接触、接触面积、法向 / 剪切分离)
   ↓
-State estimation           (接触几何、滑移速度、刚度、摩擦系数、contact mode)
+Contact geometry & wrench  (接触位置、normal、shear、contact area、relative pose)
   ↓
-Task-relevant latent state (抓取稳不稳、插没插进去、拧到位没有)
+Contact mode & physical state  (sticking / sliding / rolling / separation；
+                                friction、stiffness、compliance)
+  ↓
+Task-relevant belief       (抓取稳不稳、插没插进去、拧到位没有)
   ↓
 Policy / controller
   ↓
@@ -115,7 +142,11 @@ Action
 New contact                ↺
 ```
 
-**至少 7 层"从信号到意义"的工程/学习问题**——把触觉当成"传感器"是不够的、把它当成"从 raw signal 到 task-relevant latent 的一整条链路"、才更接近工程现实。
+**至少 9 层"从信号到意义"的工程/学习问题**——把触觉当成"传感器"是不够的、把它当成"从 raw signal 到 task-relevant belief 的一整条链路"、才更接近工程现实。
+
+需要拆开讲一句的是"Contact mode & physical state"这一层里、**离散接触模式**（sticking / sliding / rolling / separation）和**连续物理参数**（μ、刚度、阻尼）是两类东西：前者是"当前处于哪种动力学 regime"、后者是"该 regime 里的具体系数"。可观测性、估计难度、下游用途都不同——很多 manipulation policy 只需要前者、不需要后者；这个区分也是 §3.3 contact-mode 判断、和 §5.1 POMDP belief framing 能自然对接的前提。
+
+还有一处限定：*这里说的 "Task-relevant belief / latent state"、不一定是一个显式变量*。它完全可以隐式存在于 learned representation / policy hidden state 里、被端到端策略直接吃下去。本文之所以仍然把这层单独画出来、是因为*系统评审需要一个跨模型、跨传感器、跨任务共用的中间语义接口*——不是在主张"所有 tactile policy 都必须先跑一个显式 state estimator"。**无论这层是显式估计、还是隐式编码、系统最终都需要形成某种 task-relevant contact representation**、这一句才是本文真正的落点。
 
 人的手掌是全身触觉最密集的地方之一：压强、纹理、温度、滑动、本体感觉一起工作。相比之下、大多数机械手能读到的信号要稀疏得多：
 
@@ -187,23 +218,38 @@ Spatial resolution  ↔  Force range
 
 触觉几乎没有同时具备上面任何一条——但最要命的是其中一条*结构性差异*：
 
-> **视觉数据主要是 passive observation、而触觉数据天然是 action-conditioned observation。**
+> **视觉与触觉都可以是 action-conditioned——真正的差别是*依赖强度*：tactile observation 通过 contact dynamics 这一必经中间层、对 action 产生更强、更硬的条件依赖。**
+
+需要先把话说清楚、避免被视觉 / active-perception 方向的读者挑刺：*视觉也完全可以是 action-conditioned*——移动相机、改变视角、绕物一周、让 manipulator 推动物体、都会显著改变后续 observation。所以真正严谨的对比不是 "vision = passive、tactile = active"、而是*action → observation 这一条耦合的强度和结构*：
 
 ```text
-Vision：   world  ─────►  observation
+Vision（弱条件依赖 / 可绕过）：
+   action  ─ ─ ─ ─ ─ ─ ─ ─ ─ ┐
+                              ▼
+                    world state ──►  observation
+   （相机可以不动就攒数据；action 只影响下一帧看到什么）
 
-Tactile：  action  ──►  contact  ──►  observation
-                          ▲              │
-                          └── next action ◄┘
+Tactile（强条件依赖 / 必经过 contact）：
+   action ──►  contact  ──►  tactile observation
+                ▲                │
+                └── next action ◄─┘
+   （没有 action、就没有 contact、就没有 observation；
+     且 observation 直接由 "怎么接触" 决定）
 ```
 
-相机可以"放在那里就自动获得大量数据"、而触觉*必须"机器人主动接触才能产生数据"*——于是触觉数据集从来就不只是一个 $X$、它更像：
+也正因为这条强耦合、*触觉数据集从来就不只是一个 $X$、它更像一条由 action 驱动的条件观测序列*：
 
-$$\mathcal{D} \;=\; \big\{\,\big(s_t,\ a_t,\ c_t,\ o^{\mathrm{tac}}_t,\, y_t\big)\,\big\}_t$$
+$$
+o^{\mathrm{tac}}_{t+1} \;\sim\; p\!\big(o^{\mathrm{tac}}_{t+1}\,\big|\,s_t,\ a_t,\ c_{t+1}\big),
+\qquad
+\mathcal{D} \;=\; \big\{\,\big(s_t,\ a_t,\ c_t,\ o^{\mathrm{tac}}_t,\ y_t\big)\,\big\}_t
+$$
 
-其中 $c_t$ 是接触状态、$o^{\mathrm{tac}}_t$ 是触觉观测、$y_t$ 是任务结果。更麻烦的是——*采集数据的策略 $\pi(a\mid o)$ 本身就在决定数据分布*：换一条策略、看到的接触分布就变了。这条逻辑也直接接上 [机器人数据 scaling](/zh/articles/2026-09-09-robot-data-scaling/) 里 interaction distribution 的观点：*机器人不只是缺"动作数据"、还缺大量"带接触状态、并且由合理采集策略生成的动作数据"*。
+其中 $c_t$ 是接触状态、$o^{\mathrm{tac}}_t$ 是触觉观测、$y_t$ 是任务结果。对比 vision 的对应式、$o^{\mathrm{vis}}_{t+1}$ 对 $a_t$ 的偏依赖在很多场景下可以近似忽略（尤其是固定视角）；而在 $p(o^{\mathrm{tac}}_{t+1}\mid s_t, a_t, c_{t+1})$ 里*把 $a_t$ 抹掉、这条分布就完全塌了*——这才是"action-conditioned"这句话真正想刻画的结构性事实。
 
-沿着 action-conditioned 这条判断、"触觉数据 heterogeneity"可以再拆成三轴：
+更麻烦的是——*采集数据的策略 $\pi(a\mid o)$ 本身就在决定数据分布*：换一条策略、看到的接触分布就变了。这条逻辑也直接接上 [机器人数据 scaling](/zh/articles/2026-09-09-robot-data-scaling/) 里 interaction distribution 的观点：*机器人不只是缺"动作数据"、还缺大量"带接触状态、并且由合理采集策略生成的动作数据"*。
+
+沿着这条 *stronger action-conditioning* 判断、"触觉数据 heterogeneity"可以再拆成三轴：
 
 - **Sensor heterogeneity**：pressure / RGB deformation / shear / vibration / wrench / current 是不同物理量、彼此没有天然可比性；
 - **Embodiment heterogeneity**：不同 hand、finger geometry、材料、执行器、运动学、接触面；
@@ -217,7 +263,7 @@ $$\mathcal{D} \;=\; \big\{\,\big(s_t,\ a_t,\ c_t,\ o^{\mathrm{tac}}_t,\, y_t\big
 
 需要收窄一句：并不是"触觉 Sim-to-Real 就是比视觉 Sim-to-Real 更难"这么笼统——视觉 Sim-to-Real 也有大量未解问题（照明、材质、渲染 gap）。更准确的是：**接触丰富任务的 Sim-to-Real 往往对接触动力学、摩擦、材料、传感器结构与接触几何更敏感、因此 domain gap 更难仅靠简单的视觉 domain randomization 覆盖**。
 
-再加一层更技术的说法：对大多数 manipulation policy、*真正需要被仿准的不是每一个物理参数的绝对值、而是策略实际依赖的接触模式（contact mode）*及其状态转移与失效边界：
+再加一层更技术的说法：对很多 manipulation policy、*Sim-to-Real 的关键不在于把每一个物理参数都估到真实值、而在于保证策略实际依赖的*接触模式（contact mode）、状态转移和失效边界*在仿真与真实世界之间足够一致*：
 
 ```text
 free space
@@ -231,7 +277,7 @@ rolling
 separation
 ```
 
-μ = 0.42 还是 μ = 0.38、很多策略其实并不敏感；但*"现在是 sticking 还是 sliding"、"接触什么时候发生分离"这些mode boundary*、一旦 sim 判错、policy 就会瞬间失灵。也正因如此、sim-to-real 校准的合理目标常常不是"把每一个物理量估准"、而是*把 contact mode 的转移边界推到 policy 可承受的范围里*——这条逻辑也直接接上 §2.1 链路里 "State estimation" 那一环、以及 [Sim-to-Real 方法论](/zh/articles/2026-09-10-sim-to-real-methodology/) 的 policy-conditioned mismatch 观点：**reality gap 只要落在 policy 不敏感的方向上、就不是问题**。
+μ = 0.42 还是 μ = 0.38、很多策略其实并不敏感；但*"现在是 sticking 还是 sliding"、"接触什么时候发生分离"这些 mode boundary*、一旦 sim 判错、policy 就会瞬间失灵。也正因如此、sim-to-real 校准的合理目标常常不是"把每一个物理量估准"、而是*把 contact mode 的转移边界推到 policy 可承受的范围里*。*至于 μ、k、c 这些连续参数要不要跟着估准、判断标准是 policy 对它们的 sensitivity：装配、力控、柔性物体操作这类会真的把参数读进动作的策略、参数精度就是硬约束；只需要"当前 mode = sliding / sticking"就能改动作的策略、参数只要在合理区间里就够*。这条逻辑也直接接上 §2.1 链路里的 "Contact mode & physical state" 与 "Task-relevant belief" 两环、以及 [Sim-to-Real 方法论](/zh/articles/2026-09-10-sim-to-real-methodology/) 的 policy-conditioned mismatch 观点：**reality gap 只要落在 policy 不敏感的方向上、就不是问题**。
 
 而且要避免一个走极端的判断：*"仿真不准" 不等于 "只能全部靠真实数据"*。工程上更常见的是把它当成一个可校准的近似——而且是一条*循环*、不是一次跑完的单向 pipeline：
 
@@ -256,7 +302,7 @@ Retrain
 
 ### 3.4 标准化：不是缺一个 hdf5 schema、是缺 5 层基础设施
 
-视觉真正占优势的地方、其实并不是"相机完全一样"、而是**图像的基础表示高度统一**、并围绕它形成了一整套共享接口。触觉麻烦得多：不同传感器输出的可能是压力阵列、3D 几何形变、RGB 图像、剪切力、法向力、六维力/力矩、电阻/电容变化、高频振动信号……甚至**同一个"压力"在不同传感器上都未必具有直接可比性**。
+视觉真正占优势的地方、其实并不是"相机完全一样"（差得远——RGB / depth / event / fisheye / thermal / stereo / LiDAR 是不同传感器、不同光学、不同色彩响应、不同快门机制）、而是**主流 RGB 图像形成了一个非常稳定、低门槛、规模化的共同数据接口**、并围绕它长出了一整套共享生态。触觉麻烦得多：不同传感器输出的可能是压力阵列、3D 几何形变、RGB 图像、剪切力、法向力、六维力/力矩、电阻/电容变化、高频振动信号……甚至**同一个"压力"在不同传感器上都未必具有直接可比性**。
 
 把"标准化缺失"再拆一层、更清楚：
 
@@ -270,22 +316,71 @@ Retrain
 
 一句限定：**视觉本身也远没有把标准化问题"做完"**——camera intrinsics / extrinsics / color calibration、depth sensor heterogeneity、event camera、multispectral、rolling shutter、不同帧率、都是尚未收敛的开放问题。这里说视觉成熟、*指的是"相对成熟的共享接口 + benchmark 生态"*、而不是"标准化问题已被解决"——两条不要混着读。
 
-一张表看下来、"触觉生态还不成熟"就不再只是一句口号——而是"每一层都还差一段"。
+如果只允许一张小图讲清楚整个 §3.4、那大概是这两条 stack 的对照：
+
+```text
+Vision（共同数据接口成立）：
+    大量不同 camera
+          ↓
+        image              ← 稳定 · 低门槛 · 规模化的 common data interface
+          ↓
+   shared representation   ← pixels → CNN / ViT feature
+          ↓
+   foundation model        ← CLIP / DINO / SAM / ...
+          ↓
+        task
+
+
+Tactile（中间那一环目前是空的）：
+   different sensor physics
+          ↓
+   different raw representation     ← pressure array / RGB deform / shear / wrench / current ...
+          ↓
+            ?  ←— 这就是全文真正在问的那一环
+          ↓
+   contact representation            ← 尚未形成公认约定
+          ↓
+        task
+```
+
+**那个问号、就是这篇文章一直在指的东西**——不是"触觉没有数据"、也不是"触觉没有传感器"、而是*从 heterogeneous raw representation 到 shared contact representation 之间、缺一条像 "image" 那样稳定、低门槛、规模化的中间接口*。这一环一旦立起来、上层的 foundation model、benchmark、跨传感器迁移才有落脚点。
+
+一张表 + 两张 stack 看下来、"触觉生态还不成熟"就不再只是一句口号——而是"每一层都还差一段、而最中间那一层根本还没有被命名"。
 
 ### 3.5 触觉很难"说清楚自己感到了什么"——问题在缺一条中间表示链路
 
 先别急着说"触觉没有语义"。恰恰相反、**触觉完全可以携带很丰富的语义**——材质、纹理、是否空心、有没有形变、抓得稳不稳、都可以通过触摸判断出来。真正的问题是：*图像到高层语义之间、已经有一套非常成熟的中间表示*（像素 → 特征 → 目标 / 场景）；而*触觉原始信号到高层语义之间、还缺少这样一条被广泛复用、跨传感器可用的通用表征链路*。
 
-这条链路就是 §2.1 里那 5 层的核心：
+这条链路就是 §2.1 里那几层的核心：
 
 ```text
-raw tactile signal  →  contact perception  →  contact state estimation
-                   →  task-relevant latent state  →  action
+raw tactile signal  →  contact perception  →  contact geometry & mode
+                   →  task-relevant belief / latent  →  action
 ```
 
 相机天然给你一个二维空间结构：这里有个杯子、那里有只手、这是红色、那是桌面——表示层面就离语义近一些。而触觉给你的往往是一片压力分布、一组时序信号、一次剪切力变化——语义并不是没有、只是机器人必须自己学会："这不是一团压力变化、而是**物体正在从我的指尖滑出去**。"
 
-一个值得关注的研究方向是把这条链路做成"触觉的基础模型"——TVL / AnyTouch / Binding Touch 这类工作已经在做（对齐到 vision-language 表示空间）、但目前还没有出现"触觉版 CLIP"级别的公共底座、更没有出现"触觉版 ImageNet"级别的训练语料。*这里所谓"触觉版 CLIP"、并不是指必须复刻 CLIP 的模型结构、而是指一种能跨传感器、跨 embodiment、跨任务*复用的公共表示空间。真正缺的是*representation standard*（"raw signal → contact state → action-conditioned representation" 这一整条约定）、而不一定是一种 foundation-model architecture——这个区分很关键、别把"造一个大模型"错当成"造出统一表示"。
+一个值得关注的研究方向是把这条链路做成"触觉的基础模型"——TVL / AnyTouch / Binding Touch 这类工作已经在做（对齐到 vision-language 表示空间）、但目前还没有出现"触觉版 CLIP"级别的公共底座、更没有出现"触觉版 ImageNet"级别的训练语料。
+
+不过 *representation standard* 这一句、其实混着两件事、需要拆开：
+
+```text
+① Representation interface（"我摸到了什么"该怎么描述）
+   ├── contact location  ·  contact normal
+   ├── normal force  ·  shear force
+   ├── contact area  ·  contact geometry
+   ├── slip probability / slip velocity
+   └── contact mode ∈ {free, touching, sticking, sliding, rolling, separation}
+   → 面向任务与系统的中间接口、人和模型都能读
+
+② Learned representation（神经网络内部怎么编码它）
+   ├── tactile embedding       （GelSight / 9DTact 自监督 encoder）
+   ├── multimodal latent       （tactile + vision）
+   └── vision-language-tactile embedding   （TVL / AnyTouch 那一类）
+   → 面向模型的连续隐空间、不要求人类可读
+```
+
+*本文所谓"触觉版 CLIP"、指的是第 ② 种——一个跨传感器、跨 embodiment 可复用的 learned representation space*。但更基础、也更容易被忽略的、其实是第 ① 种：*一个连人和模型都能对上号的 contact state interface*。没有 ①、② 就只能各家自训、每个 benchmark 各自为战；有了 ①、哪怕暂时没 ②、数据集之间也已经有可比的公共语义底座。*真正缺的是这两层各自的 standard、而不一定是一种 foundation-model architecture*——这个区分很关键、别把"造一个大模型"错当成"造出统一表示"、也别把"约定一套公共 contact vocabulary"误认为"没有意义"。
 
 > **我个人的判断（带条件、非绝对）**：如果目标是"构建跨硬件、可规模化学习的通用触觉能力"、那么*数据可扩展性、跨传感器表示、以及从 raw signal 到 task-relevant latent 的中间表征*、是**最基础的几个瓶颈之一**。当然、不同路线最先撞到的墙并不一样：*做传感器的先受限于耐久性与一致性、做整机的先卡在机械手本体、做控制的先撞上传感器带宽和执行延迟、做学习的才被数据量和标注成本压住*。但如果不定义"跨硬件、可规模化"这个目标、那这五条难点之间就没有客观排序；如果定义了、那"数据 + 中间表征 + 生态"这条组合最决定别人能不能站在你上面继续做。
 
@@ -300,17 +395,18 @@ Task command ────────┼─ Force control        ：规定"施�
                      │
                      ├─ Impedance control    ：通过控制器实现期望的
                      │                        力–运动动态关系
-                     │                        F = Mẍ + Bẋ + K(x − x_d)
+                     │                        参考形式 F = Mẍ + Bẋ + K(x − x_d)
                      │
-                     └─ Admittance control   ：由测得的力解出期望运动
-                                              ẍ = M⁻¹(F − Bẋ − K(x − x_d))
-                                              再作为位置/速度参考下发
+                     └─ Admittance control   ：由测得的力解出期望运动、
+                                              再交给底层位置 / 速度环执行
 ```
 
 - **位置控制**：命令"手走到某个坐标"。硬、准、但一旦撞到意料之外的阻力、容易"较劲"、把东西顶坏。
 - **力控制**：命令"施加多大的力"。适合"贴着表面走"这类以接触力为主的任务。
-- **阻抗控制（impedance control）**：让末端*表现出期望的动态关系*、而不是简单地"输入位移输出力"。控制器主动闭合这条 $F = M\ddot{x} + B\dot{x} + Kx$ 的关系式、让机器人在扰动下按设定的质量-阻尼-刚度行为响应。
-- **导纳控制（admittance control）**：先测外力、再解出期望运动、把它作为位置/速度参考下发给一个高刚度的位置/速度控制器。
+- **阻抗控制（impedance control）**：让末端*表现出期望的动态关系*、而不是简单地"输入位移输出力"。控制器主动闭合这条参考形式的 $F = M\ddot{x} + B\dot{x} + K(x - x_d)$、让机器人在扰动下按设定的质量–阻尼–刚度行为响应。
+- **导纳控制（admittance control）**：先测外力、再解出期望运动、把它作为位置 / 速度参考下发给一个高刚度的位置 / 速度控制器。
+
+*式中的 $M$、$B$、$K$ 具体是 operational-space 还是 Cartesian task-space、还是 joint-space 版本、不同 formulation 定义并不一样、这里只当作"期望动态关系"的参考式给出、不主张任何一种具体规范*。
 
 这里要加一个技术限定、避免被控制方向的读者挑刺：*严格来说、阻抗与导纳都在实现某种"期望的力–运动动态关系"*、两者的实际差别更接近*"控制结构里谁是指令、谁是测量"*——阻抗以运动为输入、以力为输出、通常需要良好的力矩控制带宽；导纳以力为输入、以运动为输出、更常搭配高刚度位置环使用。工业实践中两者也常常混用、由传感器与执行器带宽共同决定哪一侧更稳。
 
@@ -325,7 +421,7 @@ Task command ────────┼─ Force control        ：规定"施�
 ```text
 Vision / Language / Tactile / Proprioception
                     ↓
-              State / Policy  (低频、几十~几百 ms)
+              State / Policy            (low-rate)
                     ↓
        ┌────────────┴────────────┐
        ↓                         ↓
@@ -333,7 +429,7 @@ Vision / Language / Tactile / Proprioception
  (pose / velocity)         (stiffness / damping)
        └────────────┬────────────┘
                     ↓
-       High-frequency controller (高频、~100 µs ~ ms)
+         High-frequency controller    (high-rate)
                     ↓
                   Motor
                     ↓
@@ -343,7 +439,7 @@ Vision / Language / Tactile / Proprioception
                     ↺
 ```
 
-需要被单独点出来的一个物理事实：**VLA 的时间尺度和 contact control 的时间尺度不是一回事**。高层策略通常是低频更新、低层控制器需要在更高频率下闭环运行——*典型系统中两者往往相差一个甚至多个数量级、具体倍差取决于 policy architecture、action chunking、inference accelerator、motor controller 与 impedance loop*。中间那层控制器才是让"决策"落到"电机"上的那座桥。也正因如此、即便 VLA 再大、它也不会自动变成一个能扛住接触扰动的控制器——**"触觉进入 VLA" ≠ "VLA 就是控制器"**。
+需要被单独点出来的一个物理事实：**VLA 的时间尺度和 contact control 的时间尺度不是一回事**。高层策略通常是低频更新、低层控制器需要在明显更高的频率下闭环运行——*两者通常存在明显时间尺度差异、具体频率由 policy architecture、action chunking、hardware servo、motor controller、impedance loop 与 compute budget 共同决定*。中间那层控制器才是让"决策"落到"电机"上的那座桥。也正因如此、即便 VLA 再大、它也不会自动变成一个能扛住接触扰动的控制器——**"触觉进入 VLA" ≠ "VLA 就是控制器"**。
 
 ## 五、真正的价值是"闭环"
 
@@ -391,11 +487,34 @@ Vision   ：  observe  ─────►  act
 Tactile  ：  act  ──►  contact  ──►  observe  ──►  act
 ```
 
-也就是说、*在触觉这一侧、action 本身就同时是 sensing operation*——探索与操作开始耦合、最优策略不再只优化 task reward、还要优化 **information gain**。这条逻辑天然把话题接进 robotics 的经典框架：**POMDP / active sensing / information gathering**——它们处理的正是"当状态部分可观测时、如何通过动作换取有用观测、再做决策"的问题。触觉任务几乎是一个天然的 POMDP：接触状态在被摸之前是 hidden 的、只有 action 才能让 belief 收缩。
+也就是说、*在触觉这一侧、action 本身就同时是 sensing operation*——探索与操作开始耦合、最优策略不再只优化 task reward、还要优化 **information gain**。这条逻辑天然把话题接进 robotics 的经典框架：**POMDP / active sensing / information gathering**——它们处理的正是"当状态部分可观测时、如何通过动作换取有用观测、再做决策"的问题。
 
-这也让 §3.2 的 "action-conditioned observation" 判断在这里闭环了：*因为数据本身由 action 决定、采集策略与执行策略就必然耦合在一起*——这是触觉和视觉在数据集定义上的一个非常结构性的差异、不是"多加点数据就好"的问题。
+更严谨的表述是：*很多触觉丰富的操作任务都可以自然地建模为部分可观测决策问题*——接触状态在接触发生前通常并不完全可观测、动作本身又会影响后续接触与观测。一旦把这层 belief 明确画出来、§0 那张主架构图里 "state / belief estimator" 这个命名就有了落点、而 §3.2 的 *stronger action-conditioning*、§5.1 的 active perception、以及 §5 的 closed-loop control、*其实都是同一个 loop 的不同侧面*：
 
-一个值得关注的研究方向是：*把主动触觉、VLA、世界模型放到同一套策略里联合优化*——VLA 把视觉语言映射到动作；下一步很可能是"视觉 + 语言 + 触觉 + 本体感觉 → 接触状态理解 → 动作闭环"。*这是预测性判断、不是技术事实*、但已经有像 TVL / 3D-ViTac / AnyTouch 这类工作在做早期对齐。
+```text
+     ┌───────── belief update ◄─────────┐
+     │                                  │
+     ▼                                  │
+ hidden contact state                   │
+     │                                  │
+     ▼                                  │
+   action                               │
+     │                                  │
+     ▼                                  │
+   contact                              │
+     │                                  │
+     ▼                                  │
+tactile observation ────────────────────┘
+
+   （action 既改变 world、又决定下一帧 tactile observation、
+     而 observation 又收缩 belief、belief 决定下一个 action）
+```
+
+这个统一是这篇文章想留下的一个理论标签：*action-conditioned data · active perception · closed-loop control 三件事、在 tactile 这一侧其实是同一件事*。也正因如此、"触觉数据由谁采"就不再是一个数据工程细节、而是*和"触觉策略怎么执行"绑在同一个 belief-MDP 里的结构性问题*。
+
+这也让 §3.2 的 *stronger action-conditioning* 判断在这里闭环了：*因为数据本身由 action 决定、采集策略与执行策略就必然耦合在一起*——这是触觉和视觉在数据集定义上一个更结构性的差异、不是"多加点数据就好"的问题。
+
+一个值得关注的研究方向是：*把主动触觉、VLA、世界模型放到同一套策略里联合优化*——VLA 把视觉语言映射到动作；下一步很可能是"视觉 + 语言 + 触觉 + 本体感觉 → 接触状态理解 → 动作闭环"。*这是预测性判断、不是技术事实*、但已经有像 TVL / 3D-ViTac / AnyTouch / T-Dex 这类工作在做早期对齐。
 
 ### 5.2 闭环到底怎么量：一套评价指标体系
 
@@ -411,7 +530,44 @@ Tactile  ：  act  ──►  contact  ──►  observe  ──►  act
 | **System** | cycle time · long-run success rate · **contact-induced failure rate** · **success under perturbation** |
 | **Generalization** | **cross-sensor transfer** · cross-hand transfer · cross-object · **performance degradation under sensor shift** |
 
-其中*最后三项加粗指标是最应该被主流论文与工业评估采用的*——因为它们直接对应 §6 的 "触觉价值在长尾 / 条件性收益" 论点、也才是真正回答"闭环有没有形成"的问题。只看 task success rate、会把"触觉带来的稳定性收益"完全平均掉、看不到 §6 想讲的那部分。
+*如果本文的目标是评估触觉是否真正提升了闭环能力、那么这几项尤其值得被纳入 benchmark*——因为它们直接对应 §6 的 "触觉价值在长尾 / 条件性收益" 论点、也才是真正回答"闭环有没有形成"的问题。只看 task success rate、会把"触觉带来的稳定性收益"完全平均掉、看不到 §6 想讲的那部分。
+
+#### 5.2.1 Feedback-value benchmark：消融比平均更能证明触觉的价值
+
+指标表是一维的、真正能回答"触觉到底值不值"的、是*在同一 policy、同一 task、同一 hardware 下、把触觉 feedback 关掉、性能掉了多少*。这个实验设计比"tactile success rate = 95%" 有力得多——因为它直接测的是 **feedback value**、而不是 absolute performance。核心 grid 就四条 arm：
+
+```text
+A · vision only
+B · vision + force
+C · vision + tactile
+D · vision + force + tactile
+
+  same policy · same task distribution · same hardware · same training budget
+                     ↓
+              比较四组成功率
+```
+
+在此基础上、有两个值得直接写进 benchmark 的量：
+
+$$
+\Delta_{\text{tactile}}
+\;=\;
+S_{\text{vision+tactile}}
+\;-\;
+S_{\text{vision-only}}
+$$
+
+$$
+\Delta_{\text{tail}}
+\;=\;
+S_{\text{vision+tactile}}^{\;\text{hard}}
+\;-\;
+S_{\text{vision-only}}^{\;\text{hard}}
+$$
+
+前者是*常规分布上的平均增益*、后者是*困难 / 长尾接触条件下的增益*。*§6 的核心论点是"触觉的价值主要体现在长尾"*——那么一个真正在测触觉价值的 benchmark、就应该把 $\Delta_{\text{tail}}$ 单列出来、而不是只看 $\Delta_{\text{tactile}}$ 或 $S_{\text{vision+tactile}}$ 的平均成功率。*如果一篇工作只报了平均、它其实是在测"触觉有没有让 Demo 更好看"、不是在测"触觉有没有让系统更可信"*。
+
+同样的 ablation 逻辑也适用于 force / proprioception：*把 "多装了一路 sensor" 这个操作变量、直接变成 "这一路 sensor 拿掉之后系统掉多少" 这个反馈价值变量*。这也是这一节和 §3.4 那张表真正闭合的地方——评价指标不是越多越好、而是要*能对上"这一路反馈值不值得进系统"这个决策问题*。
 
 ## 六、触觉最容易体现工程 ROI 的场景：Last Mile 长尾
 
@@ -438,11 +594,11 @@ Tactile  ：  act  ──►  contact  ──►  observe  ──►  act
 
 > **触觉的价值与 *contact richness* 正相关、而不是与"任务复杂度"简单正相关。复杂任务 ≠ 一定需要触觉。**
 
-工程上更可操作的一个粗略判据是：
+在此基础上、可以给出一条*启发式的工程判断框架*——**不是严格定量模型、三因子的量纲也不可比**、只是帮助判断"什么任务最值得加触觉"的三个一阶因素：
 
 $$\text{Tactile ROI} \;\propto\; \underbrace{\text{contact uncertainty}}_{\text{接触状态有多难预测}} \;\times\; \underbrace{\text{contact sensitivity}}_{\text{性能对接触状态有多敏感}} \;\times\; \underbrace{\text{failure cost}}_{\text{一次接触失败多贵}}$$
 
-*这一乘积越大、触觉越有 ROI*——精细装配、易碎物体、柔性物体、脏污 / 湿滑 / 摩擦变异大的场景都在高值区；反之，即便任务在其它维度上很难（长时间导航、复杂决策树），只要 contact uncertainty 低，触觉也帮不上多少忙。
+*这一乘积越大、触觉越有 ROI*——精细装配、易碎物体、柔性物体、脏污 / 湿滑 / 摩擦变异大的场景都在高值区；反之，即便任务在其它维度上很难（长时间导航、复杂决策树），只要 contact uncertainty 低，触觉也帮不上多少忙。**这条式子的意义不在"算出一个 ROI 数值"、而在"把决策变量摆到台面上、让人可以指着它讨论"**——真正的 ROI 判定还是要回到 §5.2.1 那种 ablation 实验里。
 
 回到 Last Mile：*它是触觉最容易量化 ROI 的场景*。前面几篇 [Sim-to-Real](/zh/articles/2026-09-10-sim-to-real-methodology/) 与 [机器人数据 scaling](/zh/articles/2026-09-09-robot-data-scaling/) 反复说过一句话：落地拼的是系统。触觉带来的收益、往往*不体现在"成功率从 80% 变成 90%"*、而体现在那些视觉难以处理的**长尾接触状态**上——稍微歪了、稍微滑了、卡住了、接触点变了、摩擦忽然变化、公差跑到边、物体被捏变形。这些恰恰就是"最后一段路"里那一片"看起来都是小概率、合起来占比不小"的分布。
 
@@ -454,16 +610,18 @@ $$\text{Tactile ROI} \;\propto\; \underbrace{\text{contact uncertainty}}_{\text{
 
 如果只允许我把这一篇压缩成一个开放问题、我会写成：
 
-> **为什么触觉至今仍没有形成一套能够跨传感器、跨 embodiment、跨任务、把 action-conditioned contact observations 稳定映射为可泛化 contact state、并最终进入实时控制闭环的统一技术栈？**
+> **为什么触觉至今仍没有形成一套能够跨传感器、跨 embodiment、跨任务、把具有强条件依赖的接触观测稳定映射为可泛化的 contact-state representation、并最终进入实时控制闭环的统一技术栈？**
 
 这个问题一旦立起来、这篇文章要回答的就不再是"**为什么机器人需要触觉**"、而是一个明显更硬的：*为什么 tactile robotics 到今天还没有出现自己的"视觉时刻"。*
+
+这篇文章真正想留下的三个标签、也就是三个可能形成 tech-thesis 的关键词：***Action-conditioned observation · Contact-state representation · Closed-loop value***。这三个词各自接住一段链条、合起来就是这个开放问题的完整形状。
 
 拆开来正好是 §0 那张图里的四段：
 
 1. **Sensor → Calibration → Raw observation**：硬件 trade-off 空间太大、没有像"CMOS 图像传感器"这样的通用形态；跨模态的时间戳对齐、坐标系注册、sensor-to-robot 标定*至今没有一个可复用的公共基础设施*（§3.1、§2.1）。
-2. **Raw observation → Task-relevant latent state**：缺一条被广泛复用的中间表示链路、导致每个团队都在自己造 contact perception / state estimation 层（§3.5）。
-3. **Task-relevant latent → Control loop**：VLA 的时间尺度与 contact control 的时间尺度还没接上、"感知–估计–控制"这三段没有共享同一套 benchmark 与评价指标（§4.1、§3.4、§5.2）。
-4. **Data acquisition policy 本身是问题**：触觉数据是 action-conditioned observation、采集策略与执行策略天然耦合、无法像视觉那样"放个相机就自动攒数据"（§3.2、§5.1）。
+2. **Raw observation → Contact representation → Task-relevant belief**：缺一条被广泛复用的中间表示链路、尤其是 §3.5 里说的 "representation interface" 这一层连人和模型都没有公认约定、导致每个团队都在自己造 contact perception / geometry / mode 层（§3.4、§3.5）。
+3. **Task-relevant belief → Control loop**：VLA 与 contact control 的时间尺度还没接上、"感知–估计–控制"这三段没有共享同一套 benchmark 与反馈价值评价指标（§4.1、§5.2、§5.2.1）。
+4. **Data acquisition policy 本身是问题**：tactile observation 对 action 有强条件依赖、采集策略与执行策略天然耦合、无法像视觉那样"放个相机就自动攒数据"（§3.2、§5.1）。
 
 *把这四段解释清楚、这一篇从"触觉科普"就往"触觉技术评审"再往前挪了一步*。
 
@@ -486,25 +644,40 @@ $$\text{Tactile ROI} \;\propto\; \underbrace{\text{contact uncertainty}}_{\text{
 
 **延伸阅读 / Sources**
 
-*触觉传感 / 综述*
+这一轮把 Sources 按*文章的四个原创判断*来组织、而不是按 topic 堆叠——评审意见里有一条被反复提到："现在 bibliography 数量够了、和 thesis 的对应关系反而不够紧"。下面四条就是本文最想让证据直接站到的地方。
 
-- Dahiya, Meta, Schmitt, Cowley, *Tactile Sensing—From Humans to Humanoids*, IEEE Transactions on Robotics, 2010（经典综述）· <https://ieeexplore.ieee.org/document/5339133>
+*① Action-conditioned tactile data / active tactile learning（对应 §3.2、§5.1）*
+
+- Lee et al., *Making Sense of Vision and Touch: Self-Supervised Learning of Multimodal Representations for Contact-Rich Tasks*, ICRA 2019 · [arXiv:1810.10191](https://arxiv.org/abs/1810.10191)（visuotactile 自监督表征 · 直接支撑 §3.2 "触觉 observation 由 action 采集策略决定" 这条判断的实证一面）
+- Qi et al., *General In-Hand Object Rotation with Vision and Touch* (T-Dex), CoRL 2023 · [arXiv:2309.09979](https://arxiv.org/abs/2309.09979)（主动触觉探索 + 视觉–触觉融合 · 对应 §5.1 active perception / information-gain framing）
+
+*② Contact mode / hybrid dynamics（对应 §3.3）*
+
+- Posa, Cantu, Tedrake, *A Direct Method for Trajectory Optimization of Rigid Bodies Through Contact*, IJRR 2014 · <https://journals.sagepub.com/doi/abs/10.1177/0278364913506757>（互补约束 / hybrid contact-mode 优化的代表工作 · 支撑 §3.3 "policy 真正需要一致的是 contact-mode 转移、而不是每一个物理参数的绝对值"）
+
+*③ Visuotactile policy learning / closed-loop benefit（对应 §5.2.1、§5.1）*
+
+- Huang et al., *3D-ViTac: Learning Fine-Grained Manipulation with Visuo-Tactile Sensing*, CoRL 2024 · [arXiv:2410.24091](https://arxiv.org/abs/2410.24091)（明确的 "vision + tactile > vision-only" 实验证据 · §5.2.1 sensor-ablation 思路的前驱）
+- Zhao et al., *A Touch, Vision, and Language Dataset for Multimodal Alignment*（TVL / Binding Touch to Everything）, ICML 2024 · [arXiv:2402.13232](https://arxiv.org/abs/2402.13232)
+- Feng et al., *AnyTouch: Learning Unified Static-Dynamic Representation across Multimodal Tactile Sensors*, 2025 · [arXiv:2502.12191](https://arxiv.org/abs/2502.12191)（跨传感器统一表示 · 对应 §3.5 "learned representation" 那一支）
+
+*④ Robust / long-tail manipulation（对应 §6、§5.2.1）*
+
+- Tobin et al., *Domain Randomization for Transferring Deep Neural Networks from Simulation to the Real World*, IROS 2017 · [arXiv:1703.06907](https://arxiv.org/abs/1703.06907)（作为扰动 / 长尾覆盖的最经典基线 · 支撑 §3.3 "domain randomization 覆盖不了 contact-mode gap"）
+- Hutchinson, Hager, Corke, *A tutorial on visual servo control*, IEEE Transactions on Robotics and Automation, 1996 · [Semantic Scholar](https://www.semanticscholar.org/paper/A-tutorial-on-visual-servo-control-Hutchinson-Hager/4676d81d6a2477f6ea1de5723fc81e431fbaa96f)（视觉伺服作为经典闭环基线 · §5 "视觉闭环早已存在" 的锚点）
+
+*Tactile sensing hardware & surveys（背景 · 对应 §3.1）*
+
+- Dahiya, Meta, Schmitt, Cowley, *Tactile Sensing—From Humans to Humanoids*, IEEE Transactions on Robotics, 2010 · <https://ieeexplore.ieee.org/document/5339133>
 - GelSight 高精度视觉触觉传感器 · <https://gelsight.com/>
 - GelSlim 开源指尖触觉传感器 · <https://github.com/Antaoyu/GelSlim_4Gen_Curvature-Based_Fingertip_Sensor>
 - TacTip 3D 打印触觉指尖 · <https://www.tacpix.com/products>
 - Lin et al., *9DTact: A Compact Vision-Based Tactile Sensor for Accurate 3D Shape Reconstruction and Generalizable 6D Force Estimation*, ICRA 2023 · [arXiv:2308.14277](https://arxiv.org/abs/2308.14277)
 
-*Visuotactile learning / 触觉表示与基础模型*
-
-- Huang et al., *3D-ViTac: Learning Fine-Grained Manipulation with Visuo-Tactile Sensing*, CoRL 2024 · [arXiv:2410.24091](https://arxiv.org/abs/2410.24091)
-- Zhao et al., *A Touch, Vision, and Language Dataset for Multimodal Alignment*（TVL / Binding Touch to Everything）, ICML 2024 · [arXiv:2402.13232](https://arxiv.org/abs/2402.13232)
-- Feng et al., *AnyTouch: Learning Unified Static-Dynamic Representation across Multimodal Tactile Sensors*, 2025（跨传感器统一表示 · 对应 §3.5 "representation standard"）· [arXiv:2502.12191](https://arxiv.org/abs/2502.12191)
-
-*接触丰富操作与力控（经典）*
+*Classical force control（背景 · 对应 §4）*
 
 - Hogan, *Impedance Control: An Approach to Manipulation* (Parts I–III), ASME Journal of Dynamic Systems, Measurement, and Control, 1985 · [Semantic Scholar](https://www.semanticscholar.org/paper/Impedance-Control%3A-An-Approach-to-Manipulation-Hogan/f5f8a6aa4adc13070224c2bd43a255c4e0844c15)
-- Hutchinson, Hager, Corke, *A tutorial on visual servo control*, IEEE Transactions on Robotics and Automation, 1996（视觉伺服作为闭环的经典综述）· [Semantic Scholar](https://www.semanticscholar.org/paper/A-tutorial-on-visual-servo-control-Hutchinson-Hager/4676d81d6a2477f6ea1de5723fc81e431fbaa96f)
 
-*Sim-to-Real*
+*Sim-to-Real 方法论（背景 · 对应 §3.3）*
 
-- Tobin et al., *Domain Randomization for Transferring Deep Neural Networks from Simulation to the Real World*, IROS 2017 · [arXiv:1703.06907](https://arxiv.org/abs/1703.06907)
+- 姊妹篇 [Sim-to-Real 方法论](/zh/articles/2026-09-10-sim-to-real-methodology/) 与 [机器人数据 scaling](/zh/articles/2026-09-09-robot-data-scaling/)
