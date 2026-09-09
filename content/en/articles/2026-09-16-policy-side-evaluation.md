@@ -222,13 +222,13 @@ Three explicit caveats: **probe ≠ semantic compliance, CAG ≠ semantic compli
 
 Compress upper-half §0 through §2 into one table — this is what a reviewer most wants to see:
 
-| Layer | Object | Failure | Evidence |
-|---|---|---|---|
-| Contract | $\mathcal C$ | schema ambiguity / version mismatch | schema audit + compatibility check |
-| Declaration | $q_\pi$ (induced by $\mathcal C_\pi = (Q_\pi, \mathcal O_\pi, V_\pi)$) | undeclared semantic collapse | quotient audit — can you display a $Q_{\mathcal C_\pi}$ list? does the declared set upper-cover required queries along subsumption? |
-| Projection | $\Pi_\pi = e_\pi\circ q_\pi$ | residual contract information | conditional probe $I(\text{field};z_\pi\mid o)$ |
-| Decision | $\pi_\theta$ | wrong use / shortcut / collapse rate | Type I equivariance + Type II order-constrained + Type III ablation + $L_{\mathrm{decision}}$ + §2.2 $E_{\mathrm{contract}}$ / HPC / HSS |
-| Safety | $g_{\mathrm{safety}}$ | unsafe interpretation of invalid / unknown evidence | constraint certification intervention (does it **tighten**, not **relax**) |
+| Layer | Object | Failure | Evidence | Evidence defined in § | Loss / Obligation |
+|---|---|---|---|---|---|
+| Contract | $\mathcal C$ | schema ambiguity / version mismatch | schema audit + compatibility check | upper-half §0.2.3 + this piece §3 (`SchemaCompatibilityError` fail-closed) | —— (precondition, no loss) |
+| Declaration | $q_\pi$ (induced by $\mathcal C_\pi = (Q_\pi, \mathcal O_\pi, V_\pi)$) | undeclared semantic collapse | quotient audit — can you display a $Q_{\mathcal C_\pi}$ list? does the declared set upper-cover required queries along subsumption? | upper-half §0.2 + this piece §2.2 conditional probe jointly | $L_{\mathrm{declared}} = \sum w_q \mathbf 1[\nexists q' \succeq q]$ (§2.0 boxed) |
+| Projection | $\Pi_\pi = e_\pi\circ q_\pi$ | residual contract information | conditional probe $I(\text{field};z_\pi\mid o)$ | §2.2 (first half) | $L_{\mathrm{projection}} = I(Y_{\mathcal C}^{\pi};\hat S\mid Z_\pi,O,L)$ |
+| Decision | $\pi_\theta$ | wrong use / shortcut / collapse rate | Type I equivariance + Type II order-constrained + Type III ablation + $L_{\mathrm{decision}}$ + §2.2 $E_{\mathrm{contract}}$ / HPC / HSS | §2.1 (Type I) · §2.2 ($E_{\mathrm{contract}}$ / HPC / HSS) · §2.3 (SDS temporal) · §2.4 (source three-slice) · §2.5 (CAG utility) | $L_{\mathrm{decision}} = \mathbb E[\mathbf 1[D_{\mathcal A}(\cdot)<\epsilon]]$ |
+| Safety | $g_{\mathrm{safety}}$ | unsafe interpretation of invalid / unknown evidence | constraint certification intervention (does it **tighten**, not **relax**) | §2.6 · training-time §1.3 | $\mathcal O_{\mathrm{safety}}$: safe → relaxation permitted / unsafe → tighten or stop / unknown → conservative fallback |
 
 **Three semantic losses + one safety obligation** (v6 form, aligned with upper-half §0.2.2):
 
@@ -244,19 +244,23 @@ The three losses sit on $q_\pi / \Pi_\pi / \pi_\theta$ respectively, and the saf
 
 **v6 second table · Five-layer evaluation hierarchy** — the single most valuable table the reviewer suggested adding. This piece has been implicitly trying to distinguish "is the information still there / is it enough / is it used / is using it worth it / how does the filter react when evidence is uncertain"; before v6 these were scattered across §2.1–§2.6 without a unifying frame. This table is the piece's evaluation-layer **type system**:
 
-| Layer | Question | Primary metric / primitive | What separates it from the others |
-|---|---|---|---|
-| **Retention** | Is the contract field still in $z_\pi$? | Conditional probe $I(\text{field}; z_\pi \mid o)$ | Only "is it there", not "is it enough" |
-| **Sufficiency** | Given $z_\pi$ and side info, can we answer $Y_{\mathcal C}^{\pi}$? | $L_{\mathrm{projection}} = I(Y_{\mathcal C}^{\pi};\hat S\mid Z_\pi,O,L)$ | Conditional MI = 0; does not claim representation-level injectivity |
-| **Behavioral use** | Does the policy respond legally to contract interventions? | Type I equivariance / Type II order-constrained / §2.2 $E_{\mathrm{contract}}(T_k)$ vs $\mathcal R_{\mathcal C}$ | Bound to "is the response legal", not to final utility |
-| **Utility** | Using contract information — did the decision actually improve? | $\mathrm{CAG}^{\mathrm{fixed}}$ + §2.2 HPC ($T^{\mathrm{world}}$ form) + §2.4 $\Delta J_{\mathrm{where/dep/neg}}$ | Must be paired with matched null + oracle baseline, otherwise it is only OOD sensitivity |
-| **Safety** | Does the filter take a conservative reaction under unknown / invalid evidence? | §2.6 constraint certification intervention + §1.3 three-state certification + $\mathcal O_{\mathrm{safety}}$ | Independent of "did the policy use the contract" — measures whether the filter backs it up |
+| Layer | Question | Primary metric / primitive | What separates it from the others | Defined in § | Training-time §1.x |
+|---|---|---|---|---|---|
+| **Retention** | Is the contract field still in $z_\pi$? | Conditional probe $I(\text{field}; z_\pi \mid o)$ | Only "is it there", not "is it enough" | §2.2 (first half) | §1.1 Class A (representation-side probe) |
+| **Sufficiency** | Given $z_\pi$ and side info, can we answer $Y_{\mathcal C}^{\pi}$? | $L_{\mathrm{projection}} = I(Y_{\mathcal C}^{\pi};\hat S\mid Z_\pi,O,L)$ | Conditional MI = 0; does not claim representation-level injectivity | §2.2 (first half) + §2.0 boxed | §1.1 Class A |
+| **Behavioral use** | Does the policy respond legally to contract interventions? | Type I equivariance / Type II order-constrained / §2.2 $E_{\mathrm{contract}}(T_k)$ vs $\mathcal R_{\mathcal C}$ | Bound to "is the response legal", not to final utility | §2.1 · §2.2 · §2.3 · §2.4 | §1.1 Class B (three intervention-consistency tiers) |
+| **Utility** | Using contract information — did the decision actually improve? | $\mathrm{CAG}^{\mathrm{fixed}}$ + §2.2 HPC ($T^{\mathrm{world}}$ form) + §2.4 $\Delta J_{\mathrm{where/dep/neg}}$ | Must be paired with matched null + oracle baseline, otherwise it is only OOD sensitivity | §2.5 · §2.2 HPC · §2.4 | §1.2 augmentation (degradation as causal operator) |
+| **Safety** | Does the filter take a conservative reaction under unknown / invalid evidence? | §2.6 constraint certification intervention + §1.3 three-state certification + $\mathcal O_{\mathrm{safety}}$ | Independent of "did the policy use the contract" — measures whether the filter backs it up | §2.6 | §1.3 safety filter three-state |
 
 These five layers are **stepwise progressive but not mutually implying**. Retention passing does not imply Sufficiency (the field can be present yet not enough to answer a query); Sufficiency does not imply behavioral use (enough information does not mean the policy reads it); behavioral use does not imply utility (the response can be legal yet utility still low, because contract may not be the current bottleneck); and utility is fully orthogonal to safety (the filter's backstop is a different fact from the policy's task performance). **These four non-implications are exactly the motivation** for §2.2's $E_{\mathrm{contract}}$ / HPC split, §2.5's CAG fixed / retrained split, and §2.6's separate constraint-certification intervention. **Retention ≠ Sufficiency ≠ Use ≠ Utility ≠ Safety** — this line was implicit before v6 and is now explicit.
 
-Together, §2.7's two tables carry the theoretical skeleton of the piece's evaluation section: the first maps losses / obligation to four auditable pipeline sites; the second maps evidence to five non-implicational layers. These two tables are the piece's most direct interface for moving from a conceptual article to a benchmark-protocol article.
+> **How to use these two tables**: reviewers or readers entering this piece's evaluation chapter land here first. **Table 1** answers "if this pipeline site is broken, which § holds the evidence, and which loss / obligation does it realize". **Table 2** answers "if this evaluation layer passes or fails, which § carries the concrete formula and protocol, and which training-time change is the counterpart". Each of §2.1–§2.6 opens with a **"Section anchor"** line that points back to specific rows / layers in these two tables. Tables + anchors together form a **bidirectional jump index** for the evaluation chapter — from the table to a specific section, from the section back to its exact layer and loss / obligation.
+
+Together, §2.0's two tables carry the theoretical skeleton of the piece's evaluation section: the first maps losses / obligation to four auditable pipeline sites; the second maps evidence to five non-implicational layers. These two tables are the piece's most direct interface for moving from a conceptual article to a benchmark-protocol article.
 
 ### 2.1 Semantic evidence $E_{\mathrm{semantic}}$: Invariance / Equivariance Test
+
+> **Section anchor**: §2.0 Table 1 Layer = **Decision** (Type I slice) · Table 2 Layer = **Behavioral use** (response correctness, not utility) · training-time counterpart **§1.1 Class B Type I** (equivariance constraint).
 
 Corresponding to §1.1 Type I. Given a family of contract transformations with known $T^{\mathcal{C}}_\pi$ (frame / coordinate / hypothesis permutation), measure:
 
@@ -265,6 +269,8 @@ $$\mathrm{Equiv}(\mathcal{C}) \;=\; \mathbb{E}_{\hat S}\!\left[d\!\left(\pi_\the
 $\mathrm{Equiv} \to 0$ is a hard requirement; large $\mathrm{Equiv}$ means either $e_\pi$ learned it wrong, or $q_\pi$ dropped the quotient entirely. This is the cleanest type, because the rule is mathematically defined — no oracle and no $J$ definition needed. upper-half §3.2 Failure 2's severity can be quantified directly by $\mathrm{Equiv}(\text{frame})$.
 
 ### 2.2 Representation evidence $E_{\mathrm{representation}}$: Conditional Probe + Interface-Compliance $E_{\mathrm{contract}}$ + Decision-Competence HPC + HSS (v6 second split) + Calibration
+
+> **Section anchor**: §2.0 Table 1 Layer = **Projection** (conditional probe / $L_{\mathrm{projection}}$) + **Decision** ($E_{\mathrm{contract}}$ / HPC / HSS — three sub-metrics) · Table 2 Layers = **Retention + Sufficiency + Behavioral use + Utility**, spanning four layers simultaneously (this is the only section doing so) · training-time counterparts **§1.1 Class A + Class B**.
 
 **Conditional probe** (upgraded §1.1 Class A): Retention$_{\mathrm{cond}} = I(\text{field}; z_\pi \mid o)$ — hold raw observation $o$ fixed and measure how much contract information $z_\pi$ **independently** carries. This is the necessary form to avoid image-proxy leakage.
 
@@ -311,6 +317,8 @@ HPC / HSS / $E_{\mathrm{contract}}$ / entropy **four columns in parallel** — t
 
 ### 2.3 Temporal slice: Staleness Response Compliance (SDS) (v5 notation + baseline fix)
 
+> **Section anchor**: §2.0 Table 1 Layer = **Decision** (temporal sub-slice) · Table 2 Layer = **Behavioral use** (Type II order-constrained response; §1.1 Type II evaluation-side counterpart) · training-time counterparts **§1.1 Type II + §1.2 augmentation staleness**.
+
 **v4's SDS had two problems (the reviewer caught both).** First, $R_\pi(a) = \pi_\theta(\cdot|\mathrm{do}(a_c = a), o)$ used $a$ simultaneously as the age parameter and as the paper's action variable — a direct notation collision. Second, treating $R^*(a)$ as the **unique oracle response curve** is too strong: expert A might fallback whenever age > 100 ms, expert B might compensate through dynamics prediction and stay nominal, both are legitimate, and forcing a unique $R^*$ would misclassify a reasonable piecewise response as a failure.
 
 **v5 fixes both in one shot.** Notation: use $\alpha$ as the age value (upper-half §4.2 has already renamed the field from $a_c$ to $\alpha_c$), and reserve $a$ exclusively for action:
@@ -343,6 +351,8 @@ $$\left.\frac{\partial\, \mathbb{E}\!\big[\pi_\theta(\cdot \mid \mathrm{do}(\alp
 
 ### 2.4 Source slice: $\Delta J_{\mathrm{where}}$, $\Delta J_{\mathrm{dep}}$, $\Delta J_{\mathrm{neg}}$ (v5 three-way split)
 
+> **Section anchor**: §2.0 Table 1 Layer = **Decision** (source sub-slice) · Table 2 Layers = **Behavioral use + Utility** (the three $\Delta J$ slices give response legitimacy and utility impact simultaneously) · training-time counterpart **§1.1 Type II** (three sub-primitives: provenance / dependency / negative evidence, each with its own augmentation).
+
 **v4 lumped provenance and `correlated_with` into a single $\Delta J_{\mathrm{prov}}$ — the reviewer was right: after devoting a whole section to arguing provenance ≠ dependency ≠ negative evidence, the metric folds them back together and can no longer answer "which primitive actually helped".** v5 splits the source panel into three, each ablating exactly one upper-half §4.3 primitive:
 
 $$\Delta J_{\mathrm{where}} \;=\; J\!\big(\pi_\theta \mid \text{provenance}\big) \;-\; J\!\big(\pi_\theta \mid \text{provenance} = \varnothing\big),$$
@@ -354,6 +364,8 @@ $$\Delta J_{\mathrm{neg}} \;=\; J_{\mathrm{rank}}\!\big(\pi_\theta \mid \Lambda\
 The three correspond one-to-one to upper-half §4.3's primitives: **$\Delta J_{\mathrm{where}}$ measures `contributing_mask` consumption, $\Delta J_{\mathrm{dep}}$ measures `correlated_with` consumption, $\Delta J_{\mathrm{neg}}$ measures conditional-LLR consumption**. $J$ is always higher-is-better. Each can independently hit zero — none of the three substitutes for another. This is the evaluation-layer payoff of upper-half §4.3's claim that "the three primitives are semantically independent". If the reviewer asks "which primitive drove the improvement", v5 answers line by line; v4 could not.
 
 ### 2.5 Decision evidence $E_{\mathrm{decision}}$: Contract Ablation Gap (CAG) + Oracle baseline + Retraining protocol (v5 qualifier)
+
+> **Section anchor**: §2.0 Table 1 Layer = **Decision** (CAG utility sub-slice) · Table 2 Layer = **Utility** (paired with matched null control to prevent OOD sensitivity from masquerading as contract-use) · training-time counterparts **§1.2 augmentation + retraining protocol** (distinguishing CAG$^{\mathrm{fixed}}$ from CAG$^{\mathrm{retrained}}$).
 
 **Given a specific collapse operator $\mathrm{collapse}_X$ on the contract** (which silently folds layer $X$ of contract structure):
 
@@ -431,6 +443,8 @@ $$\boxed{\;\mathrm{CAG} \;=\; \text{task-conditional utility sensitivity}.\;}$$
 **CAG is a decision-layer aggregate; it must be viewed jointly with $E_{\mathrm{semantic}}$ (invariance / equivariance) + $E_{\mathrm{representation}}$ (conditional probe + HPC/HSS) + §1.1 Type I/II controlled response** — only the conjunction is evidence of semantic use. This version demotes CAG from "the aggregate" back to "decision-layer aggregate", so the four compliance evidence types stay complete.
 
 ### 2.6 Safety evidence $E_{\mathrm{safety}}$: Constraint certification intervention (v5 three-state)
+
+> **Section anchor**: §2.0 Table 1 Layer = **Safety** (constraint certification intervention) · Table 2 Layer = **Safety** (independent of utility) · training-time counterpart **§1.3 three-state filter** (safe → relaxation permitted / unsafe → tighten or stop / unknown → conservative fallback).
 
 Actively drive §1.3's $\mathrm{certification}_j$ to **unsafe** or **unknown** in deployment / semi-simulation (inject calibration drift, cut observability, push $\Lambda(E^-; H, \mathcal O)$ high), and check whether the safety filter **enters the correct guardrail at the correct moment**, and whether guardrail activation is **attributable to which component of certification**. **The key criterion is no longer "did the filter stop the policy", but "did the filter tighten the constraint"** (§1.3 has locked this down: invalid evidence alone cannot justify relaxing the constraint). The three correct responses are fallback, conservative tightening, stop; the **wrong response is relaxing on the strength of invalid / unknown evidence alone**. One observed relaxation caused by unknown / invalid evidence by itself ⇒ $E_{\mathrm{safety}}$ fails outright. Conversely, if an independent valid evidence stream (e.g. lidar) has already pushed certification to **safe**, letting the filter relax is a **correct response** — v4 would have misflagged this case; v5, with three states, does not. This type is the direct instantiation of §1.3's interface, and the real test of whether the piece's interface proposal is **actually deployable**.
 

@@ -222,13 +222,13 @@ $$\boxed{\;\text{Compliance Evidence} \;=\; \big\{E_{\mathrm{semantic}},\;E_{\ma
 
 把 前篇 §0 到 §2 收在一张表上、reviewer 最希望看到的就是这个：
 
-| Layer | Object | Failure | Evidence |
-|---|---|---|---|
-| Contract | $\mathcal C$ | schema ambiguity / version mismatch | schema audit + compatibility check |
-| Declaration | $q_\pi$（由 $\mathcal C_\pi = (Q_\pi, \mathcal O_\pi, V_\pi)$ 诱导） | undeclared semantic collapse | quotient audit（能贴出 $Q_{\mathcal C_\pi}$ 清单吗？subsumption 覆盖吗？） |
-| Projection | $\Pi_\pi = e_\pi\circ q_\pi$ | residual contract information | conditional probe $I(\text{field};z_\pi\mid o)$ |
-| Decision | $\pi_\theta$ | wrong use / shortcut / collapse rate | Type I equivariance + Type II order-constrained + Type III ablation + $L_{\mathrm{decision}}$ |
-| Safety | $g_{\mathrm{safety}}$ | unsafe interpretation of invalid / unknown evidence | constraint certification intervention（是否**收紧**、而不是**放松**） |
+| Layer | Object | Failure | Evidence | Evidence 定义在 § | Loss / Obligation 兑现 |
+|---|---|---|---|---|---|
+| Contract | $\mathcal C$ | schema ambiguity / version mismatch | schema audit + compatibility check | 前篇 §0.2.3 + 本文 §3（`SchemaCompatibilityError` fail-closed） | —— (前置条件、不产 loss) |
+| Declaration | $q_\pi$（由 $\mathcal C_\pi = (Q_\pi, \mathcal O_\pi, V_\pi)$ 诱导） | undeclared semantic collapse | quotient audit（能贴出 $Q_{\mathcal C_\pi}$ 清单吗？subsumption 覆盖吗？） | 前篇 §0.2 + 本文 §2.2 conditional probe 联合 | $L_{\mathrm{declared}} = \sum w_q \mathbf 1[\nexists q' \succeq q]$（§2.0 boxed） |
+| Projection | $\Pi_\pi = e_\pi\circ q_\pi$ | residual contract information | conditional probe $I(\text{field};z_\pi\mid o)$ | §2.2（本节上半） | $L_{\mathrm{projection}} = I(Y_{\mathcal C}^{\pi};\hat S\mid Z_\pi,O,L)$ |
+| Decision | $\pi_\theta$ | wrong use / shortcut / collapse rate | Type I equivariance + Type II order-constrained + Type III ablation + $L_{\mathrm{decision}}$ | §2.1（Type I）· §2.2（$E_{\mathrm{contract}}$ / HPC / HSS）· §2.3（SDS temporal）· §2.4（source 三切片）· §2.5（CAG utility） | $L_{\mathrm{decision}} = \mathbb E[\mathbf 1[D_{\mathcal A}(\cdot)<\epsilon]]$ |
+| Safety | $g_{\mathrm{safety}}$ | unsafe interpretation of invalid / unknown evidence | constraint certification intervention（是否**收紧**、而不是**放松**） | §2.6 · 训练时对 §1.3 | $\mathcal O_{\mathrm{safety}}$：safe → relaxation permitted / unsafe → tighten or stop / unknown → conservative fallback |
 
 **三个 semantic losses + 一个 safety obligation**（v6 版、公式与 前篇 §0.2.2 严格对齐）：
 
@@ -244,19 +244,23 @@ L_{\mathrm{decision}} &= \mathbb E_{\mathcal R_{\mathcal D}}\!\big[\mathbf 1[D_{
 
 **v6 再补·五层 evaluation hierarchy（reviewer 提的最值得加的一张表）**。本文一直想区分"信息还在不在 / 够不够 / 有没有用 / 用了值不值 / 不确定时怎么反应"——v6 之前散在 §2.1–§2.6、没有一张表把它们钉在一起。这张表是全文 evaluation 层的**类型系统**：
 
-| 层 | 问题 | 主要指标 / primitive | 与其它层的分离点 |
-|---|---|---|---|
-| **Retention** | contract field 在 $z_\pi$ 里还在吗？ | conditional probe $I(\text{field}; z_\pi \mid o)$ | 只测"在不在"、不测"够不够" |
-| **Sufficiency** | $z_\pi$ 加 side information 是否足以回答 $Y_{\mathcal C}^{\pi}$？ | $L_{\mathrm{projection}} = I(Y_{\mathcal C}^{\pi};\hat S\mid Z_\pi,O,L)$ | conditional MI = 0、不宣称 representation-level injective |
-| **Behavioral use** | policy 对 contract intervention 响应是否合法？ | Type I equivariance / Type II order-constrained / §2.2 $E_{\mathrm{contract}}(T_k)$ vs $\mathcal R_{\mathcal C}$ | 与"响应对不对"绑定、不测最终 utility |
-| **Utility** | 用了 contract 信息、decision 真的改善了吗？ | $\mathrm{CAG}^{\mathrm{fixed}}$ + §2.2 HPC（$T^{\mathrm{world}}$ 版）+ §2.4 $\Delta J_{\mathrm{where/dep/neg}}$ | 必须配 matched null 与 oracle baseline、避免只是 OOD sensitivity |
-| **Safety** | 不确定 / 无效 evidence 时有没有保守反应？ | §2.6 constraint certification intervention + §1.3 三态 certification + $\mathcal O_{\mathrm{safety}}$ | 独立于"policy 用没用 contract"、测的是 filter 有没有兜住 |
+| 层 | 问题 | 主要指标 / primitive | 与其它层的分离点 | 定义在 § | 训练时对 §1.x |
+|---|---|---|---|---|---|
+| **Retention** | contract field 在 $z_\pi$ 里还在吗？ | conditional probe $I(\text{field}; z_\pi \mid o)$ | 只测"在不在"、不测"够不够" | §2.2 上半 | §1.1 类别 A（representation-side probe） |
+| **Sufficiency** | $z_\pi$ 加 side information 是否足以回答 $Y_{\mathcal C}^{\pi}$？ | $L_{\mathrm{projection}} = I(Y_{\mathcal C}^{\pi};\hat S\mid Z_\pi,O,L)$ | conditional MI = 0、不宣称 representation-level injective | §2.2 上半 + §2.0 boxed | §1.1 类别 A |
+| **Behavioral use** | policy 对 contract intervention 响应是否合法？ | Type I equivariance / Type II order-constrained / §2.2 $E_{\mathrm{contract}}(T_k)$ vs $\mathcal R_{\mathcal C}$ | 与"响应对不对"绑定、不测最终 utility | §2.1 · §2.2 · §2.3 · §2.4 | §1.1 类别 B（三类 intervention consistency） |
+| **Utility** | 用了 contract 信息、decision 真的改善了吗？ | $\mathrm{CAG}^{\mathrm{fixed}}$ + §2.2 HPC（$T^{\mathrm{world}}$ 版）+ §2.4 $\Delta J_{\mathrm{where/dep/neg}}$ | 必须配 matched null 与 oracle baseline、避免只是 OOD sensitivity | §2.5 · §2.2 HPC · §2.4 | §1.2 augmentation（degradation as causal operator） |
+| **Safety** | 不确定 / 无效 evidence 时有没有保守反应？ | §2.6 constraint certification intervention + §1.3 三态 certification + $\mathcal O_{\mathrm{safety}}$ | 独立于"policy 用没用 contract"、测的是 filter 有没有兜住 | §2.6 | §1.3 safety filter 三态化 |
 
 这五层是**层层递进、但不是相互蕴含**的关系——Retention 通过不蕴含 Sufficiency（信息在可能也不足以回答 query）、Sufficiency 通过不蕴含 Behavioral use（够信息 policy 可能不用）、Behavioral use 通过不蕴含 Utility（响应对了 utility 可能仍然差、因为 contract 未必是当前瓶颈）、Utility 与 Safety 完全正交（safety 侧兜底与 utility 侧表现是两件事）。**这四条"不蕴含"关系**是 §2.2 拆 $E_{\mathrm{contract}}$ / HPC、§2.5 拆 CAG fixed / retrained、§2.6 拆 constraint certification intervention 的根本动机。**Retention ≠ Sufficiency ≠ Use ≠ Utility**——这一句 v6 之前只是隐含、v6 明确写出来。
 
-合起来，§2.7 的两张表共同承担本文 evaluation 部分的**理论骨架**：上一张表把 loss/obligation 落到 pipeline 的四个可审计站点、下一张表把 evidence 落到五个层层不相互蕴含的评估层。这两张表是本文"从概念文章走到 benchmark protocol 文章"最直接的接口。
+> **怎么用这两张表**：Reviewer 或读者从 §2.0 进入本文 evaluation 部分时——**表 1** 告诉你"某个 pipeline 站点出问题、去哪一节找 evidence 与它兑现哪一条 loss / obligation"、**表 2** 告诉你"某一层评估通过与否、去哪一节看具体公式与协议、训练时对应哪一处改动"。§2.1–§2.6 每小节开头各有一段 **"本节锚点"** 反向指回这两张表的具体行 / 层。两张表 + 六个锚点合起来是本文 evaluation 章节的**双向可跳转索引**——上表定位到具体小节、小节回头对号到具体 layer 与 loss / obligation。
+
+合起来，§2.0 的两张表共同承担本文 evaluation 部分的**理论骨架**：上一张表把 loss/obligation 落到 pipeline 的四个可审计站点、下一张表把 evidence 落到五个层层不相互蕴含的评估层。这两张表是本文"从概念文章走到 benchmark protocol 文章"最直接的接口。
 
 ### 2.1 Semantic evidence $E_{\mathrm{semantic}}$：Invariance / Equivariance Test
+
+> **本节锚点**：§2.0 表 1 Layer = **Decision**（Type I 子段）· 表 2 层 = **Behavioral use**（响应合法性、不测 utility）· 训练时对 **§1.1 类别 B Type I**（equivariance 训练约束）。
 
 对应 §1.1 Type I。给定一组已知 $T^{\mathcal{C}}_\pi$ 的 contract 变换（frame / coordinate / hypothesis permutation）、测：
 
@@ -265,6 +269,8 @@ $$\mathrm{Equiv}(\mathcal{C}) \;=\; \mathbb{E}_{\hat S}\!\left[d\!\left(\pi_\the
 $\mathrm{Equiv} \to 0$ 是硬要求、$\mathrm{Equiv} \gg 0$ 意味着 $e_\pi$ 学坏了、或者 $q_\pi$ 直接把这一层 quotient 丢了。这一类是最"干净"的一类、因为规则是 mathematically defined 的、不需要 oracle 也不需要 $J$ 的定义。前篇 §3.2 Failure 2 的 severity 可以直接由 $\mathrm{Equiv}(\text{frame})$ 量化。
 
 ### 2.2 Representation evidence $E_{\mathrm{representation}}$：Conditional Probe + Interface-Compliance $E_{\mathrm{contract}}$ + Decision-Competence HPC + HSS（v6 二次拆分） + Calibration
+
+> **本节锚点**：§2.0 表 1 Layer = **Projection**（conditional probe / $L_{\mathrm{projection}}$）+ **Decision**（$E_{\mathrm{contract}}$ / HPC / HSS 三个 sub-metric）· 表 2 层 = **Retention + Sufficiency + Behavioral use + Utility** 四层横跨（本节是唯一同时兑现四层的节）· 训练时对 **§1.1 类别 A + 类别 B**。
 
 **Conditional probe**（§1.1 类别 A 升级版）：Retention$_{\mathrm{cond}} = I(\text{field}; z_\pi \mid o)$——固定 raw observation $o$、测 $z_\pi$ 里还**独立**携带多少 contract 信息。这是**避免 image-proxy 泄漏**的必要形式。
 
@@ -311,6 +317,8 @@ HPC / HSS / $E_{\mathrm{contract}}$ / entropy **四列并排**、reviewer 一眼
 
 ### 2.3 Temporal slice：Staleness Response Compliance (SDS)（v5 记号 + baseline 双修）
 
+> **本节锚点**：§2.0 表 1 Layer = **Decision**（temporal 子切片）· 表 2 层 = **Behavioral use**（Type II order-constrained response · §1.1 Type II 的 evaluation-side 兑现）· 训练时对 **§1.1 Type II + §1.2 augmentation staleness**。
+
 **v4 版本 SDS 有两个问题（reviewer 都抓到了）**。第一、$R_\pi(a) = \pi_\theta(\cdot|\mathrm{do}(a_c = a), o)$ 里 $a$ 同时是 age 参数与全文里代表 action 的变量、notation collision。第二、$R^*(a)$ 作为"唯一 oracle response curve"过强——expert A 可能"age > 100 ms 就 fallback"、expert B 可能"通过 dynamics prediction 补偿后仍然正常控制"、两者都合理、强迫唯一 $R^*$ 会把合理的分段响应误判成 failure。
 
 **v5 一次改两处**。记号侧：$\alpha$ 用作 age 值（前篇 §4.2 已经把字段名从 $a_c$ 改成 $\alpha_c$）、$a$ 从此只代表 action：
@@ -343,6 +351,8 @@ $$\left.\frac{\partial\, \mathbb{E}\!\big[\pi_\theta(\cdot \mid \mathrm{do}(\alp
 
 ### 2.4 Source slice：$\Delta J_{\mathrm{where}}$、$\Delta J_{\mathrm{dep}}$、$\Delta J_{\mathrm{neg}}$（v5 三分）
 
+> **本节锚点**：§2.0 表 1 Layer = **Decision**（source 子切片）· 表 2 层 = **Behavioral use + Utility**（$\Delta J$ 三切片同时给出响应合法性与 utility 影响）· 训练时对 **§1.1 Type II**（provenance / dependency / negative evidence 三 sub-primitive 各自对应 §1.1 的一条 augmentation）。
+
 **v4 把 $\Delta J_{\mathrm{prov}}$ 写成 "provenance + correlated_with" 一起 ablate、reviewer 抓得对——你花了一整节说 provenance ≠ dependency ≠ negative evidence、metric 又把它们揉在一起、那就回答不了"到底哪一条 primitive 起作用"**。v5 拆成三条、每条只 ablate 一个 primitive：
 
 $$\Delta J_{\mathrm{where}} \;=\; J\!\big(\pi_\theta \mid \text{provenance}\big) \;-\; J\!\big(\pi_\theta \mid \text{provenance} = \varnothing\big),$$
@@ -354,6 +364,8 @@ $$\Delta J_{\mathrm{neg}} \;=\; J_{\mathrm{rank}}\!\big(\pi_\theta \mid \Lambda\
 三条各对应 前篇 §4.3 的三个 primitive：**$\Delta J_{\mathrm{where}}$ 测 `contributing_mask` 消费情况、$\Delta J_{\mathrm{dep}}$ 测 `correlated_with` 消费情况、$\Delta J_{\mathrm{neg}}$ 测 conditional LLR 消费情况**。$J$ 一律 higher-is-better。每条都可以独立爆零、互不顶替——这是"三个 primitive 语义独立"这一节 claim 在**评估层的对应兑现**。如果 reviewer 再问"性能改善是哪一个 primitive 起作用"、v5 可以一条条回答、v4 不能。
 
 ### 2.5 Decision evidence $E_{\mathrm{decision}}$：Contract Ablation Gap（CAG）+ Oracle baseline + Retraining protocol（v5 加限定）
+
+> **本节锚点**：§2.0 表 1 Layer = **Decision**（CAG utility 子段）· 表 2 层 = **Utility**（配 matched null control 防 OOD sensitivity 冒充 contract-use）· 训练时对 **§1.2 augmentation + retraining protocol**（区分 CAG$^{\mathrm{fixed}}$ 与 CAG$^{\mathrm{retrained}}$）。
 
 **给定 contract 的一个特定 collapse 算子 $\mathrm{collapse}_X$**（把 $X$ 这一层 contract structure 无声明地折叠掉）、
 
@@ -431,6 +443,8 @@ $$\boxed{\;\mathrm{CAG} \;=\; \text{task-conditional utility sensitivity}.\;}$$
 **CAG 是 decision 层的聚合、必须与 $E_{\mathrm{semantic}}$（invariance / equivariance）+ $E_{\mathrm{representation}}$（conditional probe + HPC/HSS）+ §1.1 Type I/II controlled response 联合看**、才能构成 semantic use 的证据。这一版把 CAG 从"总指标"降回"decision 层聚合"、四种 compliance evidence 才完整。
 
 ### 2.6 Safety evidence $E_{\mathrm{safety}}$：Constraint certification intervention（v5 三态）
+
+> **本节锚点**：§2.0 表 1 Layer = **Safety**（constraint certification intervention）· 表 2 层 = **Safety**（独立于 utility）· 训练时对 **§1.3 三态 filter**（safe→relaxation permitted / unsafe→tighten or stop / unknown→conservative fallback）。
 
 在部署 / 半仿真环境里主动把 §1.3 的 $\mathrm{certification}_j$ 打到 **unsafe** 或 **unknown**（例如注入 calibration drift、把 observability 关掉、把 $\Lambda(E^-; H, \mathcal O)$ 拉高）、看 safety filter 是否**在正确的时刻进入正确的 guardrail**、以及 guardrail 触发是否可归因到 certification 的哪一项。**关键判定不再是"filter 是否 stopped policy"、而是"filter 是否收紧了 constraint"**（§1.3 已经写死：invalid evidence alone cannot justify relaxing constraint）。测的三种正确反应是 fallback、conservative tightening、stop；测的**错误反应**是"在 evidence 不充分的条件下 relax"。观测到"unknown 或 invalid 单靠自身导致 relaxing"、$E_{\mathrm{safety}}$ 直接 fail。反过来、如果另一路独立 valid evidence（例如 lidar）已经把 certification 推到 **safe**、filter 允许 relax 是**正确反应**、v4 会把这种情形误判、v5 因为引入了三态所以不会。这一类是 §1.3 接口的直接对应、也是整篇 interface 主张真正**能不能落地**的测试。
 
