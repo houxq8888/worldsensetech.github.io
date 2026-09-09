@@ -686,6 +686,72 @@ class ContractAwarePolicy(nn.Module):
 - **(ii)** 这个接口**只解决输入端**；§1.1 的三类 intervention 约束、§1.2 的 observed-metadata-only aug、§1.3 的三态 certification 直连——如果一处不改、$(\mathcal C_\pi, Q_{\mathcal C_\pi})$ 写得再漂亮也会被 $\pi_\theta$ 训练动力绕过去（$L_{\mathrm{decision}}$ 直接爆）。**三个 loss 加一个 safety obligation 缺一个都守不住接口**。
 - **(iii)** `dependency="logit_bias_learned"` 在 transformer 上是一种**便捷实现候选、不是 canonical default**——因为 field-graph → token-graph 的编译问题（$R_{\text{field}} \to R_{\text{token}}$）本身还没解决（前篇 §4.3.2 v5 caveat）。MLP head 走 `covariance_fusion`、Kalman / factor-graph 融合走 `covariance_fusion`、grouped latent 走 `hierarchical_mixture`——**真正 recommended 的是 dependency_aware_fusion 这条 primitive、不是它的某种具体 realization**。
 
+### 3.1 head ↔ §2 evidence 对应（benchmark-side pseudo-stub）
+
+上面的 skeleton 定义了 **reader 侧** 每 head 的 knob 长什么样、但没说"benchmark 侧要拿这个 knob 的哪一路输出、去跑 §2 的哪一条 evidence"。这一小节把这条线补上——**每个 knob 都能对应到 §2.1–§2.6 里的一条具体 evidence call**、不留悬空字段。
+
+| §3 head / method 输出的字段或 knob | 被哪一节 evidence 消费 | 具体消费式（§2.0 表 1 / 表 2 定位） |
+|---|---|---|
+| `StructuredStateView.__init__` 的 `compatibility` | §2.0 表 1 **Contract** 行 · fail-closed `SchemaCompatibilityError` | schema audit：`assert compat.accepted` 或显式 adapter、否则整条 pipeline 视为不可审计 |
+| `StructuredStateView.declared_coverage_loss()` | §2.0 表 1 **Declaration** 行 · $L_{\mathrm{declared}}$ via query subsumption | 直接返回 $L_{\mathrm{declared}}$、benchmark 侧只需按 $w_q$ 报告非零 $q$ |
+| `project` 的 `topk_weight_mode` / `residual_mode` | §2.2 **Retention** 上半 conditional probe + §2.4 $\Delta J_{\mathrm{where}}$ | 固定 $o$、swap 两个 knob、看 $z_\pi$ 是否仍独立携带 field 信息（Retention 层）、并看 utility 是否随 `residual_mode` 阶梯 `drop → mass_only → sufficient_stats` 上升（Behavioral-use→Utility） |
+| `project` 的 `staleness` / `uncertainty` | §2.3 **SDS**（temporal 切片）+ §2.2 conditional probe | 沿 $\preceq^{\mathrm{declared}}_{\mathcal C_\pi}$ 排布 $\alpha$ 网格、测 $V_{\mathrm{order}}$ 与 $V_{\mathrm{trans}}$、以及 $I(\alpha; z_\pi \mid o)$ 是否保留 |
+| `project` 的 `provenance` / `dependency` / `negative_evidence` | §2.4 $\Delta J_{\mathrm{where}} / \Delta J_{\mathrm{dep}} / \Delta J_{\mathrm{neg}}$ + §2.5 $\mathrm{CAG}^{\mathrm{fixed}}_X$ | 三 knob 各自 `ignore ↔ harden / covariance_fusion / condition` 切换、evaluator 端算 utility 差、并跑 matched null control 排除 OOD sensitivity |
+| `project` 输出的 `PolicyInput.slots[...].trust / w_payload / residual_declared` | §2.1 **Type I equivariance**（frame / permutation 侧） | 施加 $T^{\mathcal C}$、测 $D_{\mathcal A}(\pi_\theta(T\hat S), T^{\mathcal C}_\pi \pi_\theta(\hat S))$ |
+| `SafetyFilterHead.forward` 三态分支 | §2.6 **Constraint certification intervention** | benchmark 侧把 `constraint.certification` 逐条打到 `unsafe` / `unknown`（注入 calibration drift / 关 observability / 拉高 $\Lambda(E^-; H, \mathcal O)$）、验 `a_applied` **收紧**而不是放松、且**走交集**而不是 first-return |
+| `ContractAwarePolicy.forward` 最终 `ActionDistribution` | §2.2 (A) $E_{\mathrm{contract}}(T^{\mathrm{contract}})$ + §2.2 (B) HPC($T^{\mathrm{world}}$) + §2.2 HSS$^c$ + §2.5 CAG + §2.5 oracle gap | 由 §2 五层 hierarchy（Retention / Sufficiency / Behavioral use / Utility / Safety）分别消费、benchmark 报告时**并列展示、不合并**（详见 §2.5 收尾注） |
+
+**benchmark-side pseudo-stub**（**不是完整实现、只是把 §3 head 与 §2 evidence 的调用关系钉在一张纸上**）：
+
+```python
+def run_contract_benchmark(
+    policy, dataset, C_pi, Q_C_pi, Q_req,
+    T_contract_set, T_world_set, collapse_set, alpha_grid, oracle_pi,
+    tau_E, delta, eps,
+):
+    R = {}  # §2.0 表 1 站点 + 表 2 层 的 evidence report
+
+    # ---- Contract site (§2.0 表 1 首行) ----------------------------------
+    R["schema_compat"] = audit_schema_compatibility(dataset, C_pi)  # fail-closed
+
+    # ---- Declaration site (L_declared, §2.0 表 1 第二行) -----------------
+    R["L_declared"] = StructuredStateView(
+        dataset.sample_contract(), C_pi, Q_C_pi, Q_req
+    ).declared_coverage_loss()
+
+    # ---- Projection site: Retention + Sufficiency (§2.2 上半) -------------
+    R["retention_cond"] = conditional_probe_I(policy, field="alpha", given="obs")
+    R["L_projection"]   = conditional_MI(policy, Y_C_pi, S_hat,
+                                         Z_pi=..., O=..., L=...)
+
+    # ---- Decision site (§2.1 – §2.5) -------------------------------------
+    R["Equiv_TypeI"]  = [D_A(policy(T(S)), T_a(policy(S)))
+                         for T in T_contract_set]                       # §2.1
+    R["E_contract"]   = [D_A(policy(T_c(S)), R_C(T_c))
+                         for T_c in T_contract_set]                     # §2.2 (A)
+    R["HPC"]          = [Pr_a_in_A_star(policy, T_w, k)
+                         for k, T_w in enumerate(T_world_set)]          # §2.2 (B)
+    R["HSS_c"]        = hypothesis_separation(policy, T_c=T_c, D=D_A,
+                         competence_gate=(R["E_contract"] < tau_E))      # §2.2
+    R["SDS_V_order"]  = staleness_order_violation(policy, alpha_grid, r, delta)
+    R["SDS_V_trans"]  = trans_section_distance(policy, alpha_grid, r)   # §2.3
+    R["dJ_where_dep_neg"] = source_slice_ablations(policy, dataset)     # §2.4
+    R["CAG_fixed"]    = {X: J(policy, S) - J(policy, collapse_X(S))
+                         for X in collapse_set}                          # §2.5
+    R["dJ_null"]      = J(policy, S) - J(policy, format_preserving_null(S))
+    R["Gap_oracle"]   = J(oracle_pi, s_priv) - J(policy, S)              # §2.5 upper bound
+
+    # ---- Safety site (§2.6) ----------------------------------------------
+    R["O_safety_cert"] = constraint_certification_intervention(
+        policy.safety_head,
+        drive_to={"unsafe", "unknown"},   # benchmark 主动注入
+        expect="tighten_or_fallback",     # 观测"收紧"而非"放松"
+    )
+    return R
+```
+
+**读法**：这一段的**每一行注释都对齐 §2.0 表 1 的一站或 §2.0 表 2 的一层**——benchmark 报告就是这张 dict 的 pretty print、按 Contract / Declaration / Projection / Decision / Safety 五站分层展示、每站下面列出对应的 §2.x 指标。**注意 `HSS_c` 的 `competence_gate=(R["E_contract"] < tau_E)`**——reviewer 抓过的 gaming 场景（"随机 policy 也能拉高 HSS"）就是靠这一 gate 挡住的、benchmark 报告必须把 `E_contract` 与 `HSS` **并列展示**、不能合并成一个总分。**同样** `Gap_oracle`（本节）与 `HPC`（§2.2）是**两种正交 oracle**、见 §2.5 收尾注、不可合并。
+
 ## 4. 收束：四条 compliance evidence、五层 evaluation hierarchy、一个可落地的接口
 
 前篇（9/15）已经立住"policy 是 contract consumer"这一 thesis 的语义层——Consumer Contract 三段分解、三档 preservation、三个 semantic losses + 一个 safety obligation、四种 interface-mismatch 失败模式、三族 contract-read primitives。本文（9/16）承担的是它的**度量层与实现层**——四类 compliance evidence、五层 evaluation hierarchy、最小可执行接口骨架。两半合起来才把"policy 侧接口"这一整块从**概念**推到**协议**。

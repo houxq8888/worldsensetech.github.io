@@ -686,6 +686,72 @@ Three caveats written in stone:
 - **(ii)** This interface **only addresses the input side**; §1.1's three-tier intervention constraints, §1.2's observed-metadata-only aug, §1.3's three-state certification direct wiring — if any one is left unchanged, $(\mathcal C_\pi, Q_{\mathcal C_\pi})$ may be written beautifully and still be routed around by $\pi_\theta$'s training dynamics ($L_{\mathrm{decision}}$ blows up directly). **Three losses plus one safety obligation — miss any one and the interface does not hold**. Recall v6's wording: the three losses sit at **separately auditable sites** (sequentially coupled through $q_\pi \to \Pi_\pi \to \pi_\theta$), not statistically independent losses.
 - **(iii)** `dependency="logit_bias_learned"` is a **convenient implementation candidate on transformer-family backbones, not the canonical default** — the field-graph → token-graph compilation problem ($R_{\text{field}} \to R_{\text{token}}$) itself is unsolved (upper-half §4.3.2 v5 caveat). MLP heads use `covariance_fusion`, Kalman / factor-graph fusion uses `covariance_fusion`, grouped latent uses `hierarchical_mixture` — **what is truly recommended is the `dependency_aware_fusion` primitive, not any one of its realizations**.
 
+### 3.1 Head ↔ §2 evidence mapping (benchmark-side pseudo-stub)
+
+The skeleton above defines what each head's knobs look like on the **reader** side; it does not yet say "which output of which knob a benchmark should feed to which §2 evidence call". This subsection wires that line up — **every knob maps to a specific §2.1–§2.6 evidence call**, so no field is left dangling.
+
+| §3 head / method output or knob | Consumed by which §2 evidence | Concrete consumption (mapped to §2.0 Table 1 site / Table 2 layer) |
+|---|---|---|
+| `StructuredStateView.__init__`'s `compatibility` | §2.0 Table 1 **Contract** row · fail-closed `SchemaCompatibilityError` | schema audit: `assert compat.accepted` or run an explicit adapter; otherwise the whole pipeline is unauditable |
+| `StructuredStateView.declared_coverage_loss()` | §2.0 Table 1 **Declaration** row · $L_{\mathrm{declared}}$ via query subsumption | directly reports $L_{\mathrm{declared}}$; benchmark side just lists non-zero $q$ weighted by $w_q$ |
+| `project`'s `topk_weight_mode` / `residual_mode` | §2.2 upper-half conditional probe (**Retention**) + §2.4 $\Delta J_{\mathrm{where}}$ | fix $o$, swap the two knobs; check whether $z_\pi$ still independently carries field information (Retention layer) and whether utility rises along `residual_mode`'s staircase `drop → mass_only → sufficient_stats` (Behavioral-use → Utility) |
+| `project`'s `staleness` / `uncertainty` | §2.3 **SDS** (temporal slice) + §2.2 conditional probe | sample $\alpha$ along $\preceq^{\mathrm{declared}}_{\mathcal C_\pi}$, measure $V_{\mathrm{order}}$ and $V_{\mathrm{trans}}$, and check $I(\alpha; z_\pi \mid o)$ retention |
+| `project`'s `provenance` / `dependency` / `negative_evidence` | §2.4 $\Delta J_{\mathrm{where}} / \Delta J_{\mathrm{dep}} / \Delta J_{\mathrm{neg}}$ + §2.5 $\mathrm{CAG}^{\mathrm{fixed}}_X$ | toggle each of the three knobs from `ignore` to `harden / covariance_fusion / condition`; evaluator computes utility delta and runs matched null control to rule out OOD sensitivity |
+| Fields in `project` output `PolicyInput.slots[...].trust / w_payload / residual_declared` | §2.1 **Type I equivariance** (frame / permutation side) | apply $T^{\mathcal C}$, measure $D_{\mathcal A}(\pi_\theta(T\hat S), T^{\mathcal C}_\pi \pi_\theta(\hat S))$ |
+| `SafetyFilterHead.forward` three-state branch | §2.6 **Constraint certification intervention** | benchmark actively drives `constraint.certification` to `unsafe` / `unknown` (inject calibration drift, cut observability, raise $\Lambda(E^-; H, \mathcal O)$); assert `a_applied` **tightens** (not relaxes) and that the loop composes constraints via **intersection**, not first-return |
+| `ContractAwarePolicy.forward`'s final `ActionDistribution` | §2.2 (A) $E_{\mathrm{contract}}(T^{\mathrm{contract}})$ + §2.2 (B) HPC($T^{\mathrm{world}}$) + §2.2 HSS$^c$ + §2.5 CAG + §2.5 oracle gap | consumed by the five-layer hierarchy (Retention / Sufficiency / Behavioral use / Utility / Safety); benchmark report keeps them **side by side, not merged** (see §2.5 closer) |
+
+**Benchmark-side pseudo-stub** (**not a full implementation — just a paper-nail tying §3 heads to §2 evidence calls**):
+
+```python
+def run_contract_benchmark(
+    policy, dataset, C_pi, Q_C_pi, Q_req,
+    T_contract_set, T_world_set, collapse_set, alpha_grid, oracle_pi,
+    tau_E, delta, eps,
+):
+    R = {}  # evidence report keyed by §2.0 Table 1 sites and Table 2 layers
+
+    # ---- Contract site (§2.0 Table 1, row 1) --------------------------------
+    R["schema_compat"] = audit_schema_compatibility(dataset, C_pi)  # fail-closed
+
+    # ---- Declaration site (L_declared, §2.0 Table 1, row 2) -----------------
+    R["L_declared"] = StructuredStateView(
+        dataset.sample_contract(), C_pi, Q_C_pi, Q_req
+    ).declared_coverage_loss()
+
+    # ---- Projection site: Retention + Sufficiency (§2.2 upper half) ---------
+    R["retention_cond"] = conditional_probe_I(policy, field="alpha", given="obs")
+    R["L_projection"]   = conditional_MI(policy, Y_C_pi, S_hat,
+                                         Z_pi=..., O=..., L=...)
+
+    # ---- Decision site (§2.1 – §2.5) ----------------------------------------
+    R["Equiv_TypeI"]  = [D_A(policy(T(S)), T_a(policy(S)))
+                         for T in T_contract_set]                        # §2.1
+    R["E_contract"]   = [D_A(policy(T_c(S)), R_C(T_c))
+                         for T_c in T_contract_set]                      # §2.2 (A)
+    R["HPC"]          = [Pr_a_in_A_star(policy, T_w, k)
+                         for k, T_w in enumerate(T_world_set)]           # §2.2 (B)
+    R["HSS_c"]        = hypothesis_separation(policy, T_c=T_c, D=D_A,
+                         competence_gate=(R["E_contract"] < tau_E))      # §2.2
+    R["SDS_V_order"]  = staleness_order_violation(policy, alpha_grid, r, delta)
+    R["SDS_V_trans"]  = trans_section_distance(policy, alpha_grid, r)    # §2.3
+    R["dJ_where_dep_neg"] = source_slice_ablations(policy, dataset)      # §2.4
+    R["CAG_fixed"]    = {X: J(policy, S) - J(policy, collapse_X(S))
+                         for X in collapse_set}                           # §2.5
+    R["dJ_null"]      = J(policy, S) - J(policy, format_preserving_null(S))
+    R["Gap_oracle"]   = J(oracle_pi, s_priv) - J(policy, S)               # §2.5 upper bound
+
+    # ---- Safety site (§2.6) --------------------------------------------------
+    R["O_safety_cert"] = constraint_certification_intervention(
+        policy.safety_head,
+        drive_to={"unsafe", "unknown"},   # benchmark actively injects
+        expect="tighten_or_fallback",     # observe tightening, not relaxation
+    )
+    return R
+```
+
+**How to read the stub**: every comment aligns with one site in §2.0 Table 1 or one layer in §2.0 Table 2 — the benchmark report is exactly this dict, pretty-printed under Contract / Declaration / Projection / Decision / Safety, each site listing its §2.x metrics. **Note the `HSS_c` field's `competence_gate=(R["E_contract"] < tau_E)`** — the gaming scenario the reviewer flagged ("a random policy can also inflate HSS") is blocked precisely by this gate; the benchmark report must display `E_contract` and `HSS` **side by side**, not merged into one composite. **Similarly**, `Gap_oracle` (this section) and `HPC` (§2.2) are two orthogonal oracles; see the §2.5 closing note — they must not be merged.
+
 ## 4. Closing: four compliance evidence types, a five-layer evaluation hierarchy, one executable interface
 
 The upper half (9/15) already stood the policy-side interface as an auditable semantic object — Consumer Contract triple, three tiers of preservation, three semantic losses + one safety obligation, four interface-mismatch failure modes, three families of contract-read primitives. This piece (9/16) delivers the **measurement layer and the implementation layer** — four compliance evidence types, a five-layer evaluation hierarchy, and a minimal executable interface skeleton. Both halves together push "policy-side interface" from **concept** to **protocol**.
