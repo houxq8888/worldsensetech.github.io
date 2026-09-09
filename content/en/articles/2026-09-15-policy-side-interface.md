@@ -1,11 +1,11 @@
 ---
-title: 'After the Contract: What VLA, Diffusion Policy and π0 Actually Consume'
+title: 'After the Contract Stands: What Do VLA, Diffusion Policy and π0 Actually Consume?'
 slug: "2026-09-15-policy-side-interface"
 date: 2026-09-15
 draft: false
 categories: ["Embodied AI", "Policy Learning"]
-tags: ["Embodied AI", "Policy Learning", "VLA", "Diffusion Policy", "π0", "RT-2", "OpenVLA", "Action Tokenization", "Structured State Contract", "Contract-read Primitives", "Belief State", "Multimodal Hypothesis", "Provenance", "Uncertainty Calibration", "Safety Filter", "Hypothesis Preservation", "Staleness Discrimination", "Evaluation Metrics"]
-description: 'The companion to the multimodal-fusion interface piece. That article stood the upstream deliverable up as a Structured State Contract; this one asks its dual: if estimators really ship by the contract, can the policy side actually consume it. The answer is not reassuring—VLA, Diffusion Policy and engineered-state heads each silently flatten a different slice of the contract at their input boundary, the damage is invisible in the loss curve and does not heal by scaling the backbone. This piece proposes three contract-read primitives on the policy side—mode_select for hypothesis-set readout, age_gate for heteroscedastic staleness trust decay, provenance_condition for correlated-evidence double-counting—and connects the follow-through changes at the loss, augmentation, and safety-filter layers. Three interface-level metrics are given for evaluation: HPS, SDS, PCE. Closes on three claims: a good policy must read disagreement, not merely react to it; action space is not just kinematic, it is semantic; contract compliance is measurable at the policy boundary, not only at the estimator boundary.'
+tags: ["Embodied AI", "Policy Learning", "VLA", "Diffusion Policy", "π0", "RT-2", "OpenVLA", "Action Tokenization", "Structured State Contract", "Contract-Preserving Projection", "Contract Information Loss", "Contract-Read Primitives", "Intervention Consistency", "Belief State", "Multimodal Hypothesis", "Provenance", "Dependency Graph", "Negative Evidence", "Uncertainty Calibration", "Safety Filter", "Contract Ablation Gap", "Hypothesis Preservation", "Staleness Response", "Evaluation Metrics"]
+description: 'The multimodal-fusion piece stood up the upstream deliverable as a Structured State Contract. This piece asks the dual question: if the estimator really delivers per contract, can the policy side actually consume it. The core object is an explicitly defined policy projection $\Pi_\pi$ and a verifiable interface property, contract-preserving: information may be dropped, but contract semantics may not be dropped silently. This piece no longer slices along three mutually-exclusive families (VLA / Diffusion / engineered head); instead it decomposes any policy along two orthogonal dimensions—conditioning representation × action head—and gives a seven-row grid. At the interface layer three families of contract-read primitives are proposed: `mode_select`, `age_gate` (parallel fields of measurement / uncertainty / age / validity / trust rather than a multiplicative decay), and a three-way split of provenance / dependency / negative evidence. Training constraints split into representation-side probes and intervention-consistency losses; on the evaluation side, `Contract Ablation Gap (CAG)` is proposed as the top-line aggregate metric, with HPS / SDS / PCE as per-dimension diagnostics and SDS rewritten as a Staleness Response Curve under controlled intervention. The piece lands on three claims: contract semantics can be lost at the policy boundary; contract preservation is not architecture-specific; contract compliance should be tested by intervention, not inferred from end-to-end success.'
 toc: true
 related_articles:
   - 2026-09-14-multimodal-fusion-interface
@@ -17,197 +17,316 @@ related_articles:
   - 2026-09-03-vla-deep-dive
 ---
 
-> Continues [Piling Modalities Together Is Not Understanding: What Robot Multimodal Fusion Lacks Is an Interface, Not a Model](/en/articles/2026-09-14-multimodal-fusion-interface/). That piece dragged multimodal fusion away from "which fusion timing" and back to "what is delivered after fusion", and stood that deliverable up as a contract object—the **Structured State Contract**—a structured state carrying hypothesis, provenance, observability, availability / validity / age, contact set and negative evidence. It closed on the claim: **A good multimodal system must represent disagreement, not merely resolve it.** This piece asks the **dual**: if the upstream really ships by the contract, **can the policy side actually consume it**.
+> Picks up from [Splicing is not seeing: what robot multimodal fusion is missing is an interface, not a model](/en/articles/2026-09-14-multimodal-fusion-interface/): that piece reframed multimodal fusion from a "when to fuse" question to a "what is delivered after fusion" question, and stood the deliverable up as a contract object — the **Structured State Contract** — a structured state carrying hypothesis, provenance, observability, availability / validity / age, contact set and negative evidence. It closed on the claim **A good multimodal system must represent disagreement, not merely resolve it.** This piece asks its **dual**: if the upstream really delivers per contract, **can the policy side actually consume it**.
 
-Short answer: **most mainstream policy architectures silently flatten the contract at their input boundary**. VLA routes through a tokenizer, Diffusion Policy routes through image-encoder + proprio concat, engineered-state heads route through a hand-written state vector—three projections, three different slices of the contract broken. Worse, **the breakage is invisible**: the loss curve keeps going down, the eval score keeps going up, and there is nothing in the training log telling you what got squeezed out. This is not a model-size problem, **it is an interface problem**.
+Short answer: **a structured estimator output does not imply a structured policy input**. Between them sits an explicit projection $\Pi_\pi$ which is itself **a semantic interface that can silently destroy semantics**. VLA uses a tokenizer, Diffusion Policy uses image-encoder + proprio concat, classical heads use a hand-designed state vector — the three projections each destroy a different slice of the contract, and **the destruction is silent**: the loss curve still goes down, eval scores still go up, and you cannot see from the training log what has been flattened away. This is not a model-size problem, **it is an interface problem** — but the problem is not "which architecture collapses", **the problem is that no architecture carries an explicit preservation guarantee for contract-relevant semantics**. This distinction is what separates this piece from the usual "architecture critique" genre.
 
-This is a piece about the segment between upstream deliverable and downstream policy input. It is not going to recommend a specific backbone, and it is not going to argue against end-to-end learning. What it actually argues against is—**treating the choice of policy-side interface as a question of "parameter count and dataset size"**. The article first looks at the contract from the policy side, breaks down the projection loss for each of the three mainstream families, then gives the three **contract-read primitives** the policy side genuinely needs to write down (mode_select / age_gate / provenance_condition), and traces the follow-through changes at training loss, data augmentation, safety filtering and evaluation. It closes on three claims.
+This piece does not push a specific backbone, does not oppose end-to-end learning, and does not claim that one family is inherently better than another. Its thesis is more general and more verifiable: **every policy architecture has to answer — does its input projection preserve the decision-relevant semantics of the upstream contract?** Once that question is on the table, "VLA versus Diffusion Policy" demotes itself from a position to a design decision.
 
-## 0. Frame: what the contract looks like from downstream
+## 0. Framing: the policy projection $\Pi_\pi$ is a semantic interface
 
-The frame first, every later section returns to it.
+Set up the whole analysis framework up front; every later section returns to this figure. This section also stands up the piece's real **formal object** — $\Pi_\pi$, its contract-preserving property, and a measurable **Contract Information Loss**.
+
+### 0.1 Argumentation chain
 
 ```
-              Upstream (defined in 9/14)              Downstream (this piece)
-    ┌────────────────────────────────┐         ┌───────────────────────────┐
-    │  Structured State Contract     │         │  Policy family            │
-    │  ─────────────────────────────  │         │  ─────────────────────    │
-    │  hypothesis + posterior w       │  ──Π──▶ │  A. engineered-state head │
-    │  availability / validity / age  │  ──Π──▶ │  B. diffusion / flow      │
-    │  observability / frame          │  ──Π──▶ │  C. VLA                   │
-    │  contact set / negative evidence│         │                           │
-    │  provenance / correlated_with   │         │  Which slice each Π kills │
-    └────────────────────────────────┘         └───────────────────────────┘
-                    │                                          ▲
-                    │   contract-read primitives               │
-                    │   ───────────────────────                │
-                    └──▶ mode_select ─ age_gate ───────────────┘
-                              └──▶ provenance_condition ───────┘
+Structured State Contract  Ŝ_t                          (defined in 9/14)
+        │
+        ▼
+policy projection  Π_π(Ŝ_t, o_t, ℓ_t)                   (the core object of this piece)
+        │
+        ▼
+question: which decision-relevant semantics are preserved?
+        │
+        ▼
+three contract-relevant invariants
+   ├─ mode          multi-hypothesis structure            ──▶  primitive: mode_select
+   ├─ temporal      heterogeneous staleness distribution   ──▶  primitive: age_gate
+   └─ source        provenance / dependency / negative ev. ──▶  primitives: provenance / dependency / negative_evidence
+        │
+        ▼
+training (representation-side probe + intervention-consistency)
+deployment (safety filter directly reads constraint-relevant contract fields)
+evaluation (CAG as aggregate + HPS / SDS / PCE as per-dimension diagnostics)
 ```
 
-Three boxed claims the article stands on:
+### 0.2 Formalizing $\Pi_\pi$: contract-preserving projection
 
-> **Claim 1 (Contract can die at the input boundary)**—the semantics of a Structured State Contract can be silently destroyed by a single projection layer at the policy input. Nothing about "how big the model is" or "how much data you have" can save it—only explicit contract-read primitives can.
+This piece defines $\Pi_\pi$ explicitly as **a semantic interface**, not as "the first computation of the model". Fix a set of **contract-relevant decision variables** $Y_{\mathcal{C}}$ that the policy serves — the quantities downstream controller / planner / safety filter / diagnostics will read, e.g. "which object is this track", "how many newtons is this contact force", "how old is this measurement", "is this channel still valid". Define a semantic-equivalence relation on $\hat S$:
 
-> **Claim 2 (Three policy families, three projection losses)**—VLA / Diffusion Policy / engineered-state head each break a different slice of the contract. The real difference between the three is not parameter count or modality coverage; it is **what state schema each of them commits to**.
+$$\hat S \sim_{\mathcal{C}} \hat S' \quad \Longleftrightarrow \quad \forall\, Y_{\mathcal{C}}\text{-relevant query},\;\hat S \text{ and } \hat S' \text{ give the same answer}.$$
 
-> **Claim 3 (Policy needs primitives, not bigger backbones)**—what the policy side genuinely needs is to write down mode_select, age_gate and provenance_condition explicitly at the input boundary; not to move from a 3B backbone to a 7B one.
+**Definition (Contract-preserving projection)** — $\Pi_\pi$ is contract-preserving iff it does not irreversibly collapse semantically distinct contracts onto the same input:
 
-A notation convention: below, "policy input" is written $x_t^{\pi}$ and is a projection of the contract $\hat S_t$, observations $o_t$ and language goal $\ell_t$, namely $x_t^{\pi} = \Pi_{\pi}(\hat S_t, o_t, \ell_t)$. **Whether the projection is contract-preserving depends entirely on which slices of $\hat S_t$ the operator $\Pi_{\pi}$ retains.**
+$$\hat S \not\sim_{\mathcal{C}} \hat S' \quad \Longrightarrow \quad \Pi_\pi(\hat S) \not\equiv \Pi_\pi(\hat S').$$
 
-## 1. Three policy families, and what each eats
+**Definition (Contract Information Loss)** — a measurable degradation via mutual information:
 
-**Family A: Engineered-State Policy Head**—MLP / GRU / small transformer, hand-designed state vector. Its lineage is classical RL (the PPO / SAC line on MuJoCo / Isaac Lab), and it is still the default architecture in sim-to-real and industrial robot learning today. Input convention: a fixed-length $s_t \in \mathbb{R}^d$ whose fields are hand-picked joint angles, end-effector pose, wrench readings, optional contact flags. It is the **most contract-friendly** of the three—because fields are already explicit, adding `availability` / `validity` / `age` / `observability` is just bookkeeping. The cost is a low expressivity ceiling, poor cross-task transfer, and hand-crafting the state schema is its own art.
+$$L_{\mathcal{C}}(\Pi_\pi) \;=\; I(\hat S;\, Y_{\mathcal{C}}) \;-\; I\!\big(\Pi_\pi(\hat S);\, Y_{\mathcal{C}}\big).$$
 
-**Family B: Diffusion Policy and Flow-Matching Policy**—policy as a denoising / flow-matching generative model, consuming image latents + proprio + language goal (sometimes without language). Chi et al. 2023 (Diffusion Policy) reads $k$ RGB frames + joint proprio and outputs an action chunk; Zhao et al. 2023 (ACT / ALOHA) uses a transformer encoder-decoder with a CVAE head or, in later variants, flow matching. Its killer feature is a genuinely multimodal **continuous action distribution**—but its handling of the contract is **implicit**: state is squashed into an image-encoder latent, proprio is concatenated into the noise-conditioning, **there is no dedicated slot for hypothesis, provenance or age**. Once the contract crosses the input boundary, it is flattened into a single vector.
+By the data processing inequality $L_{\mathcal{C}} \ge 0$; $\Pi_\pi$ being contract-preserving corresponds to $L_{\mathcal{C}} = 0$ (or, more practically, "no decision-relevant distinction is irreversibly folded away").
 
-**Family C: VLA (Vision-Language-Action)**—RT-2 / OpenVLA / π0 / Octo. Reads image tokens + language tokens, outputs action tokens. RT-2 and OpenVLA are autoregressive over discretized action tokens (actions become tokens from a 256-way vocabulary or similar); π0 does flow matching over continuous action chunks with a VLM backbone for conditioning. VLA breaks the contract the hardest: **language conditioning and image tokens are shoved through the same transformer, and the action side is either a vocabulary of discretized tokens or a flow-matched continuous chunk**. Structured fields like `wrench.frame.reference_point` from upstream must be either paraphrased into natural language ("low grip force, contact on pad") before the tokenizer, or dropped entirely.
+This formalization matters because it **shuts the door on a very common rebuttal** — "of course a projection loses information, every neural network loses information". The correct statement is: **a policy may drop information; it may not silently drop contract semantics.** The former is a physical fact; the latter is an interface violation. The whole piece asks one question: **do mainstream policies' $\Pi_\pi$ treat "silently dropping contract semantics" as the default?**
 
-The three side by side:
+### 0.3 Three boxed claims of this piece
 
-| Family | State representation | Action representation | Contract breakage surface | Expressivity ceiling | Main cost |
-|---|---|---|---|---|---|
-| A · Engineered-State Head | Explicit $s_t \in \mathbb{R}^d$ | Continuous mean + variance (or SAC Q-head) | Smallest, fields are hand-written | Low | Manual state design, poor transfer |
-| B · Diffusion / Flow | image latent + proprio concat | Continuous action chunk (denoised / flow) | Breaks provenance / age / hypothesis | Medium–High | Multi-step inference, unstable training |
-| C · VLA | Discretized image / language token | Discrete token or flow-matched action | Breaks frame / reference_point / observability | High (cross-task reuse) | Expensive to train, tokenization is irreversible |
+> **Claim 1 (Contract semantics can be lost at the policy boundary)** — A structured estimator output does not imply a structured policy input. The projection $\Pi_\pi$ is itself **a semantic interface** and should be treated as one, not as "the first forward computation of a model".
 
-The "breakage surface" column is what matters—**it decides which fields of the contract still mean anything inside the policy**. The fields defined in §6.1 of the multimodal-fusion piece—`availability`, `validity`, `age`, `provenance.negative_evidence`, `wrench.count_uncertainty`, `contact.geometry.observability`—move through Family A basically intact, only partially through Family B via concat, and in Family C most of them either have to be written into the prompt or dropped.
+> **Claim 2 (Contract preservation is not architecture-specific)** — Engineered-state heads, latent visuomotor policies, and VLA / flow policies lose different slices of the contract, but **the underlying failure mode is the same**: contract-relevant distinctions are projected away without an explicit preservation guarantee. The target of criticism is the interface contract, not the model architecture.
 
-A caveat before we move on: **this is not a ranking of which family is best**. Family A still wins the low-dimensional control baseline; Family C is irreplaceable for open-semantic-conditioned tasks. The question is not which one to pick; **the question is whether, after picking, the policy has a clear interface convention telling you how far down the contract it reads**.
+> **Claim 3 (Contract compliance should be tested by intervention, not inferred from end-to-end success)** — A policy can achieve very high task success while ignoring disagreement, staleness and provenance. Contract compliance must be measured with **controlled intervention metrics**, not back-derived from an end-to-end success rate.
 
-## 2. "State" means different things to different policies
+## 1. Two dimensions instead of three families: conditioning representation × action head
 
-This section clears terminology. "State" carries at least five distinct meanings in the embodied-AI literature, and the choice of policy family is often the choice of which one is assumed by default:
+**An earlier draft sliced "VLA / Diffusion Policy / engineered head" as three mutually-exclusive families**; that taxonomy is too coarse — π0 is VLA + flow matching and lands in both columns. This section switches to **two orthogonal dimensions**; a policy family's choice becomes a coordinate on a grid rather than a stance.
 
-**$\pi_{\mathrm{obs}}$: raw observation**—images, point clouds, force / torque readings as raw streams. This is the **input form** of most imitation-learning pipelines, but usually not the state the policy **actually uses internally** (it will be encoded).
+### 1.1 Two orthogonal dimensions
 
-**$z_t = f_\phi(o_{:t})$: encoded latent**—the low-dimensional representation after an encoder. Diffusion Policy, VLA image tokens and world-model RSSM states all belong here. By this stage the contract has already been **projected once**, and observability / provenance are typically already gone.
+**Dimension 1 · Conditioning representation** — the shape in which the policy reads upstream information. Four typical values:
 
-**$b_t$: belief / posterior**—the explicit belief state in the POMDP line. Structurally the closest match to the contract's "multi-hypothesis + posterior weight" object. Mainstream VLA / Diffusion Policy do not model belief explicitly—it is approximated implicitly by the encoder.
+- **engineered state** (a fixed-length vector hand-written per task, $s_t \in \mathbb{R}^d$)
+- **visual latent** (encoder output, $z_t = f_\phi(o_t)$)
+- **multimodal token** (discrete tokens in a VLM vocabulary; image and language share the space)
+- **structured contract** (an explicit $\hat S_t$; fields are enumerable and jointly readable by controller / policy / safety filter)
 
-**$s_t = (b_t, \pi_t, q_t, h_t)$: the allocation state defined in Part 1 of the Sim-to-Real trilogy**—belief + policy + budget + hardware. This is the **decision-layer** state, not the policy's input state. It requires the contract to expose "which policy is running, how much real-rollout budget is left"—fields with no interface in VLA today.
+**Dimension 2 · Action head** — how the policy produces an action distribution. Five typical values:
 
-**$\hat S_t$: structured state (contract)**—the contract object defined in the multimodal-fusion piece.
+- **deterministic regression** (a mean, no noise)
+- **Gaussian / mixture stochastic head** (the SAC line, mean + variance / GMM)
+- **autoregressive token** (a discrete vocabulary, RT-2 / OpenVLA)
+- **diffusion** (multi-step denoising, Diffusion Policy)
+- **flow matching** (velocity regression over continuous action chunks, π0)
 
-The full chain looks like this:
+### 1.2 Grid
+
+| Representative policy | Conditioning representation | Action head | Where the contract is destroyed |
+|---|---|---|---|
+| Classical SAC/PPO head | engineered state | Gaussian / deterministic | Minimal; fields hand-written; but state design is an art and cross-task transfer is poor |
+| Visual-obs PPO / DrQ | visual latent | Gaussian | Once $z_t$ is squeezed, provenance / age / hypothesis are usually already gone |
+| Diffusion Policy (Chi 2023) | visual + proprio latent | diffusion | Destroys provenance / age / hypothesis; action-side multimodality is fine, but **state-side multi-hypothesis has no slot** |
+| ACT / ALOHA (Zhao 2023) | visual + proprio latent | CVAE → chunked | Similar to Diffusion Policy; state-side remains implicit |
+| RT-2 | multimodal token (VLM) | autoregressive action tokens | Frame / reference_point / convention are tokenized away |
+| OpenVLA | multimodal token + proprio | autoregressive | Same as RT-2, proprio adds one channel, but the contract fields still have nowhere to go |
+| π0 (Black 2024) | multimodal token (VLM conditioning) | **flow matching** (continuous action chunk) | Action is continuous, but conditioning still goes through VLM tokens — **the structured contract is still flattened** |
+
+One key distinction: **Continuous actions do not imply structured state semantics.** π0's action head is a flow-matched continuous chunk and sounds "structured", but its conditioning representation is a VLM token stream, and the upstream contract's hypothesis / provenance / age are flattened at that stage. **Continuity on the action side does not rescue structural loss on the state side.** This distinction separates this piece from the intuition "flow matching is finer-grained, so contract preservation must be better".
+
+One caveat: **this is not a ranking of "which combination is best"**. Engineered state + Gaussian is still the low-dimensional control baseline champion; multimodal token + flow matching is still the only realistic path for open-semantic settings. What this piece cares about is **for every combination, does its $\Pi_\pi$ layer carry an explicit preservation guarantee for contract-relevant semantics**. In most existing work the answer is "no" — **not because a family is inherently bad, but because this layer has never been treated as an interface design problem**.
+
+## 2. What "State" means across policies
+
+This section is **terminology cleanup**. "State" in the embodied-AI literature means at least five mutually-distinct things, and a policy family's choice is often implicitly "which of these five it commits to".
+
+**$\pi_{\mathrm{obs}}$ — raw observation**: images, point clouds, force/torque streams. The **input form** of most imitation-learning pipelines, but typically not the state the policy actually uses internally (it gets encoded away).
+
+**$z_t = f_\phi(o_{:t})$ — encoded latent**: the low-dimensional representation post-encoder. Diffusion Policy's and VLA's image tokens, and RSSM states in world models, all fall here. The contract has already **undergone one projection** at this stage; observability and provenance are usually already lost.
+
+**$b_t$ — belief / posterior**: the explicit belief state of the POMDP line. The "multi-hypothesis + posterior weight" structure in the contract maps most cleanly here. But mainstream VLA / Diffusion Policy do not model belief explicitly — it is only implicitly approximated by the encoder.
+
+**$s_t = (b_t, \pi_t, q_t, h_t)$ — the allocation state of 9/10 Part 1**: belief + policy + budget + hardware. This is the state at the **decision layer**, not the state at the policy's input. It requires that the contract, in addition to observations, expose "which policy is currently active and how much real-rollout budget remains" — fields for which VLAs currently have no interface at all.
+
+**$\hat S_t$ — structured state (contract)**: the contract object defined in 9/14.
+
+A full chain:
 
 $$\pi_{\mathrm{obs}} \;\xrightarrow{\;\text{encoder}\;}\; z_t \;\xrightarrow{\;\text{abstraction}\;}\; \hat S_t \;\xrightarrow{\;\text{posterior}\;}\; b_t \;\xrightarrow{\;\text{allocation}\;}\; s_t$$
 
-The real question on the policy side is **not "can I eat a longer token sequence"**, but **"how far along the chain $\pi_{\mathrm{obs}} \to z_t \to \hat S_t \to b_t \to s_t$ am I willing to commit"**. Family A stops at $\hat S_t$ (explicit structured state, hand-written fields); Family B stops at $z_t$ (encoder latent); Family C effectively stops at the tokenizer one step past $\pi_{\mathrm{obs}}$—image tokens are compressed observations without any state abstraction.
+Back to the language of §0.2: the real policy-side question is **not** "can I consume longer token sequences", it is **"how far along $\pi_{\mathrm{obs}} \to z_t \to \hat S_t \to b_t \to s_t$ am I willing to commit, and do I preserve $L_{\mathcal{C}} = 0$ for $Y_{\mathcal{C}}$ — or at least declare what I am dropping"**. Engineered state stops at $\hat S_t$, visual latent stops at $z_t$, multimodal token effectively stops at a tokenizer one layer past $\pi_{\mathrm{obs}}$ — **three stopping points correspond to three values of $L_{\mathcal{C}}$, not to "one smart, one dumb"**.
 
-**A common misuse of the term "multimodal fusion" on the policy side** is treating the cross-attention step $\pi_{\mathrm{obs}} \to z_t$ as if it already **were** multimodal state estimation. It is not. Real state abstraction requires fields of $\hat S_t$ to hold consistent semantics **across sensor families**, and to be jointly readable by four consumers—controller / policy / world model / diagnostics. The multimodal-fusion piece already established that convention in its §6; the job here is to **ask again from the policy side: which station on this chain is each family willing to read to**.
+**The common misuse of the phrase "multimodal fusion" on the policy side** is treating the cross-attention in $\pi_{\mathrm{obs}} \to z_t$ as if it were "already doing multimodal state estimation". It is not. Real state abstraction requires the fields inside $\hat S_t$ to **carry consistent semantics across sensor families and be jointly readable by four consumers — controller / policy / world model / diagnostics** — 9/14 §6 has already established this convention; what this section adds is **asking from the policy side once more: has $L_{\mathcal{C}}$ been silently accepted?**.
 
 ## 3. Four interface-mismatch failure modes
 
-Once the three projections of §1 land on concrete policies, contract semantics manifest as **four concrete failure modes**. These are not theoretical worries—**they are deployment-level breakages you will hit**.
+Once the §1 coordinates are instantiated in a concrete policy, contract semantics show up as **four concrete failure modes**. None of the four are theoretical worries; they are **what actually breaks in deployment**. All four are **facts about the interface**, not personality defects of any single family — as we will see below.
 
-**Failure 1: Mode Collapse via Averaging**. In the contract, the same physical quantity may carry multiple hypotheses ("is this track_id the same object", "is this contact a pad or an edge") with distinct posterior weights. If the policy merges them at the latent by averaging, the multimodal posterior is flattened into a unimodal one. Symptom: the policy emits an "average" action across "two possible worlds", neither of which is optimal—yet the loss curve looks fine, **because the "average action" is often the most common action in the training distribution**. This is not a parameter-count problem, **it is a shape-of-$\Pi_\pi$ problem**. As long as the projection is L2 / mean, mode collapse is the default outcome.
+### 3.1 Failure 1: Multi-hypothesis silently collapsed
 
-**Failure 2: Semantic Drift via Tokenization**. Contract fields like frame—`orientation_frame: "tool_flange"`, `reference_point: "contact_center"`, `convention: "right-handed"`—drift when a tokenizer turns them into a token sequence: the model can learn the **distribution** of the "contact_center" token but cannot learn the hard constraint that "changing reference_point means $\tau$ must be corrected via $\tau_{p_2} = \tau_{p_1} + (p_1 - p_2) \times f$". The consequence is that the policy fails mysteriously on edge cases where the frame flips: **the token distribution may barely change, but the wrench value must be recomputed**. The similarity an attention layer learns cannot capture physics-level convention changes. **A concrete shape**: on real deployment, switch a wrench's `reference_point` from `sensor_flange` to `contact_center`—the preprocessing pipeline changes, the token sequence looks almost identical (both "sensor_flange" and "contact_center" appear as frame tokens in similar contexts), but the value of $\tau$ changes substantially via the transport theorem. A VLA trained separately on these two "look-alike" datasets will converge to **similar but both-wrong** policies, because what it learned is the linguistic co-occurrence of frame tokens, not the functional correction that a frame change imposes on the physical quantity. This class of bug only surfaces **after deployment**, during cross-dataset reuse.
+Inside the contract a single physical quantity may have multiple hypotheses ("does this track_id refer to the same object", "is this contact on the pad or the edge") with different posterior weights. **If a policy's $\Pi_\pi$ performs an explicit posterior mean / mean-pool on these hypotheses, mode collapse is deterministic**. The issue is not "does this model collapse"; the issue is **"does this model provide an explicit hypothesis-preserving readout"**. Most existing policy architectures — the visual-latent and multimodal-token lines included — **do not provide such a readout slot**, which makes collapse an **interface default** rather than a training-dynamics accident.
 
-**Failure 3: Temporal Alignment Broken by Concat**. In the contract, each channel's `age` is explicit (say proprio 1 ms, F/T 5 ms, vision 100 ms, tactile 30 ms). If the policy only sees a concat vector, the $\Delta t$ distribution is lost. Symptom: the policy decides using vision's "world from 100 ms ago" alongside tactile's "contact from 30 ms ago" as if they were synchronous. The multimodal-fusion piece already argued that **timestamp sync ≠ causal sync**—and neither is decision-time causal consistency. **What concat hides is not $\Delta t$, it is the semantics of $\Delta t$**—even if you timestamp every channel, if the policy never reads the timestamp into a decision variable, the timestamp is decoration.
+An important refinement: **action-side multimodality in diffusion / flow-matching does not automatically mean state-side multi-hypothesis is preserved**. The action distribution can be multimodal (denoising yields multiple action trajectories), but if the hypothesis structure of $\hat S_t$ has already been folded by the encoder, action-side multimodality is just sampling on an input that has already lost upstream distinctions. **The two kinds of multimodality are not the same thing and cannot guarantee each other**.
 
-**Failure 4: Safety-Blindness to Validity vs Staleness**. The contract explicitly separates availability (does the channel have data right now), validity (is the data still valid—say, calibration not expired), and age (how stale it is). If the policy only looks at numbers, it merges "stale but valid" with "missing but valid", and treats "invalid after calibration drift" as the same degradation as "sensor disconnected". The multimodal-fusion piece's §8.5 degradation chain already pulled these apart—**masking ≠ missing ≠ staleness ≠ latency ≠ bias ≠ corruption**—and if the policy does not read the chain at its input, both training-time augmentation and inference-time guardrail will attach at the wrong place.
+A precise rephrasing: **this piece does not criticize Diffusion Policy for collapsing; it criticizes the fact that no architecture explicitly commits to hypothesis preservation**.
 
-All four are **interface problems**, not model problems—swapping backbones does not fix them, only making $\Pi_\pi$ explicit does. This distinction matters because it **decouples** two decisions that are often conflated: "should I move to a bigger VLA" versus "should I rewrite the policy-side interface".
+### 3.2 Failure 2: No interface-level guarantee of semantic correctness
 
-## 4. Three contract-read primitives the policy needs
+Frame fields inside the contract (`orientation_frame: "tool_flange"`, `reference_point: "contact_center"`, `convention: "right-handed"`) enter the policy and, if tokenized into a token sequence — **note, the issue here is not that "transformers cannot learn frame transforms"**. In principle a transformer can learn a hard constraint like $\tau_{p_2} = \tau_{p_1} + (p_1 - p_2) \times f$ through attention + MLP. **The real problem is that tokenization provides no interface-level guarantee that this transformation is interpreted correctly**. The model **can** learn it and **can also** fail to learn it, depending on whether the training distribution covers frame-contrast pairs, whether the architecture has a friendly inductive bias, and whether an auxiliary constraint explicitly imposes it. **Absent these, semantic correctness is not an interface property, only an accident of training data**.
 
-Following §3, what the policy side genuinely needs is **three primitives**—not a bigger transformer, not more data.
+**A concrete shape**: in a real-robot deployment we change the wrench's `reference_point` from `sensor_flange` to `contact_center` — the preprocessing pipeline changes, the token sequence barely changes (`"sensor_flange"` and `"contact_center"` both show up as frame tokens in similar contexts), yet $\tau$ shifts substantially per the transport theorem. A VLA trained on the two "look-alike" datasets separately **may converge separately to similar-but-wrong policies** — **"both wrong" is not because transformers cannot learn frame transforms, it is because the training data has too few frame-contrast pairs and no constraint forces it to learn**. This class of bug only surfaces **post-deployment**, on cross-dataset / cross-embodiment reuse.
 
-### 4.1 `mode_select` (how a hypothesis set is read out)
+**The key rephrasing**: tokenization does not erase semantics — it **demotes semantics from an interface guarantee to a training-time experience**. This is where this piece parts ways with the intuition "tokenizers just don't work".
 
-Given a multi-hypothesis posterior in the contract, the policy must pick one of four explicit readout strategies: MAP (take the highest-weight hypothesis), sample (draw from the posterior, encouraging exploration), expected-mixture (retain the mixture, let downstream heads attend), or ECE-preserving top-$k$ (keep $k$ calibrated hypotheses). The difference between MAP and expected-mixture **is** the difference between whether Failure 1 happens or does not.
+### 3.3 Failure 3: Temporal alignment broken by concat
+
+The contract makes per-channel `age` explicit (e.g. proprio 1 ms, F/T 5 ms, vision 100 ms, tactile 30 ms). If the policy only sees a concatenated vector, the $\Delta t$ distribution is lost. Symptom: the policy decides using vision's "world 100 ms ago" and tactile's "contact 30 ms ago" as if they were synchronous. 9/14 §4 already stressed **timestamp sync ≠ causal sync**, and even less so decision-time causal consistency. **Concat hides $\Delta t$; it does not hide the semantics of $\Delta t$** — even if you stamp every channel, if the policy does not read those stamps into its decision variables, the stamps are decorations.
+
+### 3.4 Failure 4: Safety-blindness to validity vs staleness
+
+The contract explicitly separates availability (does the channel have data today), validity (is the data valid, e.g. is calibration current), and age (how old). A policy that reads only the numbers conflates "stale but valid" with "missing but valid", and treats "invalid after calibration drift" the same as "sensor disconnected". 9/14 §8.5 already broke the degradation chain apart — **masking ≠ missing ≠ staleness ≠ latency ≠ bias ≠ corruption** — if the policy does not ingest this chain at the input, both training-time augmentation and inference-time guardrail will latch onto the wrong place.
+
+All four failures are **interface problems**; swapping backbones does not solve them; only making the $\Pi_\pi$ layer explicit does. This matters because it **decouples** the decision "should we switch to a bigger VLA" from the decision "should we rewrite the policy-side interface".
+
+## 4. Three families of contract-read primitives
+
+Following the four failures in §3, the policy side needs **three families of primitives** — not bigger transformers, not more data. The third family (source structure) itself splits into three, see §4.3.
+
+### 4.1 `mode_select` (the readout of the hypothesis layer)
+
+Faced with a multi-hypothesis posterior inside the contract, the policy must pick one of several **explicit readouts**: MAP (argmax of posterior weight), sample (draw from the posterior, encouraging exploration), expected-mixture (keep the mixture, let downstream heads attend), or ECE-preserving top-$k$ (retain $k$ calibrated hypotheses).
 
 $$\text{read}\!\big(\{(\mu_i, \Sigma_i, w_i)\}_{i=1}^{K}\big) \;=\; \left\{\begin{aligned}
 &\mu_{\arg\max_i w_i} && \text{(MAP, drop low-weight hypotheses)}\\
-&\textstyle\sum_i w_i\, \mu_i && \text{(mean collapse, default danger zone)}\\
+&\textstyle\sum_i w_i\, \mu_i && \text{(posterior mean, an explicitly declared collapse)}\\
 &\mu_i + L_i \epsilon,\;\; i \sim w,\;\; \epsilon \sim \mathcal{N}(0, I) && \text{(posterior sample)}\\
 &\big\{(\mu_i, \Sigma_i, w_i)\big\}_{i \in \mathrm{top}\text{-}k} && \text{(ECE-preserving top-}k\text{)}
 \end{aligned}\right.$$
 
-The key point: **"mean collapse" is the default behavior of most policies, because it corresponds to the simplest concat + MLP treatment**. A contract-preserving policy must **write "no mean-pooling here" explicitly into $\Pi_\pi$**, otherwise your carefully maintained multimodal posterior evaporates in a single mean-pool. Families B and C are especially prone—transformer mean-pooling or class-token readout is a natural collapse operator.
+The point is **not "mean is forbidden"** — mean is a perfectly legitimate readout, provided the collapse is **explicitly declared**. The real failure mode is "the interface provides no readout slot for hypothesis structure, the policy can only implicitly merge via concat + MLP, and mean becomes the default". This distinction is critical: **this piece is against undeclared default collapse, not against collapse per se**. ECE-preserving top-$k$ is valuable because it hands downstream an explicitly ablatable hypothesis structure, not because mean is inherently wrong.
 
-### 4.2 `age_gate` (staleness trust decay)
+### 4.2 `age_gate`: parallel measurement / uncertainty / age / validity / trust — not multiplicative decay
 
-When a channel $c$ with `age` $a_c$ enters the policy, its contribution to the current decision must decay explicitly. The simplest form is multiplicative trust $\tau_c = \exp(-a_c / \bar a_c)$, where $\bar a_c$ is the channel's time constant; a stricter form feeds $a_c$ as a conditioning variable and lets the policy learn its own decay. The former is **an interface-level physical constraint**; the latter is **a training objective**. The Sim-to-Real Part 1 already separated $\Delta_{\mathrm{queue}}$ from $\Delta_{\mathrm{processing}}$—$a_c$ is the explicit form of $\Delta_{\mathrm{queue}}$.
+**A common interface-design bug** is to multiply staleness trust directly into the measurement: $x_c^\pi = \tau_c(a_c) \cdot \mu_c$. This **changes the physical value of the observation** — 10 N read at 100 ms age gets multiplied into "3 N", and the "3 N" at the policy input **looks** like "a 3 N force", not "a 10 N force whose trust has decayed". This directly violates the very distinction the contract wants to preserve: **$(F = 3\,\mathrm{N},\, a = 0)$ and $(F = 10\,\mathrm{N},\, a = 100\,\mathrm{ms})$ are two different semantic events**.
 
-$$x_c^{\pi} \;=\; \underbrace{\tau_c(a_c)}_{\text{staleness trust decay}} \;\cdot\; \mu_c \;\cdot\; \mathbb{1}\!\big[\text{validity}_c = \mathrm{OK}\big] \;\cdot\; \mathbb{1}\!\big[\text{availability}_c = \mathrm{OK}\big]$$
+The right thing is to put them in **parallel** on the policy input and not multiply:
 
-Multiplying those three $\mathbb{1}$s is exactly the operation of **moving the three orthogonal axes `availability` / `validity` / `age` defined in the multimodal-fusion piece's §6.1 straight into the policy input**. Drop any one of them and you hit Failure 4. The specific shape of $\tau_c$ (exponential decay / sigmoid / step) is not what matters—**what matters is that it exists explicitly**, otherwise channel staleness lives only in dataset metadata where the policy cannot see it.
+$$x_c^{\pi} \;=\; \big[\;\underbrace{\mu_c}_{\text{measurement}}\;,\;\underbrace{\Sigma_c}_{\text{uncertainty}}\;,\;\underbrace{a_c}_{\text{age}}\;,\;\underbrace{v_c}_{\text{validity}}\;,\;\underbrace{q_c}_{\text{trust} \,=\, \tau_c(a_c)}\;\big].$$
 
-### 4.3 `provenance_condition` (source as conditioning, not as noise)
+Trust $q_c$ is a **meta field**; it does not scale $\mu_c$, it is a conditioning variable the policy may choose to consume. The concrete shape of $\tau_c(a_c)$ (exponential / sigmoid / step) is not important; what matters is that it exists as a **separate channel**. If a downstream gate really is required, **it should gate on uncertainty, not on measurement**:
 
-The contract carries `provenance.contributing_mask` (which sensors contributed to this field), `negative_evidence` (which sensors expected something and did not see it), `correlated_with` (which fields have known correlations and must not be double-counted). All three must enter the policy as **conditioning variables**—not as a noise model, not as dropout.
+$$\tilde\Sigma_c \;=\; \Sigma_c \,/\, \tau_c(a_c) \quad \text{(stale ⇒ effective uncertainty is inflated)}$$
 
-Two implementation paths:
+This intuition is closer to process-noise inflation for delayed updates in a Bayesian filter than to "discounting the reading". Availability and $\mathbb{1}[v_c]$ (validity) still **hang on as parallel slots** — they must not be folded into $\mu$, nor into $\tau$:
 
-- **Hard conditioning**: concatenate `contributing_mask` directly into the policy input. Families A and B can both do this (a few extra vector dimensions).
-- **Attention biasing**: convert `correlated_with` into an attention mask / bias, so a transformer does not double-count correlated evidence when attending. Family C (VLA) fits this naturally, since transformers already expose an attention interface.
+$$\text{availability}_c,\;\;\mathbb{1}[v_c],\;\;a_c,\;\;\mu_c,\;\;\Sigma_c,\;\;q_c \quad \text{—— six slots, each says its own thing.}$$
 
-$$\mathrm{Attn}'_{ij} \;=\; \mathrm{Attn}_{ij} \;-\; \beta \cdot \mathbb{1}\!\big[\text{fields}_i \text{ correlated\_with } \text{fields}_j\big]$$
+This looks like a small change but it semantically repairs `age_gate` from "discounting a measurement" to "measurement + facts about the measurement" — a direct instantiation of the §0.2 $L_{\mathcal{C}}$ definition: mixing a measurement with **facts about** the measurement into a single scalar is a direct source of $L_{\mathcal{C}}$.
 
-What this subtracts is not "attention weight", it is **double-counting**—mirroring exactly the caveat (ii) in §6.2 of the multimodal-fusion piece: **proprio-derived $\hat F_{\mathrm{ext}}$ and F/T-measured wrench are structurally correlated, and naive fusion double-counts them**. By the same token, if the policy sees proprio and F/T and $\hat F_{\mathrm{ext}}$ all at once, after a three-way concat the attention layer will treat these as **three independent pieces of evidence**, when in fact only two exist. **A concrete shape**: $\hat F_{\mathrm{ext}} = \arg\min_F \|\tau_{\mathrm{res}} - J^{\top} F\|_W^2 + \lambda R(F)$ is an estimate of the external contact force solved from joint torque residuals; $\tau_{\mathrm{res}}$ has already used proprio, and F/T re-uses the same joint information—so the $correlated\_with$ relation among the three is **structural, not empirical**. Skip the attention biasing in §4.3 and the policy will count **the same information three times**, substantially over-estimating confidence in low-friction / high-contact scenarios, and directly causing the safety-filter misses described in §5.3. **This `correlated_with` is not learned—it is read out of the contract.** That is the whole point of treating provenance as conditioning rather than as noise.
+### 4.3 `provenance / dependency / negative_evidence`: three things, not one bucket
 
-### 4.4 The relationship among the three primitives
+9/14 §6.1 groups `contributing_mask`, `correlated_with` and `negative_evidence` under `provenance` — from the estimator side that makes sense (all three are "source structure of this field"), but from the **policy-side readout** they sit at different semantic levels:
 
-**`mode_select` handles multi-hypothesis in space**, **`age_gate` handles heteroscedastic $\Delta t$ in time**, **`provenance_condition` handles correlation in causality**. Drop any one of the three and at least two of §3's failures will recur. The three together are **not the complete answer to interface design** either—observability / identifiability, frame convention, and contact set each have their own more specialized readouts (the multimodal-fusion piece's §7 and §8.6 have discussions); this piece only handles the three most likely to be **silently broken by the policy**.
+| Field | Essence | How policy reads it |
+|---|---|---|
+| `contributing_mask` | evidence source (which sensors contributed) | concatenated into policy input as conditioning (**provenance_harden**) |
+| `correlated_with` | dependency structure (which fields are structurally correlated) | attention mask / bias, to avoid double-counting (**dependency_gate**) |
+| `negative_evidence` | hypothesis-conditioned absence of expected evidence, $P(\mathcal{E}^- \mid H)$ | closer to a **first-class citizen of belief update**, not a provenance-bucket item (**negative_evidence_read**) |
 
-## 5. Training-time and Deployment-time consequences
+**`negative_evidence` is not provenance**. It is "which sensors should have seen $E^-$ but did not" — semantically it is a likelihood term, more closely related to belief update than to source. Filing it under provenance turns §4.3 into an oversized bucket with fuzzy boundaries. The three sub-primitives each address a distinct layer:
 
-Once the policy input side adopts the three primitives, training objective, augmentation, safety filtering and evaluation all have to follow. **Interfaces are not free**—but the changes are **local and manageable**.
+**`provenance_harden`**: concatenate `contributing_mask` directly into the policy input. Engineered-state heads and visual-latent heads both support this (a few more dimensions of vector).
 
-### 5.1 Where loss attaches
+**`dependency_gate`**: turn `correlated_with` into an attention mask / bias so the transformer does not double-attend to correlated evidence. **One possible implementation** (note: one possible) is an additive attention bias:
 
-VLA's autoregressive CE, Diffusion Policy's score matching, Flow Matching's velocity regression, classical heads' Gaussian NLL / SAC Q-target—**all of these cover only action generation**, not the contract-side fields. Contract-preserving training requires an **auxiliary loss**: make the policy's intermediate representation predict `age`, `validity`, `observability`, and hypothesis posteriors—not so the policy "understands the contract better", but so **it cannot shortcut to minimum loss by flattening the contract**.
+$$\mathrm{Attn}'_{ij} \;=\; \mathrm{Attn}_{ij} \;-\; \beta \cdot \mathbb{1}\!\big[\text{fields}_i \text{ correlated\_with } \text{fields}_j\big].$$
 
-$$\mathcal{L}_{\mathrm{total}} \;=\; \mathcal{L}_{\mathrm{action}} \;+\; \alpha_1\, \mathcal{L}_{\mathrm{calibration}} \;+\; \alpha_2\, \mathcal{L}_{\mathrm{hypothesis}} \;+\; \alpha_3\, \mathcal{L}_{\mathrm{validity\text{-}pred}}$$
+But it must be honestly acknowledged that **`correlated_with` is a field-level semantic relation, whereas attention bias is a token-pair relation** — the two require an $R_{\text{field}} \to R_{\text{token}}$ mapping in between. A single field is often decomposed into value token / uncertainty token / age token / provenance token, and **which token pairs need suppression is not a solved problem — it is a compilation problem from a provenance graph to an attention graph and deserves to be treated as an independent research direction**. This piece only stands the primitive up; the formula above is "one possible realization", not canonical.
 
-Motivations for each auxiliary: $\mathcal{L}_{\mathrm{calibration}}$ forces the policy's action distribution to agree with its own claimed uncertainty; $\mathcal{L}_{\mathrm{hypothesis}}$ forces its top-$k$ to cover the true hypotheses in data (contact mode, object identity, etc.); $\mathcal{L}_{\mathrm{validity\text{-}pred}}$ forces it to read $\mathbb{1}[\text{validity}_c]$ instead of "guessing" from numerical distributions. The α weights are a tuning decision; **but the structure is an interface decision**—you cannot delete all auxiliaries just because α is hard to set.
+**`negative_evidence_read`**: expose "what should have been seen but was not" as a likelihood-side conditioning that flows into either the policy or the belief update. Concretely, hand the policy a $P_{\mathrm{expected}}(\mathcal{E}^- \mid H_k)$ vs $P_{\mathrm{observed}}(\mathcal{E}^-)$ gap so it can attend to "which hypotheses are weakening due to missing evidence". This primitive is the thinnest on engineering maturity but often the strongest in effect on hypothesis ranking.
 
-### 5.2 Augmentation must be classified along the degradation chain
+The three sub-primitives together — **provenance says "where it came from", dependency says "cannot count twice", negative evidence says "what was not seen"** — support the source-structure invariant of §0.2.
 
-The multimodal-fusion piece's §8.5 insisted on **masking ≠ missing ≠ staleness ≠ latency ≠ bias ≠ corruption**—six degradations, each with a distinct **causal origin** and a distinct **downstream read**. If training-time data augmentation uses only one of them (the most common being random masking), the policy learns all six as one, and at deployment cannot distinguish "this channel is broken today" from "this channel is heavily delayed". The aug generator must **channel per class of the chain**, each class with its own distribution, and each mapped to the specific form of $\mathbb{1}$ and $\tau_c$ from §4.2.
+### 4.4 Mapping primitives to invariants
 
-Concretely: attach a degradation label to every training episode, carry it explicitly into the policy input, and let the aug pipeline sample conditioned on the same label. **This is not curriculum, this is conditioning**—curriculum is "learn easy first, then hard"; conditioning is "let the policy know which degradation it is currently under".
+Back to the §0.1 figure: **mode / temporal / source** correspond to **mode_select / age_gate / (provenance_harden + dependency_gate + negative_evidence_read)**. Miss any one invariant, at least two of the four §3 failures recur. Three families are also **not a complete interface design** — observability / identifiability, frame convention, and contact set each have their own more specialized readouts (9/14 §7, §8.6); this piece only handles **the three most easily destroyed silently at the $\Pi_\pi$ layer**.
 
-### 5.3 Safety filter and contract interface
+## 5. Training-time and deployment-time knock-on effects
 
-Constraint layers (CBF / shield / runtime verifier) should read the contract's `observability`, not the policy's $\mu$. Reason: the domain on which a constraint holds depends on **observability**, not on what the policy believes. The multimodal-fusion piece's §7 already established that **track_id is a hypothesis**—so a safety filter cannot trust track_id matching alone; it must also see whether the hypothesis posterior is stable. Whether two tracks merge or split directly determines the trustworthiness of "obstacle distance".
+Once the §4 primitives are on the input side, four downstream things must be adjusted — training objective, augmentation, safety filter, evaluation. **Interfaces are not free** — but the changes are **local and bounded**.
 
-Concretely, the safety filter should read: `observability` (is the quantity this constraint depends on observable right now), `validity` (has calibration expired—expired readings must not trigger a constraint), `negative_evidence` (an observation that should have been seen but was not—"the LiDAR swept nothing in this sector"). **If those three do not enter the safety filter, the filter will make decisions on stale or invalid data**—more dangerous than the policy itself.
+### 5.1 Two classes of training constraint: representation-side probe and intervention-consistency
 
-### 5.4 Echo with the Sim-to-Real Part 3 evaluation
+A natural mistake is: **to make the policy "use the contract", require it to output validity / hypothesis predictions** — this actually sneaks "use the contract" into "copy the contract", which is the wrong direction. **A policy is entirely allowed to only eat the contract and never spit it back out**; auxiliary prediction heads are not a necessary condition.
 
-Among the three sim-utility dimensions (prediction / ranking / decision), policy-side evaluation primarily looks at **decision**—but a fourth dimension, **contract preservation**, must be added: how much performance drops when the contract is destructured (say, all hypotheses merged to mean, all `age` flattened) is a **lower bound** on how much the policy actually depends on the contract. That dimension is what §6's three metrics measure.
+This piece proposes two cleaner classes of training constraint instead.
 
-## 6. Evaluation: three interface-level metrics on the policy side
+**Class A · Representation-side probe** (not a hard constraint, a diagnostic). Hang a few probe heads off the policy's intermediate representation $z^{\pi}$ and try to predict the contract's `age`, `validity`, `observability` and hypothesis posterior from $z^{\pi}$. **These probes do not enter the main loss; they are only used for measurement**: good probe scores mean the policy preserves this information internally, poor scores mean the contract has already been flattened inside $\Pi_\pi$. $L_{\mathrm{probe}}$ may be added to the main loss with a small weight as regularization, but **its diagnostic value exceeds its training value**.
 
-Corresponding one-to-one with §4's three primitives:
+$$\mathcal{L}_{\mathrm{total}} \;=\; \mathcal{L}_{\mathrm{action}} \;+\; \underbrace{\alpha\, \mathcal{L}_{\mathrm{probe}}}_{\text{weak regularization, mainly diagnostic}} \;+\; \underbrace{\sum_{\mathcal{C}} \gamma_{\mathcal{C}}\, \mathcal{L}^{\mathcal{C}}_{\mathrm{consistency}}}_{\text{class B, see below}}$$
 
-**Metric 1 (Hypothesis Preservation Score, HPS)**—at any given moment, the contract holds $K$ hypotheses. HPS measures how many "locally optimal action clusters" the policy's output covers across the $K$ worlds in which each hypothesis is true.
+**Class B · Intervention-consistency constraint** (this is the real core). Apply a **known** transformation $T_{\mathcal{C}}$ to the contract and require the policy output to respond with the **expected pattern**:
+
+$$\mathcal{L}^{\mathcal{C}}_{\mathrm{consistency}} \;=\; D\!\Big(\pi_\theta\!\big(\hat S,\, o,\, \ell\big),\;\; \pi_\theta\!\big(T_{\mathcal{C}}(\hat S),\, o,\, \ell\big);\;\rho_{\mathcal{C}}\Big)$$
+
+$D(\cdot, \cdot; \rho_{\mathcal{C}})$ is a specific divergence or penalty $\rho_{\mathcal{C}}$ tailored to the transformation $\mathcal{C}$ — it does not require the policy to output the "same thing", it requires it to vary **in a known pattern**. Four typical $T_{\mathcal{C}}$:
+
+- **Frame transform**: move `reference_point` from A to B; $\tau$ transforms per the transport theorem. **The action side must correspondingly undergo the equivalent coordinate transformation** (equivariance, not invariance).
+- **Age increase**: raise one channel's `age` from 5 ms to 200 ms, leave measurement unchanged. **The output distribution must shift in the direction of uncertainty inflation** (e.g. variance rises, or actions become more conservative); mean should not move.
+- **Hypothesis reweighting**: hold the hypothesis set constant, change only the posterior weights. **The output distribution must respond predictably along the weight-shift direction**; top-1 need not flip, but the distribution must respond.
+- **Provenance removal**: drop a contributing sensor from `contributing_mask`. **The output confidence associated with that sensor must fall**; it cannot stay as before.
+
+**None of these four require the policy to predict anything explicitly**; they require **the response function to conform to contract semantics**. This is the **training-side counterpart** of §0.2's "$\Pi_\pi$ is contract-preserving". Compared to "adding a few auxiliary prediction heads", this class of constraint fits the piece's thesis better and is more research-flavored: **what we propose is not for the policy to copy the contract, but for the policy to respond correctly under contract transformations**.
+
+### 5.2 Augmentation must be generated along the degradation chain
+
+9/14 §8.5 emphasized **masking ≠ missing ≠ staleness ≠ latency ≠ bias ≠ corruption** — six degradations with different **causal origins** and different **downstream readouts**. If training-time augmentation uses only one (most often random masking), the policy learns them all as the same thing and cannot distinguish "this channel is broken today" from "this channel is high-latency" at deployment. The aug generator must **separate per chain**, sample independent distributions per class, and **each class must correspond to one of §4.2's six slots** (measurement / uncertainty / age / validity / availability / trust) as the one being activated.
+
+Concretely: label every training episode with a degradation class, carry that label explicitly on the policy input, and let the aug pipeline sample conditioned on the same label. **This is not curriculum, it is conditioning** — curriculum is "learn easy first, hard later", conditioning is "let the policy know which degradation it is currently under". §5.1 Class B intervention consistency and degradation-conditioned augmentation pair naturally — **aug generates the $T_{\mathcal{C}}$ samples, loss measures whether the policy's response to $T_{\mathcal{C}}$ matches $\rho_{\mathcal{C}}$**.
+
+### 5.3 Safety filter and its interface to the contract
+
+The constraint layer (CBF / shield / runtime verifier) **must read $a_{\mathrm{proposed}}$**, otherwise what is it filtering — that point is not up for negotiation. But the more precise claim of this piece is: **the safety filter should not treat the policy's confidence or latent belief as the sole evidence that a constraint holds; it should directly access constraint-relevant contract fields**.
+
+Concretely, in addition to $a_{\mathrm{proposed}}$, the safety filter should also read: `observability` (is the quantity that this constraint depends on observable right now), `validity` (is calibration current — expired readings must not fire constraints, nor should they let a constraint assume "all is fine"), `negative_evidence` (observations that should be present but are not, e.g. "the radar swept this angle and saw nothing" — this maps to §4.3 `negative_evidence_read`). 9/14 §7 established that **track_id is a hypothesis** — the safety filter must not simply trust track_id matching, it must also check whether the hypothesis posterior is stable; whether two tracks merge or split directly determines the credibility of "how far is that obstacle".
+
+**If these three do not enter the safety filter, the filter will infer constraint validity from the policy's belief** — which is especially dangerous in low-observability regions. The policy's belief is optimistic precisely because it cannot see the contract's observability / validity / negative evidence, and **if the filter also cannot see them, the two go blind together**.
+
+### 5.4 Echo with 9/10 Part 3 evaluation
+
+Among the three sim-utility dimensions (prediction / ranking / decision), policy-side evaluation is mainly about **decision** — but with an added **contract-preservation dimension**: how much the policy degrades when the contract is torn apart is a **lower bound** on how much it depends on the contract. This dimension maps to the CAG metric of §6.
+
+## 6. Evaluation: one aggregate + three per-dimension diagnostics
+
+Aligned with the §4 primitives: an **aggregate metric CAG** directly answers "does the policy actually use the contract", and three **per-dimension diagnostics HPS / SDS / PCE** correspond to the mode / temporal / source invariants respectively. All four are **intervention-based evaluation** — the direct instantiation of Claim 3.
+
+### 6.1 Aggregate: Contract Ablation Gap (CAG)
+
+**Definition** — given a specific collapse operator $\mathrm{collapse}_X$ on the contract (which silently folds layer $X$ of contract structure):
+
+$$\mathrm{CAG}_X \;=\; J\!\big(\pi_\theta \,\big|\, \hat S\big) \;-\; J\!\big(\pi_\theta \,\big|\, \mathrm{collapse}_X(\hat S)\big),$$
+
+where $J$ is a higher-is-better decision utility (task success rate, or $-\text{cost}$). Four collapses each correspond to one invariant:
+
+- $\mathrm{collapse}_{\mathrm{hyp}}$: fold the hypothesis set into a single Gaussian or a point estimate.
+- $\mathrm{collapse}_{\mathrm{age}}$: flatten every channel's `age` to 0.
+- $\mathrm{collapse}_{\mathrm{prov}}$: drop `contributing_mask` and `correlated_with`, let attention attend indiscriminately.
+- $\mathrm{collapse}_{\mathrm{neg}}$: drop `negative_evidence`.
+
+**High CAG = the policy really uses the contract; CAG ≈ 0 = the policy is indifferent to contract structure, no matter how high its end-to-end success rate**. This **directly rebuts the common evaluation reflex of "just look at end-to-end success"**. A policy can score high task success while treating every piece of contract structure as decoration. CAG is the core metric of Claim 3 "intervention-based evaluation".
+
+### 6.2 Per-dimension diagnostic 1: Hypothesis Preservation Score (HPS)
+
+At a given instant the contract contains $K$ hypotheses; HPS measures how many "locally-optimal action clusters" the policy output covers across the worlds in which each $H_k$ is true.
 
 $$\mathrm{HPS} \;=\; \frac{1}{N} \sum_{n=1}^{N}\, \max_{k}\, \Pr\!\big[\pi_\theta(x_t^{\pi}) \in \mathcal{A}^{*}_k \,\big|\, H_k \text{ is true at } n\big]$$
 
-$\mathcal{A}^{*}_k$ is the set of optimal actions under hypothesis $H_k$. The HPS gap between MAP readout and posterior-sample readout quantifies how severe Failure 1 is.
+**$\mathcal{A}^{*}_k$ is not required to be online available** — in benchmarks it is constructed from **privileged simulator state, oracle planners, or offline expert rollouts**; therefore HPS is a training / evaluation metric, **not a deployment-time observable**. This has to be said explicitly, otherwise HPS is immediately flagged as non-operational. The HPS gap between MAP readout and posterior-sample readout quantifies the severity of §3.1 Failure 1.
 
-**Metric 2 (Staleness Discrimination Score, SDS)**—construct two test sets: group A with every channel fresh, group B with a few channels deliberately made visibly stale. If the policy's output distribution is nearly identical on A and B, SDS ≈ 0—meaning it is not reading `age` at all, and Failures 3 + 4 are confirmed. SDS is quantified via KL divergence:
+### 6.3 Per-dimension diagnostic 2: Staleness Response Curve (SDS)
 
-$$\mathrm{SDS}_c \;=\; D_{\mathrm{KL}}\!\Big(\pi_\theta(\cdot \mid o, a_c^{\mathrm{fresh}}) \;\Big\|\; \pi_\theta(\cdot \mid o, a_c^{\mathrm{stale}})\Big)$$
+**An earlier draft defined SDS as a single KL, $D_{\mathrm{KL}}(\pi(\cdot \mid a^{\mathrm{fresh}}) \| \pi(\cdot \mid a^{\mathrm{stale}}))$ — this definition is incomplete**. SDS ≈ 0 does not prove the policy is not reading age (it may be reading age and correctly concluding staleness is irrelevant to this action); SDS ≫ 0 does not prove the change came from age (a stale image may simultaneously alter visual content, so attribution fails).
 
-A $\mathrm{SDS}_c$ near zero means "channel $c$'s staleness has no effect on the policy's output"—the most direct ablation at the interface layer.
+The correct SDS is a **response curve under controlled intervention**: fix observation content, intervene only on $a_c$, and measure whether the **pattern of response** matches $\rho_{\mathcal{C}}$ from §5.1 Class B (variance monotonically rising, mean held stable):
 
-**Metric 3 (Provenance-Conditioning Effect, PCE)**—remove `correlated_with` from the policy input and measure how much performance drops in double-counting-sensitive scenarios (say, proprio + F/T fused $\hat F_{\mathrm{ext}}$).
+$$\mathrm{SDS}_c(a_1, a_2) \;=\; D\!\Big(\pi_\theta\!\big(\cdot \,\big|\, \mathrm{do}(a_c = a_1),\, o\big),\;\; \pi_\theta\!\big(\cdot \,\big|\, \mathrm{do}(a_c = a_2),\, o\big)\Big)$$
 
-$$\mathrm{PCE} \;=\; J\big(\pi_\theta \mid \text{provenance}\big) \;-\; J\big(\pi_\theta \mid \text{provenance} = \varnothing\big)$$
+and in derivative form:
 
-High PCE means the policy is genuinely using provenance; low PCE means it is treating provenance as decoration. PCE also tells you whether $\beta$ (the attention bias strength in §4.3) is tuned correctly.
+$$\left.\frac{\partial\, \mathbb{E}\!\big[\pi_\theta(\cdot \mid \mathrm{do}(a_c = a),\, o)\big]}{\partial a_c}\right|_{a}\quad\text{compared to the same-order derivative of an oracle policy.}$$
 
-What the three metrics share: **none of them is accuracy; all three are interface-layer ablations**—echoing the Sim-to-Real Part 3 §5 approach of "evaluate along three orthogonal axes". They also **cannot replace** any end-to-end success rate—they measure the **policy side's degree of reading** the contract, not the **policy side's performance ceiling**.
+**Staleness Response Curve** is the whole family of these quantities, not a single scalar. The three properties of the curve — its **shape** (variance monotonically rising vs falling vs flat), its **direction** (is mean held constant), and its **scale** (at how many ms it starts responding) — together form the full portrait of how much the policy is reading `age`. Flat is not automatically bad; you must compare against the oracle's expected response curve.
 
-## 7. A minimum executable interface sketch
+### 6.4 Per-dimension diagnostic 3: Provenance-Conditioning Effect (PCE)
 
-Turn §4's three primitives into a Python class skeleton. **Not to propose a specific policy, but to state a readable interface convention**.
+Remove `correlated_with` from the policy input and measure how much performance drops on double-counting-sensitive scenarios (e.g. proprio + F/T fused $\hat F_{\mathrm{ext}}$):
+
+$$\Delta J_{\mathrm{prov}} \;=\; J\!\big(\pi_\theta \mid \text{provenance}\big) \;-\; J\!\big(\pi_\theta \mid \text{provenance} = \varnothing\big),$$
+
+with $J$ always higher-is-better decision utility (success rate, $-\text{cost}$, $-\text{ECE}$, etc.). Written as $\Delta J_{\mathrm{prov}}$ rather than "PCE" to avoid the ambiguity of naming a delta as a metric. $\Delta J_{\mathrm{prov}} > 0$ = the policy really uses provenance; $\Delta J_{\mathrm{prov}} \approx 0$ = it treats provenance as decoration; $\Delta J_{\mathrm{prov}} < 0$ = conditioning actively hurts, usually indicating that conditioning conflicts with the backbone's inductive bias and deserves separate debugging. $\Delta J_{\mathrm{prov}}$ also tells you whether the §4.3 attention-bias strength $\beta$ is tuned correctly.
+
+The four together form an **intervention-based evaluation panel**: **CAG is the aggregate "does the policy use the contract", and HPS / SDS / PCE are per-dimension attribution to the mode / temporal / source invariants respectively**. None of them replaces an end-to-end success rate — they measure the policy-side **read-completeness** of the contract, not the policy's **expressive power**. This is exactly aligned with §0.3 Claim 3: **contract compliance must be tested by intervention**.
+
+## 7. A minimal executable interface sketch
+
+Combine the §4 primitives and §6 metrics into a Python class skeleton. **Not a concrete policy; a readable interface contract**.
 
 ```python
 class StructuredStateView:
@@ -218,40 +337,54 @@ class StructuredStateView:
         self,
         schema: PolicySchema,
         mode: Literal["map", "sample", "ece_preserving"] = "ece_preserving",
-        staleness: Literal["ignore", "decay", "condition"] = "decay",
-        provenance: Literal["ignore", "hard", "attention_bias"] = "attention_bias",
+        staleness: Literal["ignore", "parallel_field", "condition"] = "parallel_field",
+        provenance: Literal["ignore", "harden", "attention_bias"] = "harden",
+        dependency: Literal["ignore", "attention_bias", "learned"] = "attention_bias",
+        negative_evidence: Literal["ignore", "condition", "belief_update"] = "condition",
     ) -> PolicyInput:
         """
         Project StructuredState (upstream, 9/14) to PolicyInput (downstream, this piece).
-        `mode / staleness / provenance` are policy-specific knobs, not global defaults.
-        Same contract, different knob values across VLA and diffusion policy—that is fine.
+        All five knobs are policy-specific — the same contract should be projected
+        differently by a VLA and by a diffusion policy; the default for staleness
+        is parallel_field and never a multiplicative discount on measurement.
         """
-        out = {}
+        slots = {}
         for field_name in schema.fields:
-            h = self.contract[field_name]                 # hypothesis set: [(mu_i, Sigma_i, w_i)]
-            # --- Primitive 1: mode_select ------------------------------
+            h = self.contract[field_name]   # hypothesis set: [(mu_i, Sigma_i, w_i)]
+
+            # --- mode_select ------------------------------------------
             if mode == "map":
-                v = h.most_likely().mu
+                mu, Sigma, w_meta = h.most_likely().mu, h.most_likely().Sigma, None
             elif mode == "sample":
-                v = h.sample().mu
-            elif mode == "ece_preserving":
-                v = h.top_k_with_weights(k=schema.k_per_field[field_name])
-            # --- Primitive 2: age_gate ---------------------------------
-            if staleness == "decay":
-                v = v * exp(-h.age / schema.tau_bar[field_name])
-            elif staleness == "condition":
-                v = concat(v, onehot_bucket(h.age, schema.age_buckets))
-            # validity / availability indicators, always attached
-            v = v * h.validity_ok * h.available
-            # --- Primitive 3: provenance_condition ---------------------
-            if provenance == "hard":
-                v = concat(v, h.contributing_mask, h.negative_evidence_summary)
-            # attention_bias branch handled downstream: the backbone reads
-            # self.contract.correlated_with and injects a bias mask
-            out[field_name] = v
-        attn_bias = self.contract.correlated_with if provenance == "attention_bias" else None
-        return PolicyInput(features=out, attention_bias=attn_bias,
-                           schema=schema, provenance=attn_bias is not None)
+                mu, Sigma, w_meta = h.sample().mu, h.sample().Sigma, None
+            else:  # "ece_preserving"
+                mu, Sigma, w_meta = h.top_k_with_weights(k=schema.k_per_field[field_name])
+
+            # --- age_gate: parallel fields, never multiplicative on mu -
+            age = h.age
+            validity = h.validity_ok
+            availability = h.available
+            trust = tau_curve(age, schema.tau_bar[field_name])   # q_c, a meta field
+            # optional: uncertainty inflation for downstream gating
+            Sigma_eff = Sigma / trust if schema.use_uncertainty_gate else Sigma
+
+            slots[field_name] = dict(
+                mu=mu, Sigma=Sigma_eff, age=age,
+                validity=validity, availability=availability,
+                trust=trust, w_meta=w_meta,
+            )
+
+        # --- provenance / dependency / negative_evidence, three reads ---
+        prov_mask = self.contract.contributing_mask if provenance == "harden" else None
+        attn_bias = (compile_field_graph_to_token_graph(self.contract.correlated_with)
+                     if dependency == "attention_bias" else None)
+        neg_ev = self.contract.negative_evidence if negative_evidence == "condition" else None
+
+        return PolicyInput(slots=slots,
+                           contributing_mask=prov_mask,
+                           attention_bias=attn_bias,
+                           negative_evidence=neg_ev,
+                           schema=schema)
 
 
 class ContractAwarePolicy(nn.Module):
@@ -261,72 +394,67 @@ class ContractAwarePolicy(nn.Module):
         self.cfg = cfg
 
     def forward(self, state: StructuredState, obs, lang) -> ActionDistribution:
-        x = StructuredStateView(state).project(
-            self.schema,
-            mode=self.cfg.mode,
-            staleness=self.cfg.staleness,
-            provenance=self.cfg.provenance,
-        )
+        x = StructuredStateView(state).project(self.schema, **self.cfg.as_kwargs())
         return self.backbone(x, obs, lang)
 ```
 
-Three caveats written explicitly:
+Three caveats written in stone:
 
-- **(i)** This is not the only readout. The three knobs (`mode / staleness / provenance`) are policy-specific—same contract, but VLA and Diffusion Policy should be running different knob values; Family A and Family B also disagree on optimal `staleness`.
-- **(ii)** This interface **only handles the input side**. If §5's loss / augmentation / safety-filter follow-through is not implemented, no matter how cleanly $\Pi_\pi$ is written, training dynamics will bypass it—loss will find the laziest path to "flatten the contract".
-- **(iii)** `provenance="attention_bias"` has an implementation path only on transformer-family backbones; MLP heads take the `hard` route.
+- **(i)** This is not the only way to read. All five knobs are policy-specific — the same contract should be projected with different values by a VLA and a Diffusion Policy, and the optimal `staleness` setting differs between engineered-state heads and visual-latent heads.
+- **(ii)** This interface **only addresses the input side**. The two classes of training constraint in §5.1, degradation-conditioned augmentation in §5.2, and the safety-filter direct wiring in §5.3 — if any one of these is left unchanged, the $\Pi_\pi$ layer will be routed around by training dynamics no matter how beautifully it is written (the loss will find the cheapest "flatten the contract" path on its own).
+- **(iii)** `dependency="attention_bias"` only has an implementation path on transformer-family backbones, and **field-graph → token-graph compilation** (`compile_field_graph_to_token_graph`) is a function name in this piece, not a canonical implementation — it is a real open problem; MLP heads use the `learned` path and let the network learn a bias matrix from `correlated_with`.
 
-## 8. Three closing claims
+## 8. Three closing claims (aligned with §0.3)
 
-> **Claim A**: **A good policy must read disagreement, not merely react to it.** The multimodal-fusion piece said a good multimodal system must **represent disagreement**; this piece adds that a good policy must **respect that representation at the readout level**, and cannot silently average disagreement away through a projection. The difference between "read" and "react" is precisely the difference between mean collapse and ECE-preserving top-$k$ in §4.1.
+> **Claim 1 · Contract semantics can be lost at the policy boundary.** A structured estimator output does not imply a structured policy input. The projection $\Pi_\pi$ is itself **a semantic interface** and should be treated as one, not as "the first forward computation of a model".
 
-> **Claim B**: **Action space is not just kinematic — it is semantic.** Frame / reference_point / convention at the action layer are physical quantities, not metadata; tokenization cannot erase their semantics, it can only turn them into a silent bug with "similar distribution, wrong value". This is the closing formulation of §3's Failure 2.
+> **Claim 2 · Contract preservation is not architecture-specific.** Engineered-state heads, latent visuomotor policies, and VLA / flow policies lose different slices of the contract, but **the underlying failure mode is the same** — contract-relevant distinctions are projected away without an explicit preservation guarantee. The target of criticism is the interface contract, not the model architecture; π0 is VLA + flow matching, Diffusion Policy is visual-latent + diffusion — slicing along two orthogonal dimensions is closer to reality than three families, and is less easily misled by the intuition "some family is inherently better".
 
-> **Claim C**: **Contract compliance is measurable at the policy boundary, not only at the estimator boundary.** The multimodal-fusion piece's §8 Interface Property Benchmark is the estimator side; §6's HPS / SDS / PCE here are the policy side. Only together do the two turn the contract into a **verifiable object** rather than an **interface proposal**.
+> **Claim 3 · Contract compliance should be tested by intervention, not inferred from end-to-end success.** A policy can achieve very high task success while ignoring disagreement, staleness, and provenance. Contract compliance must be measured with **controlled intervention metrics** — CAG as the aggregate answer, HPS / SDS / PCE as per-dimension attribution, and §5.1 Class B intervention-consistency loss as the training-side counterpart — not back-derived from an end-to-end success rate.
 
-A closing line: **stop using the word "fusion"**—it asks about the timing axis ("when to merge") and about the semantics axis ("into what to merge"); the multimodal-fusion piece and this piece together decompose the second question into **what upstream ships + what downstream reads**. The first question (timing) is already largely answered by the §1 comparison of three families—**timing is a consequence of interface, not a decision variable of interface**. If this point sticks, both articles earn their keep.
+A final line: **try to stop using the word "fusion"** — on the time axis it asks "when to merge", on the semantic axis it asks "merge into what"; together, 9/14 and this piece split the second question into **what upstream delivers + what downstream reads**. The first question (when) is largely answered by §1's two-dimensional grid — **timing is a consequence of the interface, not a decision variable of the interface**. Stand that line up, and this series has been worth it.
 
 ## Sources
 
-arXiv IDs below have been web-verified; journal-only references do not carry arXiv. Grouped by the section they support.
+All arXiv IDs below have been verified online; journal-only citations do not carry an arXiv link. Grouped by the sections they support.
 
-### A · VLA family (supports §1 Family C, §3 Failures 1–2, §5.1 auxiliary loss)
+### A · VLA family (supports §1 grid, §3 Failures 1–2, §5.1 Class B)
 
-- Brohan et al., *RT-2: Vision-Language-Action Models Transfer Web Knowledge to Robotic Control*, CoRL 2023 · [arXiv:2307.15818](https://arxiv.org/abs/2307.15818) (actions expressed as text tokens, co-fine-tuned with a VLM · canonical form of §3 Failure 2, semantic drift)
-- Kim et al., *OpenVLA: An Open-Source Vision-Language-Action Model*, CoRL 2024 · [arXiv:2406.09246](https://arxiv.org/abs/2406.09246) (open-source VLA baseline; multi-camera / depth / proprioceptive state encoding in the public config, but "supports as input" ≠ "reads as far as the contract")
-- Black et al., *$\pi_0$: A Vision-Language-Action Flow Model for General Robot Control*, 2024 · [arXiv:2410.24164](https://arxiv.org/abs/2410.24164) (VLM backbone + proprio token + noisy action chunk + flow matching · a concrete realization of §4.1 mode_select)
-- Octo Model Team, *Octo: An Open-Source Generalist Robot Policy*, RSS 2024 · [arXiv:2405.12213](https://arxiv.org/abs/2405.12213) (transformer-based readout · a reference point for the §4.3 attention_bias path)
+- Brohan et al., *RT-2: Vision-Language-Action Models Transfer Web Knowledge to Robotic Control*, CoRL 2023 · [arXiv:2307.15818](https://arxiv.org/abs/2307.15818) (actions expressed as text tokens jointly fine-tuned with a VLM · a canonical shape for §3 Failure 2 "no interface-level guarantee of semantic correctness")
+- Kim et al., *OpenVLA: An Open-Source Vision-Language-Action Model*, CoRL 2024 · [arXiv:2406.09246](https://arxiv.org/abs/2406.09246) (open-source VLA baseline; supported inputs include multi-camera / depth / proprioceptive state encoding; "supports input" ≠ "how far along the contract chain the policy reads")
+- Black et al., *$\pi_0$: A Vision-Language-Action Flow Model for General Robot Control*, 2024 · [arXiv:2410.24164](https://arxiv.org/abs/2410.24164) (VLM backbone + proprio token + noisy action chunk + flow matching · the direct source of §1.2's **"Continuous actions do not imply structured state semantics"**)
+- Octo Model Team, *Octo: An Open-Source Generalist Robot Policy*, RSS 2024 · [arXiv:2405.12213](https://arxiv.org/abs/2405.12213) (transformer-based readout · a reference point for the §4.3 dependency_gate attention_bias path)
 
-### B · Diffusion / Flow-Matching Policy (supports §1 Family B, §5.1)
+### B · Diffusion / Flow-Matching Policy (supports §1 grid, §5.1)
 
-- Chi et al., *Diffusion Policy: Visuomotor Policy Learning via Action Diffusion*, RSS 2023 · [arXiv:2303.04137](https://arxiv.org/abs/2303.04137) (RGB stack + proprio concat + denoising · field evidence for §3 Failure 1 mode collapse and §3 Failure 3 temporal-alignment-broken)
-- Zhao et al., *Learning Fine-Grained Bimanual Manipulation with Low-Cost Hardware* (ACT / ALOHA), RSS 2023 · [arXiv:2304.13705](https://arxiv.org/abs/2304.13705) (CVAE + transformer encoder-decoder, chunked action · an intermediate form between Families B and C)
-- Lipman et al., *Flow Matching for Generative Modeling*, ICLR 2023 · [arXiv:2210.02747](https://arxiv.org/abs/2210.02747) (velocity regression for continuous action chunks · a concrete form of §5.1 $\mathcal{L}_{\mathrm{action}}$)
+- Chi et al., *Diffusion Policy: Visuomotor Policy Learning via Action Diffusion*, RSS 2023 · [arXiv:2303.04137](https://arxiv.org/abs/2303.04137) (RGB stack + proprio concat + denoising · field evidence for §3.1 "action-side multimodality does not guarantee state-side hypothesis preservation")
+- Zhao et al., *Learning Fine-Grained Bimanual Manipulation with Low-Cost Hardware* (ACT / ALOHA), RSS 2023 · [arXiv:2304.13705](https://arxiv.org/abs/2304.13705) (CVAE + transformer encoder-decoder, chunked action · a mid-point between families B and C)
+- Lipman et al., *Flow Matching for Generative Modeling*, ICLR 2023 · [arXiv:2210.02747](https://arxiv.org/abs/2210.02747) (velocity regression over continuous action chunks · one concrete form of §5.1 $\mathcal{L}_{\mathrm{action}}$)
 
-### C · Uncertainty, Calibration and Belief-space References (supports §4.1, §5.1, §6)
+### C · Uncertainty, calibration, and belief-space references (support §4.1, §5.1, §6.1 CAG)
 
-- Guo et al., *On Calibration of Modern Neural Networks*, ICML 2017 · [arXiv:1706.04599](https://arxiv.org/abs/1706.04599) (modern networks over-confident, temperature scaling origin · motivation for §5.1 $\mathcal{L}_{\mathrm{calibration}}$)
-- Hafner et al., *Learning Latent Dynamics for Planning from Pixels* (PlaNet / RSSM), ICML 2019 · [arXiv:1811.04551](https://arxiv.org/abs/1811.04551) (deterministic + stochastic latent, an engineering realization of multi-hypothesis · a reference for §4.1 read)
-- Hafner et al., *Mastering Diverse Control Tasks through World Models* (DreamerV3), Nature 2023 · [arXiv:2301.04104](https://arxiv.org/abs/2301.04104) (discrete + continuous mixed latent, KL balancing · an adjacent route to §4.1's ECE-preserving top-$k$)
+- Guo et al., *On Calibration of Modern Neural Networks*, ICML 2017 · [arXiv:1706.04599](https://arxiv.org/abs/1706.04599) (modern networks are over-confident; temperature scaling origin · motivation for the calibration dimension of §5.1 $\mathcal{L}_{\mathrm{probe}}$)
+- Hafner et al., *Learning Latent Dynamics for Planning from Pixels* (PlaNet / RSSM), ICML 2019 · [arXiv:1811.04551](https://arxiv.org/abs/1811.04551) (deterministic + stochastic latent, an engineering instantiation of multi-hypothesis · one reference for §4.1 readout)
+- Hafner et al., *Mastering Diverse Control Tasks through World Models* (DreamerV3), Nature 2023 · [arXiv:2301.04104](https://arxiv.org/abs/2301.04104) (discrete + continuous mixed latent, KL balancing · an adjacent path for §4.1 ECE-preserving top-$k$)
 
-### D · SAC / PPO Baseline for Family A (supports §1 Family A)
+### D · SAC / PPO and engineered-state baseline (supports the first row of §1 grid)
 
-- Haarnoja et al., *Soft Actor-Critic: Off-Policy Maximum Entropy Deep RL with a Stochastic Actor*, ICML 2018 · [arXiv:1801.01290](https://arxiv.org/abs/1801.01290) (Gaussian NLL / max-entropy policy loss · §5.1 $\mathcal{L}_{\mathrm{action}}$ in Family A form)
+- Haarnoja et al., *Soft Actor-Critic: Off-Policy Maximum Entropy Deep RL with a Stochastic Actor*, ICML 2018 · [arXiv:1801.01290](https://arxiv.org/abs/1801.01290) (Gaussian NLL / max-entropy policy loss · the engineered-state-head shape of §5.1 $\mathcal{L}_{\mathrm{action}}$)
 
-### E · Predecessors (this piece's interface with 9/13, 9/14, and Sim-to-Real Part 3)
+### E · Continuations of the series (how this piece plugs into 9/13, 9/14, Sim-to-Real P1/P3)
 
-- This blog, *Piling Modalities Together Is Not Understanding: What Robot Multimodal Fusion Lacks Is an Interface, Not a Model* · `/en/articles/2026-09-14-multimodal-fusion-interface/` (Structured State Contract definition, Interface Property Benchmark, degradation chain · §3–§6 of this piece build directly on it)
-- This blog, *The Hand Robots Don't Have: Tactile and Force Sensing in Embodied AI* · `/en/articles/2026-09-13-tactile-force-sensing/` (four parallel force-control paradigms, closed-loop value · the historical watershed between Family A and Family B)
-- This blog, *Sim-to-Real Methodology (III)* · `/en/articles/2026-09-12-sim-to-real-evaluation-protocol/` (three-tier evidence stack, decision utility, allocation protocol · §5.4 and §6 reuse its evaluation spine)
-- This blog, *Sim-to-Real Methodology (I)* · `/en/articles/2026-09-10-sim-to-real-methodology/` (allocation state $s_t = (b_t, \pi_t, q_t, h_t)$, $\Delta_{\mathrm{queue}}$ vs $\Delta_{\mathrm{processing}}$ · §2 and §4.2 attach directly to those definitions)
+- This blog, *Splicing is not seeing: what robot multimodal fusion is missing is an interface, not a model* · `/en/articles/2026-09-14-multimodal-fusion-interface/` (Structured State Contract, Interface Property Benchmark, degradation chain · the §0.2 $L_{\mathcal{C}}$ and §3–§6 build directly on it)
+- This blog, *Robots can see but cannot feel: why manipulation lacks a hand* · `/en/articles/2026-09-13-tactile-force-sensing/` (four control paradigms of force/tactile, Closed-loop value · the historical source of §1 grid's action-head spectrum)
+- This blog, *Sim-to-Real Methodology (III)* · `/en/articles/2026-09-12-sim-to-real-evaluation-protocol/` (three-level evidence, three-dimensional decision utility, allocation protocol · §5.4, §6 inherit its evaluation spine)
+- This blog, *Sim-to-Real Methodology (I)* · `/en/articles/2026-09-10-sim-to-real-methodology/` (allocation state $s_t = (b_t, \pi_t, q_t, h_t)$, $\Delta_{\mathrm{queue}}$ vs $\Delta_{\mathrm{processing}}$ · §2, §4.2 definitions plug in directly)
 
 ---
 
-> **Related reading**
+> **Further reading**
 >
-> - [Piling Modalities Together Is Not Understanding: What Robot Multimodal Fusion Lacks Is an Interface, Not a Model](/en/articles/2026-09-14-multimodal-fusion-interface/) — this piece's predecessor, which stood the upstream deliverable up as a Structured State Contract
-> - [The Hand Robots Don't Have: Tactile and Force Sensing in Embodied AI](/en/articles/2026-09-13-tactile-force-sensing/) — the historical watershed between §1's Family A and Family B, and the four parallel force-control paradigms
-> - [Sim-to-Real Methodology (III)](/en/articles/2026-09-12-sim-to-real-evaluation-protocol/) — §5.4 and §6 reuse its three-tier evidence stack and utility dimensions
-> - [VLA and World Models: Where Two Roads Diverge and Converge](/en/articles/2026-09-07-vla-world-models/) — macro backdrop for §1 Family C, and the other side of "world models do not naturally belong to sim-to-real"
-> - [A Quick Tour of the VLA π Family](/en/articles/2026-09-05-vla-pi-family/) — a concrete cut at π0, π0.5 and flow-matching action heads
-> - [What Is a VLA Model? A Complete Primer](/en/articles/2026-09-03-vla-deep-dive/) — the entry-level version of Family C; this piece assumes you have already read it
+> - [Splicing is not seeing: what robot multimodal fusion is missing is an interface, not a model](/en/articles/2026-09-14-multimodal-fusion-interface/) — the prequel; stands up Structured State Contract
+> - [Robots can see but cannot feel: why manipulation lacks a hand](/en/articles/2026-09-13-tactile-force-sensing/) — the historical lineage of §1's action-head spectrum, four force-control paradigms
+> - [Embodied AI Sim-to-Real Methodology (III)](/en/articles/2026-09-12-sim-to-real-evaluation-protocol/) — §5.4, §6 reuse its three-level evidence and utility dimensions
+> - [VLA and World Models: Two Roads Diverging and Converging](/en/articles/2026-09-07-vla-world-models/) — macro backdrop for §1's conditioning dimension, the other face of "world models do not naturally belong to sim-to-real"
+> - [VLA π-family at a Glance](/en/articles/2026-09-05-vla-pi-family/) — a concrete cut through π0, π0.5 and the flow-matching action head, field evidence for §1's "continuous action ≠ structured state"
+> - [What is a VLA model? A single explainer](/en/articles/2026-09-03-vla-deep-dive/) — this piece assumes you have already read it
