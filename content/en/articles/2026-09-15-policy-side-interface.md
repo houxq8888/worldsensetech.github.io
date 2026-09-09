@@ -4,8 +4,8 @@ slug: "2026-09-15-policy-side-interface"
 date: 2026-09-15
 draft: false
 categories: ["Embodied AI", "Policy Learning"]
-tags: ["Embodied AI", "Policy Learning", "VLA", "Diffusion Policy", "π0", "RT-2", "OpenVLA", "Action Tokenization", "Structured State Contract", "Consumer Contract", "Declared Quotient", "Query Family", "Schema Compatibility", "Semantic Preservation", "Decision-Relevant Preservation", "Decision Sufficiency", "Conditional Mutual Information", "Residual Contract Information", "Declared Coverage Loss", "Projection Residual Loss", "Decision Collapse Rate", "Safety Obligation", "Contract-Read Primitives", "Intervention Consistency", "Equivariance", "Order-Constrained Response", "Conditional Log-Likelihood Ratio", "Dependency-Aware Fusion", "Mass-Preserving Top-k", "Constraint Certification", "Contract-only Intervention", "World-consistent Counterfactual", "Action-Relevant Separation", "Contract Ablation Gap", "Fixed Policy vs Retrained Policy", "Compliance Evidence", "Contract Consumer", "Evaluation Metrics"]
-description: 'The multimodal-fusion piece stood up the upstream deliverable as a Structured State Contract. This piece asks the dual question: if the estimator really delivers per contract, can the policy side actually consume it. The core boxed inequality is **Structured estimator output ≠ structured policy input**, over a full pipeline $\mathcal C\to(\mathcal C_\pi,Q_{\mathcal C_\pi})\to q_\pi\to e_\pi\to\pi_\theta\to g_{\mathrm{safety}}\to\mathcal B_{\mathcal C}$. The piece separates semantic preservation from decision sufficiency and adds a third tier — decision-relevant semantic preservation (defined via $\mathcal A^{*},\mathcal G^{*}$, protecting only distinctions that change downstream action or safety consequences) — and explicitly restricts the implication "decision-relevant preservation ⇒ decision sufficiency" to the declared evaluation distribution. The interface object is the declared query family $Q_{\mathcal C_\pi}$, paired with a schema compatibility rule: when $\mathrm{schema\_version}(\mathcal C)$ and $\mathrm{supported\_version}(\mathcal C_\pi)$ are incompatible the interface must fail closed or run an explicitly declared adapter. On the audit side this piece no longer speaks of three losses but of **three semantic losses + one safety obligation**: $L_{\mathrm{declared}}$ is downgraded from an entropy difference to a weighted undeclared-query coverage $L_{\mathrm{declared}}=\sum_{q\in Q_{\mathcal C}^{\mathrm{req}}} w_q\,\mathbf 1[q\notin Q_{\mathcal C_\pi}]$; $L_{\mathrm{projection}}=I(Y_\pi;\hat S\mid Z_\pi,O,L)$ is made explicit as residual contract information after the whole projection (it can operationalize a representation-stage loss but is not forced into a one-to-one identity with the encoder); $L_{\mathrm{decision}}$ is downgraded from a supremum norm to an action-relevant collapse rate $\mathbb E_{\mathcal R}[\mathbf 1[D_{\mathcal A}(\pi_\theta(\cdot\mid\hat S),\pi_\theta(\cdot\mid\hat S^{\prime}))<\epsilon]]$ where $D_{\mathcal A}$ measures whether two admissible / optimal action sets are supported and thus closes the loop with HPC / HSS; and the fourth slot is a safety obligation $\mathcal O_{\mathrm{safety}}$, not an information loss. On the primitives: `mode_select` uses a mass-preserving top-$k$ (this piece only guarantees that retained mass and discarded residual mass are distinguishable; a strict Bayesian update still needs separate sufficient statistics for the residual component); `age_gate` keeps three groups and renames fields to payload $(\mu,\Sigma)$ + metadata $(\alpha,\ell,h,v,\iota)$ (with $\alpha$ = age and $\iota$ = availability) + one derived trust $q=\tau(\alpha,\ell,h,v,\iota)$, with an availability × validity 2×2 table orthogonalizing the two; the source structure splits into provenance / dependency / negative evidence — `dependency_aware_fusion` writes at the logit level $L^{\prime}_{ij}=L_{ij}+b(R_{ij})$ with $b$ positive, negative or learned, and logit_bias_learned is one convenient implementation candidate on transformers rather than a canonical default. On the training side interventions keep three tiers, Type II being an order-constrained response. On the evaluation side there are four types of compliance evidence $E_{\mathrm{semantic}}/E_{\mathrm{representation}}/E_{\mathrm{decision}}/E_{\mathrm{safety}}$; HPC is split into a contract-only intervention $T_k^{\mathrm{contract}}$ (testing interface compliance) and a world-consistent counterfactual $T_k^{\mathrm{world}}$ (testing decision competence) so the two benchmarks are no longer conflated; SDS is parameterized by $\alpha$ rather than $a$ to avoid collision with the action variable, and the oracle is downgraded from a unique definition to one baseline within a response set $\mathcal R_{\mathcal C}(\alpha)$; the combined provenance ablation is split three ways into $\Delta J_{\mathrm{where}} / \Delta J_{\mathrm{dep}} / \Delta J_{\mathrm{neg}}$ matching the provenance / dependency / negative-evidence primitives; CAG fixes the clause "same trained policy, without retraining" and distinguishes $\mathrm{CAG}^{\mathrm{fixed}}$ (this piece as compliance evidence) from $\mathrm{CAG}^{\mathrm{retrained}}$ (architecture comparison). On the safety side the key bolded line is refined from "invalid evidence cannot justify relaxing the constraint" to **"invalid evidence alone cannot justify relaxing the constraint"**, with a three-state certification $\mathrm{certification}_j\in\{\text{safe},\text{unsafe},\text{unknown}\}$ mapping to relax / tighten-or-stop / conservative fallback. The piece closes on an upgraded boxed thesis: **A policy is a contract consumer, not merely a function approximator** — four contract-consumer questions + three losses and one obligation + the full pipeline. VLA / Diffusion / Flow / ACT / SAC / PPO demote from theoretical classifications to implementation coordinates.'
+tags: ["Embodied AI", "Policy Learning", "VLA", "Diffusion Policy", "π0", "RT-2", "OpenVLA", "Action Tokenization", "Structured State Contract", "Consumer Contract", "Consumer Contract Triple", "Declared Quotient", "Query Family", "Query Subsumption", "Schema Compatibility", "Semantic Preservation", "Decision-Relevant Preservation", "Decision Sufficiency", "Conditional Mutual Information", "Residual Contract Information", "Declared Coverage Loss", "Projection Residual Loss", "Decision Collapse Rate", "Safety Obligation", "Multi-Constraint Intersection", "Contract-Read Primitives", "Intervention Consistency", "Equivariance", "Order-Constrained Response", "Consumer-Declared Order", "Conditional Log-Likelihood Ratio", "Dependency-Aware Fusion", "Mass-Preserving Top-k", "Constraint Certification", "Contract-only Intervention", "World-consistent Counterfactual", "Interface Compliance Metric", "Action-Relevant Separation", "Contract Ablation Gap", "Matched Null Control", "Fixed Policy vs Retrained Policy", "Compliance Evidence", "Five-Layer Evaluation", "Separately Auditable Failure Sites", "Measurable Decoder", "Contract Consumer", "Evaluation Metrics"]
+description: 'The multimodal-fusion piece stood up the upstream deliverable as a Structured State Contract. This piece asks the dual question: if the estimator really delivers per contract, can the policy side actually consume it. Core boxed inequality: **Structured estimator output ≠ structured policy input**, over the full pipeline $\mathcal C\to(\mathcal C_\pi,Q_{\mathcal C_\pi})\to q_\pi\to e_\pi\to\pi_\theta\to g_{\mathrm{safety}}\to\mathcal B_{\mathcal C}$. v6 turns the Consumer Contract into a real software interface by splitting it into a triple $\mathcal C_\pi=(Q_\pi,\mathcal O_\pi,V_\pi)$ — Queries / Obligations / Versions. §0.2.1 closes two dangling objects that v5 left hanging: the **decision-relevant observable** $Y_{\mathcal C}^{\pi}=\{q(\hat S):q\in Q_{\mathcal C}^{\mathrm{req}},\,q\text{ influences consumer decision}\}$ (pinned by the Consumer Contract, not an arbitrary latent in the benchmark) and the **representation equivalence** $Z_\pi(\hat S)\sim_Z Z_\pi(\hat S^{\prime})$ iff no measurable decoder $h_\pi(Z_\pi,O,L)$ distinguishes the two on $Y_{\mathcal C}^{\pi}$ — turning the dangling $\equiv$ in Properties A / A′ into a conditional-MI-wireable object. In §0.2.2, $L_{\mathrm{declared}}$ is upgraded from literal set membership to **query subsumption coverage** $L_{\mathrm{declared}}=\sum w_q\mathbf 1[\nexists q^{\prime}\in Q_{\mathcal C_\pi}:q^{\prime}\succeq q]$ — "what may be dropped" becomes a semantic capability lattice; $L_{\mathrm{projection}}=I(Y_{\mathcal C}^{\pi};\hat S\mid Z_\pi,O,L)$ uses $Y_{\mathcal C}^{\pi}$, $L_{\mathrm{decision}}$ uses $D_{\mathcal A}$ (action-equivalence-aware distance), and the fourth slot $\mathcal O_{\mathrm{safety}}$ is an obligation, not a loss. The three losses are **three separately auditable failure sites**, **not three statistically independent losses** — sequentially coupled through $q_\pi\to\Pi_\pi\to\pi_\theta$. §5.1 Type II order becomes the **consumer-declared order** $\preceq_{\mathcal C_\pi}^{\mathrm{declared}}$ — explicitly not an objective physical degradation order (reviewer counterexample: when the robot is stationary, vision age has no effect). §5.3 refines three-state safety — **safe → relaxation is permitted (not required)**, multiple constraints combine via $g_{\mathrm{safety}}=\bigcap_j g_j$, code level uses `allow_normal_margin / tighten_or_stop / conservative_fallback` rather than `continue` or first-unknown-return. §6.2 splits the v5 HPC formula a second time into $E_{\mathrm{contract}}(T^{\mathrm{contract}})$ (interface compliance, checked against $\mathcal R_{\mathcal C}$, no $\mathcal A^*_k$ oracle required) and HPC($T^{\mathrm{world}}$) (decision competence, $\mathcal A^*_k$ fixed by simulator); HSS uses $D_{\mathcal A}$ and passes a **competence gate**, reported in parallel with entropy to prevent gaming. §6.3 gives SDS an **operational violation estimator** $V_{\mathrm{order}}=\mathbb E[\max(0,r(R_\pi(\alpha_i))-r(R_\pi(\alpha_j))+\delta)]$ with $V_{\mathrm{trans}}$ for piecewise cases — closing the "distance-to-infinite-legal-curve-set" hole that would break a benchmark. §6.5 adds a **matched null control** to CAG — a format-preserving decision-irrelevant $\Delta J_{\mathrm{null}}$ reported alongside $\Delta J_{\mathrm{contract}}$; only when the former is much smaller than the latter does CAG count as contract-use, otherwise it is OOD sensitivity. §6.7 adds a **five-layer evaluation hierarchy** — Retention / Sufficiency / Behavioral use / Utility / Safety — with the four non-implications between them; $L_{\mathrm{declared}}/L_{\mathrm{projection}}/L_{\mathrm{decision}}/\mathcal O_{\mathrm{safety}}$ each land on a different layer. §7 Python skeleton v6 fixes `super().__init__()`, fail-closed `raise SchemaCompatibilityError`, splits top-$k$ into two orthogonal knobs `topk_weight_mode` and `residual_mode`, and adds `benchmark_rng` for common random numbers across intervention comparisons. The piece closes on the upgraded boxed thesis: **A policy is a contract consumer, not merely a function approximator** — four contract-consumer questions + three losses and one obligation + the full pipeline. VLA / Diffusion / Flow / ACT / SAC / PPO demote from theoretical classifications to implementation coordinates.'
 toc: true
 related_articles:
   - 2026-09-14-multimodal-fusion-interface
@@ -98,7 +98,28 @@ Compared to the previous version's "either preserve the whole quotient, or expli
 
 **$\Pi_\pi$ is still $e_\pi \circ q_\pi$, but $q_\pi$ is no longer a primitive — it is uniquely determined by ${\sim_\pi}$, which is in turn induced by $\mathcal C_\pi$.** Engineering consequence: **the interface spec must be able to display a list of $Q_{\mathcal C_\pi}$ queries**, otherwise $q_\pi$ degenerates back into encoder behavior — exactly what this piece is attacking.
 
-### 0.2.3 Schema version / compatibility (new in v5)
+**v6 addition · Three-part decomposition of the Consumer Contract.** The previous version only described $\mathcal C_\pi$ as "a subset / coarse-graining of $\mathcal C$" — the reviewer was right: **that only says what the policy reads; it says nothing about what the policy commits to in response, nor which schema version the policy understands**. v6 makes $\mathcal C_\pi$ an explicit triple:
+
+$$\boxed{\;\mathcal C_\pi \;=\; \big(Q_\pi,\;\mathcal O_\pi,\;V_\pi\big),\;}$$
+
+where
+
+- $Q_\pi \equiv Q_{\mathcal C_\pi}$ · **Queries** — "which contract fields / queries I read" (already defined above; also the source of $q_\pi$).
+- $\mathcal O_\pi$ · **Obligations** — "having read those fields, how I commit to respond". §5.1's Type I equivariance, Type II order-constrained response, Type III unconstrained clause, and §5.3's three-state safety certification obligation **are all concrete entries in $\mathcal O_\pi$** — not separate rules scattered through the paper. §0.2.2's three-losses-plus-one-obligation framing is derived directly from $\mathcal O_\pi$ as its auditable failure modes.
+- $V_\pi$ · **Versions** — "which schema version I understand". §0.2.3's schema-compatibility rule is $V_\pi$'s operational form.
+
+This decomposition makes the Consumer Contract look like a real software interface rather than only an ML abstraction:
+
+```text
+Consumer Contract  C_π
+├── Q_π   Queries       What I read
+├── O_π   Obligations   How I must respond
+└── V_π   Versions      Which schema I understand
+```
+
+When the reviewer follows up with "you said the policy is a consumer — what does a consumer actually commit to?", v6 has a precise answer: **it commits to reading every field in $Q_\pi$, honoring every response rule in $\mathcal O_\pi$, and remaining compatible with every schema in $V_\pi$**. Missing any one of the three means it is not a complete consumer contract.
+
+### 0.2.3 Schema version / compatibility (v5 · the $V_\pi$ slice of the triple)
 
 With $\mathcal C_\pi$ and $Q_{\mathcal C_\pi}$ in hand, one more software-interface question must be answered: **which schema version does the consumer contract target?** Suppose the estimator upgrades to a v2 of $\mathcal C$ that adds `observability` / `negative_evidence` / `sensor_health`, while the policy's $\mathcal C_\pi$ is still stuck at v1. Under the current framework the new fields would be **silently dropped** — which is precisely the **undeclared semantic loss** this whole piece attacks. So the interface layer gains one more small rule:
 
@@ -108,15 +129,27 @@ That is, **schema mismatch must fail closed or pass through an explicitly declar
 
 ### 0.2.1 Three tiers of preservation: full semantic / decision-relevant semantic / decision sufficiency
 
-This subsection is the theoretical anchor; the **three** commonly conflated properties must be pulled apart — the previous version separated only two, and the reviewer was right that "full semantic preservation as an interface criterion is over-preserving".
+This subsection is the theoretical anchor; the **three** commonly conflated properties must be pulled apart — the previous version separated only two, and the reviewer was right that "full semantic preservation as an interface criterion is over-preserving". v6 makes two additional closure steps that were still hanging: **the $\equiv$ in Properties A and A′ has never actually been defined**, and **$Y_\pi$ must be pinned to the Consumer Contract rather than being an arbitrary latent variable**.
 
-Fix a set of **contract-relevant decision variables** $Y_{\mathcal{C}}$ served by the policy (quantities downstream controller / planner / safety filter / diagnostics will read), together with the contract equivalence $\sim_\pi$ on $\hat S$ already defined in §0.2 (induced by $Q_{\mathcal C_\pi}$). Three properties are distinguished.
+**v6 definition · decision-relevant observable $Y_{\mathcal C}^{\pi}$**. The previous version wrote $Y_{\mathcal C}$ / $Y_\pi$ with drifting semantics. v6 locks it down:
+
+$$\boxed{\;Y_{\mathcal C}^{\pi} \;=\; \big\{q(\hat S) : q \in Q_{\mathcal C}^{\mathrm{req}},\;\text{$q$ influences consumer decision}\big\}.\;}$$
+
+In words: $Y_{\mathcal C}^{\pi}$ is the subset of required-query outputs that **actually influences the consumer's decision**. Too wide ($Y_{\mathcal C}^{\pi}=\hat S$) collapses back to "don't drop any contract information"; too narrow ($Y_{\mathcal C}^{\pi}=\text{current optimal action}$) drifts into decision sufficiency and is no longer contract semantics. $Y_{\mathcal C}^{\pi}$ is exactly the mathematical object the Consumer Contract idea should eat.
+
+**v6 definition · representation equivalence $\sim_Z$**. The $\Pi_\pi(\hat S)\not\equiv\Pi_\pi(\hat S')$ in A and A′ cannot just mean "numerically different" — otherwise every floating-point rounding counts as preservation. v6 defines:
+
+$$Z_\pi(\hat S) \sim_Z Z_\pi(\hat S') \quad\Longleftrightarrow\quad \nexists\;\text{measurable decoder } h_\pi(Z_\pi,O,L)\;\text{s.t.}\; h_\pi \text{ distinguishes } \hat S \text{ from } \hat S' \text{ on } Y_{\mathcal C}^{\pi}.$$
+
+**If no downstream decision can, under the declared consumer, distinguish two representations, they are representation-equivalent.** This ties in directly with $L_{\mathcal C}^{\pi}=I(Y_{\mathcal C}^{\pi};\hat S\mid Z_\pi,O,L)$: $L_{\mathcal C}^{\pi}=0$ is equivalent to $Z_\pi(\hat S)\sim_Z Z_\pi(\hat S')$ for all $(\hat S,\hat S')$ that differ on $Y_{\mathcal C}^{\pi}$.
+
+Fix a set of **contract-relevant decision variables** served by the policy (quantities downstream controller / planner / safety filter / diagnostics will read), captured by the boxed $Y_{\mathcal C}^{\pi}$ above, together with the contract equivalence $\sim_\pi$ on $\hat S$ already defined in §0.2 (induced by $Q_{\mathcal C_\pi}$). Three properties are distinguished.
 
 **Property A · Full Semantic Preservation** — the projection does not irreversibly collapse semantically distinct contracts:
 
-$$\hat S \not\sim_\pi \hat S' \quad \Longrightarrow \quad \Pi_\pi(\hat S) \not\equiv \Pi_\pi(\hat S').$$
+$$\hat S \not\sim_\pi \hat S' \quad \Longrightarrow \quad Z_\pi(\hat S) \not\sim_Z Z_\pi(\hat S').$$
 
-This requires $q_\pi$ to be injective on the quotient defined by $\mathcal C_\pi$. It is **a strong property, but possibly over-preserving**.
+This requires $q_\pi$ to be injective on the quotient defined by $\mathcal C_\pi$ and $e_\pi$ to not map distinct classes to $\sim_Z$-equivalent $Z_\pi$. It is **a strong property, but possibly over-preserving**.
 
 **A concrete counter-example (raised by reviewer, accepted by this version)**: two hypotheses
 
@@ -138,20 +171,21 @@ $$\hat S \sim_{\pi,\mathcal D} \hat S' \quad\Longleftrightarrow\quad
 
 Decision-relevant preservation is then:
 
-$$\hat S \not\sim_{\pi,\mathcal D} \hat S' \quad\Longrightarrow\quad \Pi_\pi(\hat S) \not\equiv \Pi_\pi(\hat S').$$
+$$\hat S \not\sim_{\pi,\mathcal D} \hat S' \quad\Longrightarrow\quad Z_\pi(\hat S) \not\sim_Z Z_\pi(\hat S').$$
 
 Because $\sim_{\pi,\mathcal D}$ is coarser than $\sim_\pi$, **Property A implies Property A′, and not vice versa**. This is the interface requirement this piece actually wants.
 
-**Property B · Decision Sufficiency (conditional-MI form)** — measure "given the side information the policy already has, how much contract information about $Y_\pi$ survives projection" using **conditional MI**, not raw MI difference. The previous version wrote $L_{\mathrm{dec}} = I(\hat S; Y_{\mathcal C}) - I(\Pi_\pi(\hat S); Y_{\mathcal C})$, and the reviewer caught the fatal problem: **the policy's full input is $\pi(a\mid \hat S, o, \ell, \text{language})$, and the raw image $o$ often already carries age / provenance proxies**. Under the difference form, $L_{\mathrm{dec}} > 0$ only says "$\Pi_\pi(\hat S)$ in isolation is not a sufficient statistic for $Y_{\mathcal C}$" — **it does not say the policy actually lacks information** (the information may already be recovered from $o$).
+**Property B · Decision Sufficiency (conditional-MI form)** — measure "given the side information the policy already has, how much contract information about $Y_{\mathcal C}^{\pi}$ survives projection" using **conditional MI**, not raw MI difference. The previous version wrote $L_{\mathrm{dec}} = I(\hat S; Y_{\mathcal C}) - I(\Pi_\pi(\hat S); Y_{\mathcal C})$, and the reviewer caught the fatal problem: **the policy's full input is $\pi(a\mid \hat S, o, \ell, \text{language})$, and the raw image $o$ often already carries age / provenance proxies**. Under the difference form, $L_{\mathrm{dec}} > 0$ only says "$\Pi_\pi(\hat S)$ in isolation is not a sufficient statistic for $Y_{\mathcal C}$" — **it does not say the policy actually lacks information** (the information may already be recovered from $o$).
 
-This version redefines contract information loss as **conditional MI**:
+v5 redefined contract information loss as **conditional MI**; v6 pins the observable down to $Y_{\mathcal C}^{\pi}$:
 
-$$\boxed{\;L_{\mathcal C}^{\pi} \;=\; I\!\big(Y_\pi\,;\,\hat S \,\big|\, Z_\pi,\, O,\, L\big),\qquad Z_\pi = \Pi_\pi(\hat S, O, L).\;}$$
+$$\boxed{\;L_{\mathcal C}^{\pi} \;=\; I\!\big(Y_{\mathcal C}^{\pi}\,;\,\hat S \,\big|\, Z_\pi,\, O,\, L\big),\qquad Z_\pi = \Pi_\pi(\hat S, O, L).\;}$$
 
 (When the projection acts only on the contract, $Z_\pi$ can be simplified to $\Pi_\pi(\hat S)$.) This definition is much cleaner:
 
-- $L_{\mathcal C}^{\pi} = 0$ **if and only if** $Y_\pi \perp\!\!\!\perp \hat S \mid Z_\pi, O, L$ — i.e. **$Z_\pi$ is sufficient for $Y_\pi$ given the other inputs the policy already has**.
-- This directly answers the reviewer objection "raw image already contains object identity / provenance proxies": **because we use conditional sufficiency rather than unconditional MI, information already recovered from the raw observation is not miscounted as loss**. This sentence deserves to be in the body.
+- $L_{\mathcal C}^{\pi} = 0$ **if and only if** $Y_{\mathcal C}^{\pi} \perp\!\!\!\perp \hat S \mid Z_\pi, O, L$ — i.e. **$Z_\pi$ is sufficient for $Y_{\mathcal C}^{\pi}$ given the other inputs the policy already has**.
+- This directly answers the reviewer objection "raw image already contains object identity / provenance proxies": **because we use conditional sufficiency rather than unconditional MI, information already recovered from the raw observation is not miscounted as loss**.
+- **v6 addition**: $Y_{\mathcal C}^{\pi}$ is defined by the Consumer Contract, not by the benchmark — this is what makes "enough" have a unique answer that does not drift with how wide or narrow $Y$ is picked.
 
 **Relations among the three (v5 makes the second arrow conditional)**:
 
@@ -171,29 +205,36 @@ The killer line then becomes:
 
 **A policy may drop information, but must either (a) preserve decision-relevant contract semantics, or (b) explicitly declare $\mathcal C_\pi$ + $Q_{\mathcal C_\pi}$ such that dropped distinctions are acknowledged by $Q_{\mathcal C_\pi}$ as outside its scope of concern**. Silently dropping decision-relevant contract semantics — without declaring — is the interface violation.
 
-### 0.2.2 Three semantic losses + one safety obligation (rewritten in v5)
+### 0.2.2 Three semantic losses + one safety obligation (v5 rewrite · v6 subsumption + separately-auditable)
 
-The v4 draft split the whole pipeline into three layers — $q_\pi$ / $e_\pi$ / $\pi_\theta$ — and attached one loss to each, but the reviewer was right: **this "three-loss" framing has two type mismatches, and it mislabels safety as a loss**. v5 fixes three things at once.
+The v4 draft split the whole pipeline into three layers — $q_\pi$ / $e_\pi$ / $\pi_\theta$ — and attached one loss to each, but the reviewer was right: **this "three-loss" framing has two type mismatches, and it mislabels safety as a loss**. v5 fixes three things at once; v6 then tightens (1) from a checklist into a subsumption order and (4) into a sequentially-coupled audit statement.
 
 **Structure**: the pipeline is already four stages $\mathcal C\to(\mathcal C_\pi, Q_{\mathcal C_\pi})\to q_\pi\to e_\pi\to\pi_\theta\to g_{\mathrm{safety}}$, and **safety is not an information loss but an obligation**. So the final framing is not "three losses" but **"three semantic losses + one safety obligation"**:
 
 $$\boxed{\;\mathcal C\;\longrightarrow\;(\mathcal C_\pi, Q_{\mathcal C_\pi})\;\longrightarrow\;q_\pi\;\longrightarrow\;e_\pi\;\longrightarrow\;\pi_\theta\;\longrightarrow\;g_{\mathrm{safety}}\;\longrightarrow\;a.\;}$$
 
-**Objects**: the v4 $L_{\mathrm{declared}}$ and $L_{\mathrm{decision}}$ are both wrong; v5 rewrites each.
+**Objects**: the v4 $L_{\mathrm{declared}}$ and $L_{\mathrm{decision}}$ are both wrong; v5 rewrites each; v6 upgrades (1) once more.
 
-**(1) $L_{\mathrm{declared}}$ — from entropy difference to weighted undeclared-query coverage.** The v4 form $H(Q_{\mathcal C}(Y_{\mathcal C})) - H(Q_{\mathcal C_\pi}(Y_{\mathcal C}))$ has three problems: the random variable inside $Q_{\mathcal C}(Y_{\mathcal C})$ is never defined; an entropy difference is not guaranteed non-negative (query count / encoding / cardinality all move entropy); and the core semantics of $q_\pi$ is "declare which distinctions may be dropped", which is naturally a **coverage / violation set**, not a scalar entropy. v5 writes it as a set directly:
+**(1) $L_{\mathrm{declared}}$ — from entropy difference, to weighted coverage, to query subsumption (v6 second upgrade).** The v4 form $H(Q_{\mathcal C}(Y_{\mathcal C})) - H(Q_{\mathcal C_\pi}(Y_{\mathcal C}))$ has three problems: the random variable inside $Q_{\mathcal C}(Y_{\mathcal C})$ is never defined; an entropy difference is not guaranteed non-negative (query count / encoding / cardinality all move entropy); and the core semantics of $q_\pi$ is "declare which distinctions may be dropped", which is naturally a **coverage / violation set**, not a scalar entropy. v5 wrote it as a set $\mathfrak D_\pi = Q_{\mathcal C}^{\mathrm{req}}\setminus Q_{\mathcal C_\pi}$ — but the v6 reviewer pushed one more step: **"two queries being equal" is not a set-membership relation to begin with**. Two examples:
 
-$$\mathfrak D_\pi \;=\; Q_{\mathcal C}^{\mathrm{req}}\setminus Q_{\mathcal C_\pi}\qquad\text{(required queries the consumer contract does not cover)}$$
+- $q_1 = \text{"age"}$, $q_2 = \text{"whether age > 100ms"}$ — $q_2$ is a **function of** $q_1$; $q_1$ already subsumes $q_2$.
+- $q_3 = \text{"top-3 hypotheses"}$, $q_4 = \text{"MAP hypothesis"}$ — $q_3 \succeq q_4$, but $q_3 \neq q_4$.
 
-$$\boxed{\;L_{\mathrm{declared}} \;=\; \sum_{q\,\in\, Q_{\mathcal C}^{\mathrm{req}}} w_q\,\mathbf 1\!\big[q \notin Q_{\mathcal C_\pi}\big]\;}$$
+So $q \notin Q_{\mathcal C_\pi}$ cannot stay a literal membership check. **v6 introduces a query subsumption order**:
 
-$w_q$ is a task-side weight: frame semantics high, age medium-high, provenance task-dependent, a diagnostic field wholly irrelevant to the current controller low. The crudest cardinality form $L_{\mathrm{declared}} = |\mathfrak D_\pi|$ is just the $w_q \equiv 1$ special case. Auditing $q_\pi$ then becomes **ticking off required queries one by one against the $Q_{\mathcal C}^{\mathrm{req}}$ list**, no longer leaning on an entropy definition.
+$$q_1 \succeq q_2 \quad:\!\!\Longleftrightarrow\quad \text{the information preserved by } q_1 \text{ is enough for a consumer, under any side information, to answer } q_2$$
 
-**(2) $L_{\mathrm{rep}}$ renamed $L_{\mathrm{projection}}$, made explicit as residual contract information rather than an encoder loss.** In v4, $Z_\pi = \Pi_\pi(\hat S, O, L)$ is already the output of the **whole projection**, not just the encoder $e_\pi$, so calling it a representation loss forces a one-to-one identity between a math object and a pipeline layer. v5 renames it outright:
+(formally: there exists a measurable $h$ such that $h(q_1(\hat S)) = q_2(\hat S)$; or the weaker conditional version $H(q_2 \mid q_1) \le \varepsilon$). Coverage then becomes:
 
-$$\boxed{\;L_{\mathrm{projection}} \;=\; I\!\big(Y_\pi\,;\,\hat S \,\big|\, Z_\pi,\, O,\, L\big)\;}$$
+$$\boxed{\;L_{\mathrm{declared}} \;=\; \sum_{q\,\in\, Q_{\mathcal C}^{\mathrm{req}}} w_q\,\mathbf 1\!\Big[\nexists\, q' \in Q_{\mathcal C_\pi}:\;q' \succeq q\Big]\;}$$
 
-Its meaning is **residual contract information after the projection** — it can be operationalized as a representation-stage loss, but does not claim to be the loss of the $e_\pi$ segment alone.
+This upgrades $L_{\mathrm{declared}}$ from a checklist into a **semantic capability lattice** — $Q_{\mathcal C}^{\mathrm{req}}$ and $Q_{\mathcal C_\pi}$ both sit on the same subsumption partial order, and "what may be dropped" becomes "does the upper closure $\{q' : q' \succeq q \text{ for some } q \in Q_{\mathcal C}^{\mathrm{req}}\}$ declared by the consumer cover the required set". $w_q$ is a task-side weight: frame semantics high, age medium-high, provenance task-dependent, a diagnostic field wholly irrelevant to the current controller low. The crudest cardinality form ($q' \succeq q \Leftrightarrow q' = q$) is exactly the $w_q \equiv 1$ special case of v5. Auditing $q_\pi$ now means **walking the subsumption order one required query at a time and checking upper-cover**, no longer leaning on an entropy definition and no longer tripped up by "the literal query strings differ".
+
+**(2) $L_{\mathrm{rep}}$ renamed $L_{\mathrm{projection}}$, made explicit as residual contract information rather than an encoder loss; v6 pins the observable to $Y_{\mathcal C}^{\pi}$.** In v4, $Z_\pi = \Pi_\pi(\hat S, O, L)$ is already the output of the **whole projection**, not just the encoder $e_\pi$, so calling it a representation loss forces a one-to-one identity between a math object and a pipeline layer. v5 renames it; v6 locks the $Y$ inside to the Consumer-Contract observable defined in §0.2.1:
+
+$$\boxed{\;L_{\mathrm{projection}} \;=\; I\!\big(Y_{\mathcal C}^{\pi}\,;\,\hat S \,\big|\, Z_\pi,\, O,\, L\big),\qquad Y_{\mathcal C}^{\pi} = \{q(\hat S): q \in Q_{\mathcal C}^{\mathrm{req}},\;q \text{ influences consumer decision}\}.\;}$$
+
+Its meaning is **residual contract information after the projection** — it can be operationalized as a representation-stage loss, but does not claim to be the loss of the $e_\pi$ segment alone. $Y_{\mathcal C}^{\pi}$ is defined by the Consumer Contract, **not an arbitrary latent in the benchmark** — this is precisely the mathematical object the Consumer Contract idea should eat.
 
 **(3) $L_{\mathrm{decision}}$ — from supremum norm to action-relevant collapse rate.** The v4 form $\sup_{\hat S \not\sim_{\pi,\mathcal D} \hat S'} \big\|\pi_\theta(\hat S) - \pi_\theta(\hat S')\big\|_{\text{action-distribution}}^{\!\perp}$ is a **type error** — a norm is a distance, not a "size of a pair set". v5 writes it as a collapse rate:
 
@@ -201,28 +242,30 @@ $$\mathcal R_{\mathcal D} \;=\; \big\{(\hat S, \hat S') : \hat S \not\sim_{\pi,\
 
 $$\boxed{\;L_{\mathrm{decision}} \;=\; \mathbb E_{(\hat S,\hat S')\sim\mathcal R_{\mathcal D}}\!\Big[\mathbf 1\!\big(D_{\mathcal A}(\pi_\theta(\cdot\mid \hat S),\,\pi_\theta(\cdot\mid \hat S')) < \epsilon\big)\Big]\;}$$
 
-where $D_{\mathcal A}$ is **not an ordinary distribution distance** — it measures whether the two action distributions **support different admissible / optimal action sets**. This also absorbs the reviewer's philosophical objection: if $\mathcal A^*(\hat S_1) \neq \mathcal A^*(\hat S_2)$ but some action in their common intersection is admissible for both, a policy emitting that shared action is legitimate and $D_{\mathcal A}$ must not count it as collapse. A soft-threshold version is $\mathbb E_{\mathcal R_{\mathcal D}}[\exp(-D_{\mathcal A}(\cdot))]$. $D_{\mathcal A}$ closes the semantic loop with §6.2's HPC / HSS: **HPC measures coverage, HSS measures separation, and $L_{\mathrm{decision}}$ measures their failure rate**.
+where $D_{\mathcal A}$ is **not an ordinary distribution distance** — it measures whether the two action distributions **support different admissible / optimal action sets**. This also absorbs the reviewer's philosophical objection: if $\mathcal A^*(\hat S_1) \neq \mathcal A^*(\hat S_2)$ but some action in their common intersection is admissible for both, a policy emitting that shared action is legitimate and $D_{\mathcal A}$ must not count it as collapse. A soft-threshold version is $\mathbb E_{\mathcal R_{\mathcal D}}[\exp(-D_{\mathcal A}(\cdot))]$. $D_{\mathcal A}$ closes the semantic loop with §6.2's HPC / HSS / $E_{\mathrm{contract}}$: **HPC measures world-consistent coverage, HSS measures separation, $E_{\mathrm{contract}}$ measures interface compliance, and $L_{\mathrm{decision}}$ measures their failure rate**.
 
 **(4) $\mathcal O_{\mathrm{safety}}$ is an obligation, not a loss.** The safety layer does not measure "information loss"; it judges the **obligation of whether the filter takes a conservative reaction when evidence is insufficient or unknown** (see §5.3's three-state certification and §6.6's safety evidence). **It is a fourth kind of object and must not be lumped together with the three losses.**
 
 | Slot | Semantic | Failure | Object |
 |---|---|---|---|
-| $q_\pi$ | declares what may be dropped | **Declared coverage loss** — $Q_{\mathcal C_\pi}$ fails to cover a required query | $L_{\mathrm{declared}} = \sum w_q \mathbf 1[q\notin Q_{\mathcal C_\pi}]$ |
-| $\Pi_\pi$ | post-projection conditional residual | **Projection residual** — conditional MI > 0 | $L_{\mathrm{projection}} = I(Y_\pi;\hat S\mid Z_\pi,O,L)$ |
+| $q_\pi$ | declares what may be dropped | **Declared coverage loss** — $Q_{\mathcal C_\pi}$ fails to upper-cover a required query along $\succeq$ | $L_{\mathrm{declared}} = \sum w_q \mathbf 1[\nexists q' \in Q_{\mathcal C_\pi}: q' \succeq q]$ |
+| $\Pi_\pi$ | post-projection conditional residual | **Projection residual** — conditional MI > 0 | $L_{\mathrm{projection}} = I(Y_{\mathcal C}^{\pi};\hat S\mid Z_\pi,O,L)$ |
 | $\pi_\theta$ | does the decision use preserved distinctions | **Decision collapse rate** — fraction of action-relevant pairs collapsed | $L_{\mathrm{decision}} = \mathbb E_{\mathcal R_{\mathcal D}}[\mathbf 1[D_{\mathcal A} < \epsilon]]$ |
 | $g_{\mathrm{safety}}$ | obligation response when evidence is insufficient | **Safety obligation violation** — fails to tighten on unknown / invalid | $\mathcal O_{\mathrm{safety}}$ |
 
-$\Pi_\pi$ injective **does not imply** $L_{\mathrm{decision}} = 0$ — the three losses can each blow up independently. §6's four compliance evidence types and §6.7's skeleton table both draw directly on these three losses plus the one obligation.
+$\Pi_\pi$ injective **does not imply** $L_{\mathrm{decision}} = 0$ — but v6 states this precisely: the three losses are **three separately auditable failure sites**, not three statistically independent losses. The reviewer's point is exactly right: $L_{\mathrm{declared}}$, $L_{\mathrm{projection}}$, $L_{\mathrm{decision}}$ are **sequentially coupled** through $q_\pi \to \Pi_\pi \to \pi_\theta$ — once the upstream declaration changes, the admissible quotient downstream changes with it; they cannot be random-variable independent. **"Independently" is replaced throughout the paper by "separately auditable"**: each loss localizes to an openable pipeline site, not to an independence claim. §6's four compliance evidence types and §6.7's skeleton table both draw directly on these three losses plus the one obligation.
 
 ### 0.3 Three boxed claims of this piece
 
-> **Claim 1 · Contract semantics can be lost at the policy boundary.** A structured estimator output does not imply a structured policy input. The full pipeline $\mathcal C\to(\mathcal C_\pi,Q_{\mathcal C_\pi})\to q_\pi\to e_\pi\to\pi_\theta\to g_{\mathrm{safety}}$ is **an auditable semantic interface**, with the three semantic losses sitting respectively on $q_\pi$ / $\Pi_\pi$ / $\pi_\theta$ and the fourth slot being a safety obligation, not a loss. This is the embryo of the piece's upgraded thesis — **A policy is a contract consumer, not merely a function approximator**.
+> **Claim 1 · Contract semantics can be lost at the policy boundary.** A structured estimator output does not imply a structured policy input. The full pipeline $\mathcal C\to(\mathcal C_\pi,Q_{\mathcal C_\pi})\to q_\pi\to e_\pi\to\pi_\theta\to g_{\mathrm{safety}}$ is **an auditable semantic interface**, with the three semantic losses sitting on $q_\pi$ / $\Pi_\pi$ / $\pi_\theta$ as **three separately auditable failure sites (sequentially coupled through the pipeline), not statistically independent losses**, and the fourth slot being a safety obligation, not a loss. This is the embryo of the piece's upgraded thesis — **A policy is a contract consumer, not merely a function approximator**.
 
 > **Claim 2 · Contract preservation is not architecture-specific.** Engineered-state heads, latent visuomotor policies, and VLA / diffusion / flow policies use different conditioning and action-generation mechanisms — but as contract consumers they must all answer **the same four questions**: what may I discard ($q_\pi$)? what did I actually retain ($\Pi_\pi$, $L_{\mathrm{projection}}$)? how should decisions respond to contract interventions ($\pi_\theta$, $L_{\mathrm{decision}}$)? what happens when evidence becomes invalid or unknown ($g_{\mathrm{safety}}$, $\mathcal O_{\mathrm{safety}}$)? The target of criticism is the interface contract, not the model architecture.
 
 > **Claim 3 · Contract compliance should be tested by controlled intervention, not inferred from end-to-end success.** End-to-end success measures whether the policy works, not whether it interpreted contract semantics correctly. Contract compliance requires a battery of **controlled tests** — invariance / equivariance / **order-constrained response** / task-conditional utility under contract interventions — **and needs an oracle baseline to bound the interpretation of each metric**, together with an **explicit retraining protocol** (§6.5 distinguishes $\mathrm{CAG}^{\mathrm{fixed}}$ from $\mathrm{CAG}^{\mathrm{retrained}}$). The compliance argument is a **multi-evidence conjunction**, not a single score.
 
 ## 1. Two dimensions instead of three families: conditioning representation / semantic interface × action head
+
+> **Position of this section (v6 addition · navigation signpost).** §1–§3 are **implementation coordinates for the interface theory already set up in §0**, not the core argument itself. §0 has already defined the pipeline $\mathcal C\to(\mathcal C_\pi, Q_{\mathcal C_\pi})\to q_\pi\to e_\pi\to\pi_\theta\to g_{\mathrm{safety}}$, the three tiers of preservation, and the three-losses-plus-one-obligation framing. §4 onward introduces the primitives, §5 introduces training and deployment consequences, §6 introduces benchmarking. §1–§3 only provide a concrete grid for "which cell of the pipeline each existing policy actually sits in" — **readers already familiar with the VLA / Diffusion / flow / ACT / engineered-head families can jump straight to §4**. This section exists to align §0's pipeline with real systems, not to rank architectures.
 
 **An earlier draft sliced "VLA / Diffusion Policy / engineered head" as three mutually-exclusive families**; that taxonomy is too coarse — π0 is VLA + flow matching and lands in both columns. This section switches to **two orthogonal dimensions**; a policy family's choice becomes a coordinate on a grid rather than a stance.
 
@@ -259,7 +302,7 @@ $\Pi_\pi$ injective **does not imply** $L_{\mathrm{decision}} = 0$ — the three
 
 One key distinction: **Continuous actions do not imply structured state semantics.** π0's action head is a flow-matched continuous chunk and sounds "structured", but its conditioning representation is a VLM token stream. **The wording matters**: **Under the Structured State Contract defined here, π0's conditioning interface does not expose an explicit slot for hypothesis, provenance, age, or negative-evidence semantics.** This is an **analysis under this piece's schema**, not a limitation the π0 paper claims about itself. π0's paper facts are pretrained VLA + proprio token + noisy action chunk + flow matching; the contract-level critique comes from this piece's analytical lens. The same caveat applies to the "Where the contract is destroyed" column for Diffusion Policy and OpenVLA — **those cells are a mix of paper facts and this piece's interface analysis, not admitted limitations of the original papers**.
 
-One caveat: **this is not a ranking of "which combination is best"**. Engineered state + Gaussian is still the low-dimensional control baseline champion; multimodal token + flow matching is still the only realistic path for open-semantic settings. What this piece cares about is **for every combination, is there a written-out $q_\pi$ in $\Pi_\pi = e_\pi \circ q_\pi$**. In most existing work the answer is "no" — **not because a family is inherently bad, but because this $q_\pi$ layer has never been treated as an interface design problem**.
+One caveat: **this is not a ranking of "which combination is best"**. What this piece cares about is **for every combination, is there a written-out $q_\pi$ in $\Pi_\pi = e_\pi \circ q_\pi$**. In most existing work the answer is "no" — **not because a family is inherently bad, but because this $q_\pi$ layer has never been treated as an interface design problem**.
 
 ## 2. What "State" means across policies
 
@@ -489,15 +532,15 @@ Typical: **frame transform** — move `reference_point` from A to B, $\tau$ tran
 
 **Type II · Order-constrained response** (the middle tier — **previously called monotone response, this version makes it mathematical**). "Monotone" is not a word that can be used casually — one needs a partial order on the range of $M(\cdot)$ and the response functional to be a **well-defined scalar or totally-ordered value**. The previous version crammed variance, action norm, fallback probability, covariance PSD into the same $\preceq$, and the reviewer was right: **those $\preceq$ relations are not the same order at all**.
 
-The correct framing: first define a **severity partial order on contract interventions** $T_1 \preceq_{\mathcal C} T_2$ (e.g. "older age = more severe", "lower observability = more severe", "validity=false = more severe than high age" — the order is defined by $\mathcal C_\pi$ and $Q_{\mathcal C_\pi}$, **not by the policy**), then specify a **response functional**
+The correct framing: first define a **severity partial order on contract interventions** $T_1 \preceq_{\mathcal C_\pi}^{\mathrm{declared}} T_2$ (e.g. "older age = more severe", "lower observability = more severe", "validity=false = more severe than high age" — the order is defined by $\mathcal C_\pi$ and $Q_{\mathcal C_\pi}$, **not by the policy**), then specify a **response functional**
 
 $$r:\mathcal P(\mathcal A) \;\longrightarrow\; \mathbb R$$
 
 (it can be $P(\text{fallback})$, $\mathbb E[\|a\|]$, $P(\text{stop})$, $\mathbb E[\mathrm{safe\_margin}]$ and so on — each is a scalar with the total order $\le$), and require:
 
-$$T_1 \preceq_{\mathcal C} T_2 \quad\Longrightarrow\quad r\!\big(\pi_\theta(T_1\hat S)\big) \;\le\; r\!\big(\pi_\theta(T_2\hat S)\big).$$
+$$T_1 \preceq_{\mathcal C_\pi}^{\mathrm{declared}} T_2 \quad\Longrightarrow\quad r\!\big(\pi_\theta(T_1\hat S)\big) \;\le\; r\!\big(\pi_\theta(T_2\hat S)\big).$$
 
-**This is what monotonicity actually means**. Example: let $r(\pi) = P_\pi(\text{fallback})$, $T_1$ = "age from 5 ms to 20 ms", $T_2$ = "age from 20 ms to 200 ms"; then $T_1 \preceq_{\mathcal C} T_2$ and we require $P_\pi(\text{fallback}\mid T_1) \le P_\pi(\text{fallback}\mid T_2)$.
+**This is what monotonicity actually means**. Example: let $r(\pi) = P_\pi(\text{fallback})$, $T_1$ = "age from 5 ms to 20 ms", $T_2$ = "age from 20 ms to 200 ms"; then $T_1 \preceq_{\mathcal C_\pi}^{\mathrm{declared}} T_2$ and we require $P_\pi(\text{fallback}\mid T_1) \le P_\pi(\text{fallback}\mid T_2)$.
 
 But a real policy may well be **piecewise** —
 
@@ -509,9 +552,9 @@ But a real policy may well be **piecewise** —
 
 This kind of response **is not monotone, but it is a legitimate contract-specified response relation**. So Type II's proper name is "**order-constrained response**", and **monotonicity is only one special case**. The loss is:
 
-$$\mathcal{L}_{\mathrm{consistency}}^{\mathrm{II}} \;=\; \sum_{T_1 \preceq_{\mathcal C} T_2} \max\!\big(0,\; r(\pi_\theta(T_1 \hat S)) - r(\pi_\theta(T_2 \hat S)) + \delta\big).$$
+$$\mathcal{L}_{\mathrm{consistency}}^{\mathrm{II}} \;=\; \sum_{T_1 \preceq_{\mathcal C_\pi}^{\mathrm{declared}} T_2} \max\!\big(0,\; r(\pi_\theta(T_1 \hat S)) - r(\pi_\theta(T_2 \hat S)) + \delta\big).$$
 
-$\delta$ is a margin; both $r$ and $\preceq_{\mathcal C}$ must be hard-coded in $\mathcal C_\pi$, not fit after the fact.
+$\delta$ is a margin; both $r$ and $\preceq_{\mathcal C_\pi}^{\mathrm{declared}}$ must be hard-coded in $\mathcal C_\pi$, not fit after the fact.
 
 **Type III · Unconstrained intervention** (the weakest and most important tier). **Do not assume the policy must change.** Typical example: **provenance removal** — dropping a contributing sensor whose information is fully redundant may leave the optimal action unchanged, and that is fine. The correct question here is: **when the removed evidence was decision-relevant, does performance degrade?** This is handed to §6's CAG panel rather than being imposed as a training-time response. Written as a loss: **no intervention consistency at all; only ablation at evaluation**. This tier's very existence is a correction to the previous draft, which treated all four $T_{\mathcal{C}}$ as "must respond" and thereby mistook a Type III intervention for a Type II.
 
@@ -538,7 +581,7 @@ One-line principle: **each degradation has a primary semantic effect and potenti
 
 **Latent degradation class** $d_c \in \{\text{missing}, \text{stale}, \text{bias}, \text{corrupt}, \ldots\}$ — augmentation knows which class was injected, but at deployment this class is **latent**: it can only be inferred by the contract estimator from the $m_c$ stream, or used as a training annotation for loss weighting and sampling, **never as a ground-truth input to the policy by default**.
 
-Concretely: the aug pipeline samples $d_c$, applies $T_{d_c}$ to generate $(\mu_c', \Sigma_c', m_c')$, then feeds only $m_c'$ into the policy and uses $d_c$ solely for loss weighting and per-class evaluation slicing. **This is not curriculum, it is conditioning on observed metadata** — the difference is that conditioning lets the policy see reliable $m_c'$, not reliable $d_c$. §5.1 Class B Type II order-constrained response pairs naturally with degradation-conditioned aug — **aug generates the $m_c$ shift induced by $T_{\mathcal{C}}$, loss measures whether the policy's response to $m_c$ matches $\preceq_{\mathcal C}$ and $r$**.
+Concretely: the aug pipeline samples $d_c$, applies $T_{d_c}$ to generate $(\mu_c', \Sigma_c', m_c')$, then feeds only $m_c'$ into the policy and uses $d_c$ solely for loss weighting and per-class evaluation slicing. **This is not curriculum, it is conditioning on observed metadata** — the difference is that conditioning lets the policy see reliable $m_c'$, not reliable $d_c$. §5.1 Class B Type II order-constrained response pairs naturally with degradation-conditioned aug — **aug generates the $m_c$ shift induced by $T_{\mathcal{C}}$, loss measures whether the policy's response to $m_c$ matches $\preceq_{\mathcal C_\pi}^{\mathrm{declared}}$ and $r$**.
 
 ### 5.3 Safety filter and its interface to the contract: constraint certification (three-state in v5)
 
@@ -556,7 +599,19 @@ $g$ is a constraint-specific composition rule (e.g. a CBF side may require "dist
 
 $$\boxed{\;\mathrm{certification}_j \;\in\; \{\text{safe},\;\text{unsafe},\;\text{unknown}\}.\;}$$
 
-The reaction rules follow directly: **safe → relaxation allowed** (e.g. pull minimum distance back to nominal), **unsafe → tighten or stop**, **unknown → conservative fallback or tighten** (since we cannot certify, we default to the more cautious side). This upgrade brings the safety contract closer to real runtime-safety semantics — $v_j^{\mathrm{constraint}} = 0$ no longer means "constraint false"; it means **"evidence is insufficient to certify the constraint predicate"** (which corresponds to the unknown state).
+The reaction rules follow directly: **safe → relaxation is permitted** (note carefully: **permitted, not required** — see below), **unsafe → tighten or stop**, **unknown → conservative fallback or tighten** (since we cannot certify, we default to the more cautious side). This upgrade brings the safety contract closer to real runtime-safety semantics — $v_j^{\mathrm{constraint}} = 0$ no longer means "constraint false"; it means **"evidence is insufficient to certify the constraint predicate"** (which corresponds to the unknown state).
+
+**v6 refinement · safe ≠ "must relax".** The previous version wrote "safe → relax", and the reviewer produced a simple counterexample: **collision constraint = safe, joint torque constraint = unknown** — even though the collision constraint is already safe, that does **not** license relaxing the whole safety envelope, because the joint-torque branch is still in the unknown state. The correct semantics is: **safe means "this constraint can run at its normal margin"; it does not mean "this constraint can be pulled apart"**. The reaction rules are therefore refined into three named actions:
+
+1. **safe → allow_normal_margin** — keep this constraint's margin at its default value; do **not** loosen the constraint; continue intersecting with all other constraints;
+2. **unsafe → tighten_or_stop**;
+3. **unknown → conservative_fallback**.
+
+**Multiple constraints must be combined, not short-circuited on the first unknown.** The safety filter's real form is $g_{\mathrm{safety}} = \bigcap_j g_j$ — each constraint independently contributes the subset of actions it permits, and the applied action is **the intersection over all constraints**. Written out:
+
+$$a_{\mathrm{applied}} \;=\; \Big(\bigcap_{j:\,\mathrm{cert}_j = \text{safe}} g_j^{\mathrm{normal}}(a_{\mathrm{proposed}})\Big) \;\cap\; \Big(\bigcap_{j:\,\mathrm{cert}_j = \text{unsafe}} g_j^{\mathrm{tighten}}(a_{\mathrm{proposed}})\Big) \;\cap\; \Big(\bigcap_{j:\,\mathrm{cert}_j = \text{unknown}} g_j^{\mathrm{fallback}}(a_{\mathrm{proposed}})\Big).$$
+
+No single constraint loosening the action set is legal on its own — **only what every constraint jointly permits may actually be applied**. This property also fixes the correct shape of `SafetyFilterHead.forward` in §7 (see v6 code: `continue` only skips tightening for *this one* constraint, it never `return`s and never terminates the loop early).
 
 **The single most important sentence of this section (v5 adds one word)**:
 
@@ -605,47 +660,50 @@ $$\mathrm{Equiv}(\mathcal{C}) \;=\; \mathbb{E}_{\hat S}\!\left[d\!\left(\pi_\the
 
 $\mathrm{Equiv} \to 0$ is a hard requirement; large $\mathrm{Equiv}$ means either $e_\pi$ learned it wrong, or $q_\pi$ dropped the quotient entirely. This is the cleanest type, because the rule is mathematically defined — no oracle and no $J$ definition needed. §3.2 Failure 2's severity can be quantified directly by $\mathrm{Equiv}(\text{frame})$.
 
-### 6.2 Representation evidence $E_{\mathrm{representation}}$: Conditional Probes + HPC / HSS (v5 splits two counterfactuals) + Calibration
+### 6.2 Representation evidence $E_{\mathrm{representation}}$: Conditional Probe + Interface-Compliance $E_{\mathrm{contract}}$ + Decision-Competence HPC + HSS (v6 second split) + Calibration
 
 **Conditional probe** (upgraded §5.1 Class A): Retention$_{\mathrm{cond}} = I(\text{field}; z_\pi \mid o)$ — hold raw observation $o$ fixed and measure how much contract information $z_\pi$ **independently** carries. This is the necessary form to avoid image-proxy leakage.
 
-**v4's HPC used $T_k^{\mathrm{hyp}}$; v5 splits it into two interventions.** The reviewer was very sharp here: **"change the hypothesis while holding the raw observation fixed" is not automatically a legal counterfactual**. The real image $o$ clearly shows the object on the left, but you rewrite the contract to "$H_2$: object on the right" while keeping the same image — what are you actually measuring? Two very different things get mixed under v4's single symbol. v5 splits them:
+**v5 already split $T_k^{\mathrm{hyp}}$ into $T_k^{\mathrm{contract}}$ (raw observation fixed) and $T_k^{\mathrm{world}}$ (observation and contract re-rendered jointly), but the HPC formula itself was still wrong** — the v6 reviewer nailed it in one sentence:
 
-**(A) Contract-only intervention** — $T_k^{\mathrm{contract}}: \hat S \mapsto \hat S_k$ with **raw observation fixed**. It measures:
+> **If the raw observation is held fixed and the contract is intentionally made inconsistent with it, what defines the ground-truth optimal action set $\mathcal{A}^{*}_k$?**
 
-> **Does the policy respond to a contract-semantic change?**
+v5 could not answer this. Under $T_k^{\mathrm{contract}}$ only the contract changed — the world did not. So the "world-consistent optimal action set" is still $\mathcal{A}^*(O, W)$ of the original world; a new $\mathcal{A}_k^*$ does not magically appear because you rewrote the contract to $H_k$. **v5's HPC formula tacitly assumed "changing the contract = changing the world", precisely re-fusing the two things v5 spent a whole paragraph separating.** v6 splits a second time — **HPC no longer carries both roles; it becomes two metrics**:
 
-This is the actual **interface compliance** this piece wants. But **do not** call it "$H_k$ as true latent" — the world has not changed, only the contract has. What it tests is "how the contract parser responds to a self-contradictory input", not "how the policy decides in another real world".
+**(A) Contract-only intervention → Interface compliance $E_{\mathrm{contract}}$** — $T_k^{\mathrm{contract}}:\hat S \mapsto \hat S_k$ with the raw observation held fixed, and **no $\mathcal{A}^*_k$ oracle is introduced at all**. What it measures is: after the contract's declared change, does the policy land inside the **declared response set** $\mathcal{R}_{\mathcal{C}}(T_k)$ already written into $\mathcal{C}_\pi$ in §5.1 — closing the semantic loop with §5.1's Type I equivariance and Type II order-constrained response:
 
-**(B) World-consistent counterfactual** — jointly change $(o, \hat S) \mapsto (o_k, \hat S_k)$ where both $o_k$ and $\hat S_k$ come from a simulator / renderer / privileged state, so that observation and contract stay **consistent**. It measures:
+$$\boxed{\;E_{\mathrm{contract}}(T_k) \;=\; D_{\mathcal{A}}\!\big(\pi_\theta(T_k^{\mathrm{contract}}(\hat S)),\;\mathcal{R}_{\mathcal{C}}(T_k)\big),\qquad E_{\mathrm{contract}}^{\mathrm{overall}} = \tfrac{1}{K}\sum_k \mathbf 1\!\big[E_{\mathrm{contract}}(T_k) > \epsilon_{\mathrm{resp}}\big].\;}$$
 
-> **Does the policy act correctly under another real-world hypothesis?**
+$D_{\mathcal{A}}$ is the same family used by §0.2.2's $L_{\mathrm{decision}}$ and §6.2's HSS (action-equivalence-aware distance; it measures whether two action distributions **support different admissible / optimal action sets**). $\mathcal{R}_{\mathcal{C}}(T_k)$ may be piecewise, flat, or conditional — as long as it does not violate the $\preceq_{\mathcal{C}_\pi}^{\mathrm{declared}}$ and $r$ declared in §5.1 it is legal. **When the reviewer asks "if the contract and the observation contradict each other, where does the ground-truth action come from?", v6's answer is: we do not need a ground-truth action; we only need the response set the contract itself declared.** That is what interface compliance should actually look like.
 
-That is **decision competence**.
+**(B) World-consistent counterfactual → Decision competence HPC** — jointly change $(O, \hat S) \mapsto (O_k, \hat S_k)$, where both $O_k$ and $\hat S_k$ come from a simulator / renderer / privileged state, guaranteeing observation and contract remain consistent. Now $\mathcal{A}^*_k$ has a natural meaning — **it is the optimal / admissible action set of world $k$**, determined by the simulator's ground-truth state and reward:
 
-The two benchmarks must be separated explicitly — otherwise the reviewer's question **"Is your counterfactual intervention semantically consistent with the observation?"** dismantles the whole paragraph. The formulas below default to (A) $T_k^{\mathrm{contract}}$ (interface compliance); (B) $T_k^{\mathrm{world}}$ is left for the next benchmark paper.
+$$\boxed{\;\mathrm{HPC} \;=\; \frac{1}{K} \sum_{k=1}^{K} U\!\big(\pi_\theta(T_k^{\mathrm{world}}(\hat S, O)),\;\mathcal{A}^{*}_k\big),\qquad U(\pi, \mathcal{A}^*_k) = \Pr_{a \sim \pi}\!\big[a \in \mathcal{A}^{*}_k\big].\;}$$
 
-**Hypothesis Coverage (HPC)**:
+HPC **only makes sense under $T_k^{\mathrm{world}}$** — it measures "policy's decision competence under a different real-world hypothesis", not "policy's response to a contract change". The two roles are now carried by two different metrics; when reporting, a benchmark **must present $E_{\mathrm{contract}}$ and HPC side by side, never merged into a single composite**. This split is exactly aligned with the piece-wide philosophy "contract change ≠ world change".
 
-$$\mathrm{HPC} \;=\; \frac{1}{K} \sum_{k=1}^{K} U\!\big(\pi_\theta(T_k^{\mathrm{contract}}(\hat S)),\;\mathcal{A}^{*}_k\big).$$
+**Hypothesis Separation Score (HSS)** — **must be averaged only over action-relevant hypothesis pairs**; the reviewer caught gaming: if $\mathcal A^*(H_1) = \mathcal A^*(H_2)$, different outputs are not a virtue, **they are noise**. Define the action-relevant pair set (using §0.2.1's $\sim_{\pi,\mathcal D}$, not "raw representation differs"):
 
-$U(\cdot, \mathcal A^*_k)$ is the utility of the policy's output versus the counterfactual contract's **ideal action set** $\mathcal A^*_k$; $\mathcal A^*_k$ is constructed in the benchmark from **privileged simulator state, oracle planners, or offline expert rollouts**, just like §6.5's oracle. This change aligns HPC fully with the piece's intervention philosophy — **HPC tests "if the contract is counterfactually rewritten as $H_k$, does the policy respond", no longer claiming "$H_k$ is the true latent"**.
+$$\mathcal R \;=\; \big\{(i, j): \hat S_i \not\sim_{\pi,\mathcal D} \hat S_j\big\} \;\cap\; \big\{(i, j): T_i, T_j \text{ belong to the same branch of } \{T^{\mathrm{contract}}, T^{\mathrm{world}}\}\big\}.$$
 
-**Hypothesis Separation Score (HSS)** — **must be averaged only over action-relevant hypothesis pairs** — the reviewer caught gaming: if $\mathcal A^*(H_1) = \mathcal A^*(H_2)$, different outputs are not a virtue, **they are noise**. Define the action-relevant pair set:
+**The second intersection is critical** — $T^{\mathrm{contract}}$ and $T^{\mathrm{world}}$ have different semantics; they must not be averaged inside one HSS. HSS is computed only on $\mathcal R$, **and $D$ is uniformly $D_{\mathcal{A}}$, not an ordinary distribution distance** (KL, TV, Wasserstein can all be maxed out by a policy that emits a different random distribution per hypothesis):
 
-$$\mathcal R \;=\; \big\{(i, j): \mathcal A^{*}_i \not\equiv \mathcal A^{*}_j\big\}.$$
+$$\mathrm{HSS}^{c} \;=\; \frac{1}{|\mathcal R^{c}|} \sum_{(i, j) \in \mathcal R^{c}} D_{\mathcal{A}}\!\big(\pi_\theta(\cdot \mid T_i^{c}\hat S),\;\pi_\theta(\cdot \mid T_j^{c}\hat S)\big),\qquad c \in \{\mathrm{contract},\mathrm{world}\}.$$
 
-HSS averages only over $\mathcal R$:
+**Separation is useful only when distinctions are decision-relevant** — this sentence must be locked down. **And even $D_{\mathcal A}$ alone cannot fully block the "fully-random policy produces different random distributions under different hypotheses" game**, so v6 introduces a **competence gate**: HSS only counts as positive evidence **when $E_{\mathrm{contract}}$ has already passed** ($E_{\mathrm{contract}}^{\mathrm{overall}} < \tau_E$); otherwise high HSS only means the policy is thrashing. **Do not force the two metrics into a single product** (e.g. $E_{\mathrm{contract}} \cdot \mathrm{HSS}$) — the reviewer prefers **parallel reporting**:
 
-$$\mathrm{HSS} \;=\; \frac{1}{|\mathcal R|} \sum_{(i, j) \in \mathcal R} D\!\big(\pi_\theta(\cdot \mid T_i^{\mathrm{contract}}\hat S),\;\pi_\theta(\cdot \mid T_j^{\mathrm{contract}}\hat S)\big).$$
+| Metric | Question | Anti-gaming |
+|---|---|---|
+| $E_{\mathrm{contract}}^{\mathrm{overall}}$ | Does the policy stay inside the declared response set? | $D_{\mathcal A}$; both $D$ and $\mathcal R_{\mathcal C}$ aligned to §5.1 |
+| $\mathrm{HPC}$ | Under world-consistency, does the policy support the correct action set? | Only computed on $T^{\mathrm{world}}$; $\mathcal A^*_k$ fixed by simulator |
+| $\mathrm{HSS}^{c}$ | Does the policy separate action-relevant pairs? | $D_{\mathcal A}$ + competence gate ($E_{\mathrm{contract}}$ already passed) |
+| Entropy / diversity (control) | Is it just randomization? | Reported alongside HSS; a random policy has abnormally high entropy but HSS does not rise |
 
-**separation is useful only when distinctions are decision-relevant** — this sentence must be locked down, or HSS can be maxed out by a policy that outputs a different random action per hypothesis.
+HPC / HSS / $E_{\mathrm{contract}}$ / entropy **four columns in parallel** — the reviewer can immediately tell that "high HSS + high entropy" is gaming, while "high HSS + low entropy + $E_{\mathrm{contract}}$ passed" is real separation.
 
-The choice of $D$ uses the same family as §0.2.2's $D_{\mathcal A}$ — **it measures whether two action distributions support different admissible / optimal action sets** — closing the semantic loop between HSS and $L_{\mathrm{decision}}$.
+**All four together correspond to decision-relevant semantic preservation (§0.2.1 Property A′)** — $E_{\mathrm{contract}}$ guarantees "when the contract changes, the policy's response is legal"; **HPC** guarantees "under world-consistency, every action-relevant hypothesis is supported"; **HSS** guarantees "the policy preserves action-relevant hypothesis distinctions"; **the entropy control** guarantees "HSS is not randomization gaming"; **and none of them penalize pairs that should not be distinguished**. Only the four constraints jointly give representation evidence meaning.
 
-HPC and HSS together correspond to decision-relevant semantic preservation (§0.2.1 Property A′) — **coverage** ensures every action-relevant hypothesis is supported; **separation** ensures the policy preserves action-relevant hypothesis distinctions; **and neither penalizes pairs that should not be distinguished**. These three constraints together make representation evidence meaningful.
-
-**Calibration diagnostic** — $\mathrm{ECE}_{\text{top-}k}$, NLL, Brier, calibration curve, coverage–credibility listed in parallel (§4.1 has already stripped these from the primitive; this is their real home).
+**Calibration diagnostic** — $\mathrm{ECE}_{\text{top-}k}$, NLL, Brier, calibration curve, coverage / credibility listed in parallel (§4.1 has already stripped these from the primitive; this is their real home).
 
 ### 6.3 Temporal slice: Staleness Response Compliance (SDS) (v5 notation + baseline fix)
 
@@ -655,11 +713,23 @@ HPC and HSS together correspond to decision-relevant semantic preservation (§0.
 
 $$R_\pi(\alpha) \;=\; \pi_\theta\!\big(\cdot \,\big|\, \mathrm{do}(\alpha_c = \alpha),\, o\big).$$
 
-Baseline: SDS is no longer defined against a single $R^*$, but against a **contract-permitted response set** $\mathcal R_{\mathcal C}(\alpha)$ — this set is declared in $\mathcal C_\pi$ via §5.1's $\preceq_{\mathcal C}$ and $r$; piecewise is allowed, flat is allowed, **anything that does not violate the declared relation is legal**:
+Baseline: SDS is no longer defined against a single $R^*$, but against a **contract-permitted response set** $\mathcal R_{\mathcal C}(\alpha)$ — this set is declared in $\mathcal C_\pi$ via §5.1's $\preceq_{\mathcal C_\pi}^{\mathrm{declared}}$ and $r$; piecewise is allowed, flat is allowed, **anything that does not violate the declared relation is legal**:
 
 $$\boxed{\;\mathrm{SDS} \;=\; D\!\big(R_\pi,\;\mathcal R_{\mathcal C}\big),\;}$$
 
-where $D$ is a "distance from a curve to a set of legal curves". One concrete form is the sup-based violation measure $\sup_{\alpha_1 \preceq_{\mathcal C} \alpha_2} \max\!\big(0, r(R_\pi(\alpha_1)) - r(R_\pi(\alpha_2)) + \delta\big)$ (the §5.1 Type II hinge loss reused at evaluation), but other curve-set divergences are also valid. **The oracle curve $R^*$ is only one baseline inside $\mathcal R_{\mathcal C}$, not the definition itself.** This makes SDS fully consistent with §5.1 Type II "order-constrained does not have to mean monotone" — no longer forcing every task to share one unique correct staleness response.
+where $D$ is a "distance from a curve to a set of legal curves". One concrete form is the sup-based violation measure $\sup_{\alpha_1 \preceq_{\mathcal C_\pi}^{\mathrm{declared}} \alpha_2} \max\!\big(0, r(R_\pi(\alpha_1)) - r(R_\pi(\alpha_2)) + \delta\big)$ (the §5.1 Type II hinge loss reused at evaluation), but other curve-set divergences are also valid. **The oracle curve $R^*$ is only one baseline inside $\mathcal R_{\mathcal C}$, not the definition itself.** This makes SDS fully consistent with §5.1 Type II "order-constrained does not have to mean monotone" — no longer forcing every task to share one unique correct staleness response.
+
+**v6 addition · Operational estimator for SDS ($V_{\mathrm{order}}$)** — the notation $D(R_\pi, \mathcal R_{\mathcal C})$ above is clean but abstract; a single reviewer question **"How do you compute distance to a set of legal curves?"** is enough to break a benchmark version ($\mathcal R_{\mathcal C}$ is typically an infinite set). v6 explicitly states that the recommended SDS implementation is a **violation functional**, not a curve-to-set distance:
+
+$$\boxed{\;\mathrm{SDS} \;=\; V_{\mathrm{order}} \;=\; \mathbb E_{(\alpha_i, \alpha_j)\,:\,\alpha_i \preceq_{\mathcal C_\pi}^{\mathrm{declared}} \alpha_j}\!\Big[\max\!\big(0,\; r\!\big(R_\pi(\alpha_i)\big) - r\!\big(R_\pi(\alpha_j)\big) + \delta\big)\Big].\;}$$
+
+This is **finitely measurable**: given a grid $\{\alpha_1, \alpha_2, \ldots\}$, enumerate every pair compatible with the declared order, run the policy to read out $r(R_\pi(\alpha))$, compute the hinge, average. $\delta$ **takes the same value as §5.1's Type II hinge loss and is chosen by a task-level principle** (for example $\delta = \sigma_r / 2$ with $\sigma_r$ the empirical standard deviation of $r$ under benchmark noise; or $\delta$ calibrated through the same action-distance family as §6.2's $\epsilon_{\mathrm{resp}}$) — it cannot just be called "margin", and it cannot be picked after the fact.
+
+When §5.1 Type II declares a **piecewise policy** (e.g. $\alpha<50$ → normal, $50\le\alpha<100$ → fallback, $\alpha\ge 100$ → stop), $V_{\mathrm{order}}$ can be replaced by a direct **state-transition violation**:
+
+$$V_{\mathrm{trans}} = \mathbb E\!\big[\mathbf 1\big[\text{observed state}\big(R_\pi(\alpha)\big) \neq \text{declared state at }\alpha\big]\big].$$
+
+The body keeps $D(R_\pi, \mathcal R_{\mathcal C})$ as the **theoretical definition**; experiment implementations uniformly go through $V_{\mathrm{order}}$ or $V_{\mathrm{trans}}$, so a benchmark paper can copy the estimator directly.
 
 The response property $R$ is task-defined and may take **variance / action norm / fallback probability / safety margin / stop probability** — **it must be the same $r$ declared in §5.1 Type II**, otherwise training and evaluation talk past each other. Flat is not automatically bad, as long as it matches some legal curve in $\mathcal R_{\mathcal C}$.
 
@@ -707,7 +777,34 @@ $$\mathrm{CAG}_X^{\mathrm{fixed}} \;=\; J_{\mathrm{full}}^{\theta^*} - J_{\mathr
 
 where $\theta^*$ is the original trained parameters and $\theta^*_X$ is a fresh parameter set **retrained under collapsed representation $X$**. **This piece's compliance evidence uses only $\mathrm{CAG}^{\mathrm{fixed}}$; $\mathrm{CAG}^{\mathrm{retrained}}$ is an architecture-paper question, not this piece's.**
 
-**Reviewers are also right that $\mathrm{CAG}_X$ alone cannot distinguish "policy not using contract" from "contract not informative enough for this task", nor rule out a shortcut.** This version adds an **oracle privileged-state baseline**:
+**v6 addition · Matched null control** — this is the step the reviewer pressed on hardest. The $\mathrm{CAG}^{\mathrm{fixed}}$ above has a **very easy misreading**: after $\mathrm{collapse}_X$, the input the policy receives is likely **no longer in the training distribution**. For example, during training the hypothesis payload looks like
+
+```text
+hypothesis = [(μ1, Σ1, w1), (μ2, Σ2, w2), ...]
+```
+
+After collapse it becomes
+
+```text
+collapse_hyp → a single Gaussian (μ̄, Σ̄)
+```
+
+So what the policy actually encounters may **not** be "the contract information has been removed"; it may just be **"the input format suddenly became something the model has never seen"** — then $\mathrm{CAG} > 0$ can be pure **OOD sensitivity**, with nothing to do with whether contract semantics is being used. This version therefore adds a **matched null control** to CAG:
+
+**Format-preserving null intervention** $S \mapsto \tilde S$ satisfies four properties:
+
+- same **shape** as the collapsed version (also folded into "a single Gaussian");
+- same **marginal distribution** as $S$ (e.g. $\tilde\mu$ sampled from one component of the original mixture according to weights);
+- **decision-relevant information preserved** (e.g. retain the top-1 hypothesis's mode identity);
+- **irrelevant semantics changed** (e.g. apply a random permutation to the hypothesis index, shuffle the component's provenance tag, keeping shape and marginals intact).
+
+Run the same $\theta^*$ and obtain $\Delta J_{\mathrm{null}} = J_{\mathrm{full}}^{\theta^*} - J_{\mathrm{null}}^{\theta^*}$. **A benchmark reporting CAG must show $\Delta J_{\mathrm{null}}$ alongside it**:
+
+$$\boxed{\;\text{CAG counts as evidence of contract-use only when } \Delta J_{\mathrm{contract}} \gg \Delta J_{\mathrm{null}};\;\text{otherwise it is OOD sensitivity}.\;}$$
+
+This step peels the "policy just dislikes format change" alternative hypothesis out of CAG. One concrete control experiment the reviewer suggested for §6.5 shortcut detection: **retrain a control policy on a version of the training set where the correlation between `age` and `task difficulty` is broken** (shuffle `age` relative to difficulty labels), then observe whether §5.1 Type I/II pass and the CAG relationship changes — if correlation-shuffling drives CAG to zero, the original CAG was a shortcut; if CAG survives the shuffle, the policy is genuinely reading contract semantics.
+
+**Reviewers are also right that $\mathrm{CAG}_X$ alone cannot distinguish "policy not using contract" from "contract not informative enough for this task", nor rule out a shortcut.** This version also adds an **oracle privileged-state baseline**:
 
 $$J_{\mathrm{oracle}} \;=\; J(\pi^{*}_{\mathrm{oracle}} \mid s^{\mathrm{priv}}), \qquad \mathrm{Gap}_{\mathrm{oracle}} \;=\; J_{\mathrm{oracle}} - J_{\mathrm{full}}.$$
 
@@ -735,28 +832,43 @@ Actively drive §5.3's $\mathrm{certification}_j$ to **unsafe** or **unknown** i
 
 The four types together form a **multi-evidence compliance argument**: **semantic measures "does it respond by rule", representation measures "is the information still there (and independent of raw observation)", decision measures "did it use it / is there a shortcut", safety measures "does the guardrail tighten when things degrade"**. None of them replaces an end-to-end success rate — they measure the policy-side **read-completeness** of the contract, not the policy's **expressive power**. This aligns fully with §0.3 Claim 3: **contract compliance must be tested by controlled intervention and supported by a conjunction of four evidence types**.
 
-### 6.7 The theoretical skeleton table of this piece (v5 revision: three losses + one obligation)
+### 6.7 The theoretical skeleton table (v6 revision: three losses + one obligation + five-layer evaluation hierarchy)
 
 Compress §0 through §6 into one table — this is what a reviewer most wants to see:
 
 | Layer | Object | Failure | Evidence |
 |---|---|---|---|
 | Contract | $\mathcal C$ | schema ambiguity / version mismatch | schema audit + compatibility check |
-| Declaration | $q_\pi$ (induced by $\mathcal C_\pi$ + $Q_{\mathcal C_\pi}$) | undeclared semantic collapse | quotient audit (can you display a $Q_{\mathcal C_\pi}$ list?) |
+| Declaration | $q_\pi$ (induced by $\mathcal C_\pi = (Q_\pi, \mathcal O_\pi, V_\pi)$) | undeclared semantic collapse | quotient audit — can you display a $Q_{\mathcal C_\pi}$ list? does the declared set upper-cover required queries along subsumption? |
 | Projection | $\Pi_\pi = e_\pi\circ q_\pi$ | residual contract information | conditional probe $I(\text{field};z_\pi\mid o)$ |
-| Decision | $\pi_\theta$ | wrong use / shortcut / collapse rate | Type I equivariance + Type II order-constrained + Type III ablation + $L_{\mathrm{decision}}$ |
+| Decision | $\pi_\theta$ | wrong use / shortcut / collapse rate | Type I equivariance + Type II order-constrained + Type III ablation + $L_{\mathrm{decision}}$ + §6.2 $E_{\mathrm{contract}}$ / HPC / HSS |
 | Safety | $g_{\mathrm{safety}}$ | unsafe interpretation of invalid / unknown evidence | constraint certification intervention (does it **tighten**, not **relax**) |
 
-**Three semantic losses + one safety obligation**:
+**Three semantic losses + one safety obligation** (v6 form, aligned with §0.2.2):
 
 $$\boxed{\begin{aligned}
-L_{\mathrm{declared}} &: \;\textstyle\sum_{q\in Q_{\mathcal C}^{\mathrm{req}}} w_q\,\mathbf 1[q\notin Q_{\mathcal C_\pi}];\\[1mm]
-L_{\mathrm{projection}} &= I(Y_\pi;\hat S\mid Z_\pi, O, L);\\[1mm]
+L_{\mathrm{declared}} &: \;\textstyle\sum_{q\in Q_{\mathcal C}^{\mathrm{req}}} w_q\,\mathbf 1\!\big[\nexists\, q' \in Q_{\mathcal C_\pi}:\, q' \succeq q\big];\\[1mm]
+L_{\mathrm{projection}} &= I\!\big(Y_{\mathcal C}^{\pi};\hat S \mid Z_\pi, O, L\big);\\[1mm]
 L_{\mathrm{decision}} &= \mathbb E_{\mathcal R_{\mathcal D}}\!\big[\mathbf 1[D_{\mathcal A}(\pi_\theta(\cdot\mid\hat S),\pi_\theta(\cdot\mid\hat S'))<\epsilon]\big];\\[1mm]
-\mathcal O_{\mathrm{safety}} &: \;\text{safe → relax allowed; unknown / invalid → tighten or stop.}
+\mathcal O_{\mathrm{safety}} &: \;\text{safe} \Rightarrow \text{relaxation permitted (constraint policy still applies);}\\
+&\quad \text{unsafe} \Rightarrow \text{tighten or stop};\quad \text{unknown} \Rightarrow \text{conservative fallback}.
 \end{aligned}}$$
 
-Three losses sit on $q_\pi / \Pi_\pi / \pi_\theta$ respectively, safety obligation sits on $g_{\mathrm{safety}}$; **all four are audited independently and together form a compliance argument**. This is the concrete shape of the piece's journey from "add metadata to a VLA" to "contract-aware policy design".
+The three losses sit on $q_\pi / \Pi_\pi / \pi_\theta$ respectively, and the safety obligation sits on $g_{\mathrm{safety}}$ — **four separately auditable failure sites** that together form a compliance argument. **Note v6's wording**: the paper does **not** claim these four slots are "statistically independent" (the reviewer was right: changing $L_{\mathrm{declared}}$ changes $q_\pi$, changing $q_\pi$ changes the admissible quotient at $\Pi_\pi$, which in turn changes the evaluation set for $L_{\mathrm{decision}}$ — the four are **sequentially coupled**; each only localizes to an openable audit site). This is the concrete shape of the piece's journey from "add metadata to a VLA" to "contract-aware policy design".
+
+**v6 second table · Five-layer evaluation hierarchy** — the single most valuable table the reviewer suggested adding. This piece has been implicitly trying to distinguish "is the information still there / is it enough / is it used / is using it worth it / how does the filter react when evidence is uncertain"; before v6 these were scattered across §6.1–§6.6 without a unifying frame. This table is the piece's evaluation-layer **type system**:
+
+| Layer | Question | Primary metric / primitive | What separates it from the others |
+|---|---|---|---|
+| **Retention** | Is the contract field still in $z_\pi$? | Conditional probe $I(\text{field}; z_\pi \mid o)$ | Only "is it there", not "is it enough" |
+| **Sufficiency** | Given $z_\pi$ and side info, can we answer $Y_{\mathcal C}^{\pi}$? | $L_{\mathrm{projection}} = I(Y_{\mathcal C}^{\pi};\hat S\mid Z_\pi,O,L)$ | Conditional MI = 0; does not claim representation-level injectivity |
+| **Behavioral use** | Does the policy respond legally to contract interventions? | Type I equivariance / Type II order-constrained / §6.2 $E_{\mathrm{contract}}(T_k)$ vs $\mathcal R_{\mathcal C}$ | Bound to "is the response legal", not to final utility |
+| **Utility** | Using contract information — did the decision actually improve? | $\mathrm{CAG}^{\mathrm{fixed}}$ + §6.2 HPC ($T^{\mathrm{world}}$ form) + §6.4 $\Delta J_{\mathrm{where/dep/neg}}$ | Must be paired with matched null + oracle baseline, otherwise it is only OOD sensitivity |
+| **Safety** | Does the filter take a conservative reaction under unknown / invalid evidence? | §6.6 constraint certification intervention + §5.3 three-state certification + $\mathcal O_{\mathrm{safety}}$ | Independent of "did the policy use the contract" — measures whether the filter backs it up |
+
+These five layers are **stepwise progressive but not mutually implying**. Retention passing does not imply Sufficiency (the field can be present yet not enough to answer a query); Sufficiency does not imply behavioral use (enough information does not mean the policy reads it); behavioral use does not imply utility (the response can be legal yet utility still low, because contract may not be the current bottleneck); and utility is fully orthogonal to safety (the filter's backstop is a different fact from the policy's task performance). **These four non-implications are exactly the motivation** for §6.2's $E_{\mathrm{contract}}$ / HPC split, §6.5's CAG fixed / retrained split, and §6.6's separate constraint-certification intervention. **Retention ≠ Sufficiency ≠ Use ≠ Utility ≠ Safety** — this line was implicit before v6 and is now explicit.
+
+Together, §6.7's two tables carry the theoretical skeleton of the piece's evaluation section: the first maps losses / obligation to four auditable pipeline sites; the second maps evidence to five non-implicational layers. These two tables are the piece's most direct interface for moving from a conceptual article to a benchmark-protocol article.
 
 ## 7. A minimal executable interface sketch
 
@@ -774,21 +886,33 @@ class StructuredStateView:
             consumer_contract.supported_version,
             adapter=consumer_contract.adapter,   # may be None -> strict fail
         )
+        # v6 P1-10: fail-closed is actually enforced, not just recorded.
+        if not self.compatibility.accepted:
+            raise SchemaCompatibilityError(
+                f"schema_version={contract.schema_version} incompatible with "
+                f"supported_version={consumer_contract.supported_version}; "
+                f"either upgrade C_pi or provide an explicit adapter."
+            )
         self.contract = contract
         self.C_pi = consumer_contract
         self.Q = query_family
         self.Q_req = required_queries
 
     def declared_coverage_loss(self) -> float:
-        # L_declared = sum_{q in Q_req} w_q * 1[q not in Q_C_pi]
-        return sum(self.Q_req[q].weight for q in self.Q_req if q not in self.Q)
+        # v6 P1-4: L_declared via query subsumption, not literal set membership.
+        # A required q is covered if ∃ q' ∈ Q_C_pi such that q' ≽ q.
+        def covered(q):
+            return any(self.Q[q2].subsumes(q) for q2 in self.Q)
+        return sum(self.Q_req[q].weight for q in self.Q_req if not covered(q))
 
     def project(
         self,
         schema: PolicySchema,
         # --- mode_select (mass-preserving, not calibration) ---------
         mode: Literal["map", "posterior_sample", "topk"] = "topk",
-        topk_residual: Literal["renormalize", "keep_residual"] = "renormalize",
+        # v6 P1-11: two ORTHOGONAL knobs (previously conflated in `topk_residual`)
+        topk_weight_mode: Literal["conditional", "raw"] = "conditional",
+        residual_mode: Literal["drop", "mass_only", "sufficient_stats"] = "mass_only",
         # --- staleness / uncertainty knobs --------------------------
         staleness: Literal["ignore", "parallel_field", "condition"] = "parallel_field",
         uncertainty: Literal["none", "conservative_inflation", "propagate"] = "conservative_inflation",
@@ -797,6 +921,8 @@ class StructuredStateView:
         dependency: Literal["ignore", "logit_bias_learned",
                             "covariance_fusion", "hierarchical_mixture"] = "covariance_fusion",
         negative_evidence: Literal["ignore", "condition", "belief_update"] = "condition",
+        # --- v6 P1-12: benchmark-side RNG control -------------------
+        benchmark_rng: Optional[np.random.Generator] = None,
     ) -> PolicyInput:
         """
         Project StructuredState (upstream, 9/14) to PolicyInput (downstream, this piece).
@@ -804,6 +930,12 @@ class StructuredStateView:
         e_pi is the encoder of the specific backbone and must not silently drop anything
         q_pi declared preserved; pi_theta may further collapse distinctions at the
         action level (see §0.2.2: three semantic losses + one safety obligation).
+
+        Benchmark note (v6 P1-12): when `mode='posterior_sample'` is used inside an
+        intervention benchmark (T_i vs T_j), the caller MUST pass a shared `benchmark_rng`
+        so both arms consume common random numbers. Otherwise the observed distance
+        D(π(T_i S), π(T_j S)) mixes intervention effect with sampling noise and
+        contaminates HSS / SDS / E_contract.
         """
         slots = {}
         for field_name in schema.fields:
@@ -811,20 +943,28 @@ class StructuredStateView:
 
             # --- mode_select: mass-preserving top-k (NOT calibration-aware) ---
             if mode == "map":
-                mu, Sigma, w_payload, residual = h.most_likely().mu, h.most_likely().Sigma, None, None
+                mu, Sigma, w_payload, residual_declared = h.most_likely().mu, h.most_likely().Sigma, None, None
             elif mode == "posterior_sample":
-                mu, Sigma, w_payload, residual = h.sample().mu, h.sample().Sigma, None, None
+                rng = benchmark_rng or h.default_rng   # v6: shared RNG in benchmark mode
+                sample = h.sample(rng=rng)
+                mu, Sigma, w_payload, residual_declared = sample.mu, sample.Sigma, None, None
             else:  # "topk"
                 top = h.top_k(k=schema.k_per_field[field_name])
-                residual = 1.0 - top.total_weight()
-                if topk_residual == "renormalize":
+                residual_mass = 1.0 - top.total_weight()
+                # v6 P1-11: weight handling and residual handling are ORTHOGONAL.
+                if topk_weight_mode == "conditional":
                     w_payload = top.renormalize()          # sum w̃_i = 1 within top-k
-                else:  # "keep_residual"
-                    w_payload = top.weights                 # raw weights kept
-                residual_declared = residual                # explicitly recorded, not silently dropped
-                # NOTE: `residual_declared` is AGGREGATE residual mass, not residual sufficient
-                # statistics. Strict posterior update over the residual component still requires
-                # separate mu/Sigma/likelihood specifications (see §4.1 v5 caveat).
+                else:  # "raw"
+                    w_payload = top.weights                # raw weights kept
+                # residual_mode expresses what we DO with the discarded mass:
+                if residual_mode == "drop":
+                    residual_declared = None               # explicitly dropped, not silently
+                elif residual_mode == "mass_only":
+                    residual_declared = residual_mass      # aggregate residual mass only
+                else:  # "sufficient_stats"
+                    residual_declared = h.residual_sufficient_stats()  # full μ/Σ/likelihood
+                # NOTE: mass_only ≠ sufficient_stats. Strict Bayesian update over the residual
+                # component requires separate mu/Sigma/likelihood specifications (see §4.1).
                 # Calibration (ECE_top-k / NLL / Brier) is measured in §6.2, NOT here.
 
             # --- age_gate: three groups, never multiplicative on mu ---
@@ -858,7 +998,7 @@ class StructuredStateView:
                 alpha=age, validity=validity, iota=availability,   # v5: α / ι names
                 health=health, latency_status=latency,
                 trust=trust, w_payload=w_payload,
-                residual_declared=(residual if mode == "topk" else None),
+                residual_declared=(residual_declared if mode == "topk" else None),
             )
 
         # --- provenance / dependency / negative evidence, three reads ---
@@ -887,25 +1027,36 @@ class StructuredStateView:
 
 
 class SafetyFilterHead(nn.Module):
-    """v5: safety is not a fourth information loss; it is a distinct obligation slot.
+    """v6: safety is not a fourth information loss; it is a distinct obligation slot.
     Reads three-state certification, NOT a binary validity bit.
+    Multi-constraint combination is INTERSECTION, not short-circuit on first unsafe/unknown.
     """
+    def __init__(self):
+        super().__init__()
+
     def forward(self, a_proposed, contract) -> Action:
+        # g_safety = ⋂_j g_j — every constraint contributes its own allowed subset,
+        # we compose them; we never `return` early on the first tightening.
+        a_applied = a_proposed
         for j, constraint in enumerate(contract.constraints):
             cert = constraint.certification      # ∈ {safe, unsafe, unknown}
             if cert == "safe":
-                continue                         # relaxation allowed by positive evidence
-            if cert == "unsafe":
-                return tighten_or_stop(a_proposed, constraint)
-            if cert == "unknown":
+                # safe → relaxation is PERMITTED, not required: constraint policy
+                # still applies at its normal margin. Do NOT skip this constraint.
+                a_applied = allow_normal_margin(a_applied, constraint)
+            elif cert == "unsafe":
+                a_applied = tighten_or_stop(a_applied, constraint)
+            elif cert == "unknown":
                 # invalid evidence ALONE cannot justify relaxing the constraint.
-                return conservative_fallback(a_proposed, constraint)
+                a_applied = conservative_fallback(a_applied, constraint)
+        return a_applied
 
 
 class ContractAwarePolicy(nn.Module):
     def __init__(self, backbone, schema: PolicySchema, cfg: ContractReadConfig,
                  consumer_contract: ConsumerContract, query_family: QueryFamily,
                  required_queries: QueryFamily):
+        super().__init__()                 # v6 P1-10: nn.Module init (was a real bug)
         self.backbone = backbone
         self.schema = schema
         self.cfg = cfg                 # cfg is a *materialization* of q_pi,
@@ -913,10 +1064,12 @@ class ContractAwarePolicy(nn.Module):
         self.Q = query_family
         self.Q_req = required_queries
         # three semantic loss sites + one safety obligation site:
-        #   L_declared     — on (C_pi, Q, Q_req): coverage of required queries
-        #   L_projection   — on Π_π output Z_π: I(Y_π; Ŝ | Z_π, O, L)
+        #   L_declared     — on (C_pi, Q, Q_req): coverage via query subsumption
+        #   L_projection   — on Π_π output Z_π: I(Y_C^π; Ŝ | Z_π, O, L)
         #   L_decision     — on π_θ: E_{R_D}[ 1[D_A(π(.|S), π(.|S')) < ε] ]
-        #   O_safety       — on g_safety: safe / unsafe / unknown response correctness
+        #   O_safety       — on g_safety: safe→allow_normal_margin /
+        #                                     unsafe→tighten_or_stop /
+        #                                     unknown→conservative_fallback
 
     def forward(self, state: StructuredState, obs, lang) -> ActionDistribution:
         x = StructuredStateView(state, self.C_pi, self.Q, self.Q_req).project(
@@ -926,13 +1079,13 @@ class ContractAwarePolicy(nn.Module):
 
 Three caveats written in stone:
 
-- **(i)** This is not the only way to read; **`cfg` is a materialization of §0.2's $q_\pi$, but the actual declared quotient is the pair $(\mathcal C_\pi, Q_{\mathcal C_\pi})$** — the same contract should be projected with different `cfg` by a VLA and a Diffusion Policy, and the optimal `uncertainty` differs between engineered-state heads and visual-latent heads. **The interface spec must display a $Q_{\mathcal C_\pi}$ list**, otherwise $q_\pi$ degenerates back into encoder behavior. **Schema compatibility must also fail-closed or run an explicit adapter (§0.2.3)** — otherwise when $\mathcal C$ upgrades to v2, new fields get silently dropped and the piece falls straight into the undeclared semantic loss it criticizes.
-- **(ii)** This interface **only addresses the input side**; §5.1's three-tier intervention constraints, §5.2's observed-metadata-only aug, §5.3's three-state certification direct wiring — if any one is left unchanged, $(\mathcal C_\pi, Q_{\mathcal C_\pi})$ may be written beautifully and still be routed around by $\pi_\theta$'s training dynamics ($L_{\mathrm{decision}}$ blows up directly). **Three losses plus one safety obligation — miss any one and the interface does not hold**.
+- **(i)** This is not the only way to read; **`cfg` is a materialization of §0.2's $q_\pi$, but the actual declared quotient is the pair $(\mathcal C_\pi, Q_{\mathcal C_\pi})$** — the same contract should be projected with different `cfg` by a VLA and a Diffusion Policy, and the optimal `uncertainty` differs between engineered-state heads and visual-latent heads. **The interface spec must display a $Q_{\mathcal C_\pi}$ list**, otherwise $q_\pi$ degenerates back into encoder behavior. **Schema compatibility must also fail-closed or run an explicit adapter (§0.2.3)** — the v6 code enforces this via `raise SchemaCompatibilityError`, not just by recording a compatibility object; otherwise when $\mathcal C$ upgrades to v2, new fields get silently dropped and the piece falls straight into the undeclared semantic loss it criticizes.
+- **(ii)** This interface **only addresses the input side**; §5.1's three-tier intervention constraints, §5.2's observed-metadata-only aug, §5.3's three-state certification direct wiring — if any one is left unchanged, $(\mathcal C_\pi, Q_{\mathcal C_\pi})$ may be written beautifully and still be routed around by $\pi_\theta$'s training dynamics ($L_{\mathrm{decision}}$ blows up directly). **Three losses plus one safety obligation — miss any one and the interface does not hold**. Recall v6's wording: the three losses sit at **separately auditable sites** (sequentially coupled through $q_\pi \to \Pi_\pi \to \pi_\theta$), not statistically independent losses.
 - **(iii)** `dependency="logit_bias_learned"` is a **convenient implementation candidate on transformer-family backbones, not the canonical default** — the field-graph → token-graph compilation problem ($R_{\text{field}} \to R_{\text{token}}$) itself is unsolved (§4.3.2 v5 caveat). MLP heads use `covariance_fusion`, Kalman / factor-graph fusion uses `covariance_fusion`, grouped latent uses `hierarchical_mixture` — **what is truly recommended is the `dependency_aware_fusion` primitive, not any one of its realizations**.
 
 ## 8. Three closing claims and one upgraded thesis (aligned with §0.3)
 
-> **Claim 1 · Contract semantics can be lost at the policy boundary.** A structured estimator output does not imply a structured policy input. The full policy pipeline $\mathcal C\to(\mathcal C_\pi,Q_{\mathcal C_\pi})\to q_\pi\to e_\pi\to\pi_\theta\to g_{\mathrm{safety}}$ is **an auditable semantic interface**: three losses sit on $q_\pi$ / $\Pi_\pi$ / $\pi_\theta$ respectively, and the fourth slot $g_{\mathrm{safety}}$ is **not a loss but an obligation**. Each of the three loss layers can be silently broken, corresponding to §0.2.2's three v5 definitions: $L_{\mathrm{declared}} = \sum_{q \in Q_{\mathcal C}^{\mathrm{req}}} w_q\,\mathbf 1[q \notin Q_{\mathcal C_\pi}]$ (weighted undeclared-query coverage), $L_{\mathrm{projection}} = I(Y_\pi;\hat S\mid Z_\pi, O, L)$ (post-projection conditional residual), and $L_{\mathrm{decision}} = \mathbb E_{\mathcal R_{\mathcal D}}[\mathbf 1[D_{\mathcal A}(\pi_\theta(\cdot\mid\hat S),\pi_\theta(\cdot\mid\hat S')) < \epsilon]]$ (action-relevant collapse rate). $\Pi_\pi$ injective **does not imply** $L_{\mathrm{decision}} = 0$ — this is the most important strengthening in this version.
+> **Claim 1 · Contract semantics can be lost at the policy boundary.** A structured estimator output does not imply a structured policy input. The full policy pipeline $\mathcal C\to(\mathcal C_\pi,Q_{\mathcal C_\pi})\to q_\pi\to e_\pi\to\pi_\theta\to g_{\mathrm{safety}}$ is **an auditable semantic interface**: the three losses localize to $q_\pi$ / $\Pi_\pi$ / $\pi_\theta$ respectively, and the fourth slot $g_{\mathrm{safety}}$ is **not a loss but an obligation** — together they form **four separately auditable failure sites** (v6 wording: **not four statistically independent losses**; the four are sequentially coupled through $q_\pi \to \Pi_\pi \to \pi_\theta$). Each of the three loss layers can be silently broken, corresponding to §0.2.2's three v6 definitions: $L_{\mathrm{declared}} = \sum_{q \in Q_{\mathcal C}^{\mathrm{req}}} w_q\,\mathbf 1[\nexists\, q' \in Q_{\mathcal C_\pi}: q' \succeq q]$ (required queries not upper-covered by $\mathcal C_\pi$ along the subsumption order), $L_{\mathrm{projection}} = I(Y_{\mathcal C}^{\pi};\hat S\mid Z_\pi, O, L)$ ($Y_{\mathcal C}^{\pi}$ is defined by the Consumer Contract, not an arbitrary latent inside the benchmark), and $L_{\mathrm{decision}} = \mathbb E_{\mathcal R_{\mathcal D}}[\mathbf 1[D_{\mathcal A}(\pi_\theta(\cdot\mid\hat S),\pi_\theta(\cdot\mid\hat S')) < \epsilon]]$ (action-relevant pair collapse rate; $D_{\mathcal A}$ belongs to the same family as §6.2's HSS). $\Pi_\pi$ injective **does not imply** $L_{\mathrm{decision}} = 0$ — this is the most important strengthening of v6, and it is exactly the loss-layer counterpart of §6.7's **five-layer evaluation hierarchy** (Retention ≠ Sufficiency ≠ Behavioral use ≠ Utility ≠ Safety).
 
 > **Claim 2 · Contract preservation is not architecture-specific.** Engineered-state heads, latent visuomotor policies, autoregressive VLAs, diffusion and flow policies all use different conditioning and action generators — but as contract consumers they must answer **the same four questions** (this piece's real thesis, boxed below). The target of criticism is the interface contract, not the model architecture; π0 is VLA + flow matching, Diffusion Policy is visual-latent + diffusion, ACT is visual-latent + generative sequence decoder — **slicing along two orthogonal dimensions is closer to reality than three families, and less easily misled by the intuition "some family is inherently better"**.
 
@@ -948,20 +1101,20 @@ And further:
 
 $$\boxed{\;\textbf{A policy is a contract consumer, not merely a function approximator.}\;}$$
 
-And a contract consumer must answer at least four questions:
+And a contract consumer must answer at least four questions (v6 wording, fully aligned with §0.2's $\mathcal C_\pi = (Q_\pi, \mathcal O_\pi, V_\pi)$ decomposition):
 
 $$\boxed{\begin{array}{ll}
-\text{1.} & \textbf{What may I discard?} \quad (q_\pi, \mathcal C_\pi, Q_{\mathcal C_\pi},\, L_{\mathrm{declared}})\\[2mm]
-\text{2.} & \textbf{What did I actually retain?} \quad (\Pi_\pi = e_\pi\circ q_\pi,\; L_{\mathrm{projection}})\\[2mm]
-\text{3.} & \textbf{How should decisions respond to contract interventions?} \quad (\pi_\theta,\; L_{\mathrm{decision}})\\[2mm]
-\text{4.} & \textbf{What happens when the evidence becomes invalid or unknown?} \quad (g_{\mathrm{safety}},\; \mathcal O_{\mathrm{safety}})
+\text{1.} & \textbf{What may I discard?} \quad (q_\pi;\;\mathcal C_\pi=(Q_\pi,\mathcal O_\pi,V_\pi);\;L_{\mathrm{declared}}\text{ via query subsumption }q'\succeq q)\\[2mm]
+\text{2.} & \textbf{What did I actually retain?} \quad (\Pi_\pi = e_\pi\circ q_\pi,\; L_{\mathrm{projection}}=I(Y_{\mathcal C}^{\pi};\hat S\mid Z_\pi,O,L))\\[2mm]
+\text{3.} & \textbf{How should decisions respond to contract interventions?} \quad (\pi_\theta,\; L_{\mathrm{decision}};\;\text{§6.2: }E_{\mathrm{contract}}(T^{\mathrm{contract}})\text{ for interface compliance, }\mathrm{HPC}(T^{\mathrm{world}})\text{ for decision competence})\\[2mm]
+\text{4.} & \textbf{What happens when the evidence becomes invalid or unknown?} \quad (g_{\mathrm{safety}}=\bigcap_j g_j;\;\text{safe}\Rightarrow\text{relaxation permitted},\;\text{unsafe}\Rightarrow\text{tighten or stop},\;\text{unknown}\Rightarrow\text{conservative fallback})
 \end{array}}$$
 
 Once these four questions stand, **VLA / Diffusion / Flow / ACT / SAC / PPO are all just implementation coordinates, no longer theoretical classifications**.
 
 And §6's intervention battery, no longer just "a benchmark for the next piece", becomes the **experimental closure** of this piece's theoretical frame:
 
-$$\boxed{\;\mathcal C\;\longrightarrow\;\mathcal C_\pi\;\longrightarrow\;q_\pi\;\longrightarrow\;e_\pi\;\longrightarrow\;\pi_\theta\;\longrightarrow\;g_{\mathrm{safety}}\;\longrightarrow\;\mathcal B_{\mathcal C},\quad \mathcal B_{\mathcal C} = \{T_{\mathrm{frame}},\,T_{\mathrm{hyp}},\,T_{\alpha},\,T_{\mathrm{validity}},\,T_{\mathrm{prov}},\,T_{\mathrm{neg}}\}.\;}$$
+$$\boxed{\;\mathcal C\;\longrightarrow\;(\mathcal C_\pi, Q_{\mathcal C_\pi})\;\longrightarrow\;q_\pi\;\longrightarrow\;e_\pi\;\longrightarrow\;\pi_\theta\;\longrightarrow\;g_{\mathrm{safety}}\;\longrightarrow\;\mathcal B_{\mathcal C},\quad \mathcal B_{\mathcal C} = \{T_{\mathrm{frame}},\,T_{\mathrm{hyp}},\,T_{\alpha},\,T_{\mathrm{validity}},\,T_{\mathrm{prov}},\,T_{\mathrm{neg}}\}.\;}$$
 
 The next piece can directly stand up a **Contract-Preserving Policy Benchmark** — run SAC / PPO / Diffusion Policy / ACT / OpenVLA / π0 through the same $\mathcal B_{\mathcal C}$ intervention suite, with each loss segment matched to its own measurable. At that point this series upgrades from "I think policy should read contract" to **"given the same Structured State Contract, how do we systematically test whether different policies are contract-compliant"**. Stand that line up, and the series has been worth it.
 
@@ -972,9 +1125,8 @@ All arXiv IDs below have been verified online; journal-only citations do not car
 ### A · VLA family (supports §1 grid, §3 Failures 1–2, §5.1 Class B)
 
 - Brohan et al., *RT-2: Vision-Language-Action Models Transfer Web Knowledge to Robotic Control*, CoRL 2023 · [arXiv:2307.15818](https://arxiv.org/abs/2307.15818) (**paper fact**: robot actions explicitly expressed as text tokens, jointly fine-tuned with a VLM. §3.2 Failure 2's tokenizer-side shape; "contract flattening" is this piece's analysis, not an admitted limitation of the paper)
-- Kim et al., *OpenVLA: An Open-Source Vision-Language-Action Model*, CoRL 2024 · [arXiv:2406.09246](https://arxiv.org/abs/2406.09246) (**paper fact**: 7B VLA trained on large-scale robot demonstrations, emphasizing fine-tuning and generalization; **this piece's analysis**: configurations include multi-camera / depth / proprioceptive state encoding, but "supports input" ≠ "how far along the contract chain the policy reads")
-- Black et al., *$\pi_0$: A Vision-Language-Action Flow Model for General Robot Control*, 2024 · [arXiv:2410.24164](https://arxiv.org/abs/2410.24164) (**paper fact**: pretrained VLM + proprio token + noisy action chunk + flow matching; **this piece's analysis**: Under the Structured State Contract defined here, π0's conditioning interface does not expose an explicit slot for hypothesis / provenance / age / negative evidence — "Continuous actions do not imply structured state semantics" is this piece's analysis, not the paper's self-declared limitation)
-- Octo Model Team, *Octo: An Open-Source Generalist Robot Policy*, RSS 2024 · [arXiv:2405.12213](https://arxiv.org/abs/2405.12213) (transformer-based readout · a reference for the logit_bias_learned path within §4.3.2's dependency_aware_fusion)
+- Kim et al., *OpenVLA: An Open-Source Vision-Language-Action Model*, CoRL 2024 · [arXiv:2406.09246](https://arxiv.org/abs/2406.09246) (**paper fact**: 7B VLA trained on large-scale robot demonstrations; the specific "multi-camera + depth + proprioceptive state encoding" configuration is what §4 "Model Architecture & Training", Table 2, and §5.1 report — **not an abstract-level claim**. **This piece's analysis**: even cited at the implementation-section level, "which input modality is supported" ≠ "how far along the contract chain the policy reads" — this piece's critique of OpenVLA is an interface analysis, not an admitted limitation of the original paper)
+- Black et al., *$\pi_0$: A Vision-Language-Action Flow Model for General Robot Control*, 2024 · [arXiv:2410.24164](https://arxiv.org/abs/2410.24164) (**paper fact**: pretrained VLM + proprio token + noisy action chunk + flow matching; **this piece's analysis**: Under the Structured State Contract defined here, π0's **standard conditioning interface does not expose an explicit first-class contract slot** for hypothesis / provenance / age / negative evidence — note the wording is "the standard conditioning interface does not expose a first-class slot", **not** "π0 has lost provenance"; provenance was never promised by π0's conditioning interface in the first place. **"Continuous actions do not imply structured state semantics" is this piece's analysis, not the paper's self-declared limitation**)
 
 ### B · Diffusion / Generative-Sequence / Flow-Matching Policy (supports §1 grid, §5.1)
 
