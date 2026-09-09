@@ -74,7 +74,7 @@ $$\boxed{\;\mathcal C\;\longrightarrow\;(\mathcal C_\pi,\,Q_{\mathcal C_\pi})\;\
 | `age_gate`（§4.2） | order-constrained staleness response（consumer-declared order）| §1.1 类别 B **Type II**（order-constrained）+ §1.2 $T^{\mathrm{stale}} / T^{\mathrm{latency}}$ aug |
 | `provenance_harden` / `dependency_aware_fusion` / `negative_evidence_read`（§4.3） | 不预设响应方向、只要求"removed evidence 若 decision-relevant 则 utility 应降" + safety 三态 | §1.1 类别 B **Type III**（unconstrained、训练侧**不进 loss**、只在 evaluation 侧 §2.4 拆三条 $\Delta J$）+ §1.2 $T^{\mathrm{missing}} / T^{\mathrm{bias}}$ + §1.3 三态 certification |
 
-一句话读法：§1 不是"给训练加约束"、是"把 前篇 §4 的读法在 loss / aug / filter 三处**翻译成工程实现**"、每一行三列都是同一件事的三种写法。**Type I/II/III 与 §4.1/§4.2/§4.3 的对应关系是本文 §1 与 §2 之间的结构性锚点**——**Type I 与 Type II 是训练侧真约束**（写进 loss）、**Type III 是训练侧无约束、只在 evaluation 侧 §2.4 出现**（reviewer 抓过这一点、上一版把 Type III 也写成训练约束、其实 §1.1 的原文是"不做任何 intervention consistency、只在 evaluation 阶段做 ablation"）。这一区分保证 §1.1 的三档不是随意选的、而是被 前篇 §4 primitives 逼出来的、也保证 §2 的 evaluation 不会测到训练没做过的东西。
+一句话读法：§1 不是"给训练加约束"、是"把 前篇 §4 的读法在 loss / aug / filter 三处**翻译成工程实现**"、每一行三列都是同一件事的三种写法。**Type I/II/III 与 §4.1/§4.2/§4.3 的对应关系是本文 §1 与 §2 之间的结构性锚点**——**Type I 与 Type II 是训练侧真约束**（写进 loss）、**Type III 是训练侧无约束、只在 evaluation 侧 §2.4 出现**（reviewer 抓过这一点、上一版把 Type III 也写成训练约束、其实 §1.1 的原文是"不做任何 intervention consistency、只在 evaluation 阶段做 ablation"）。这一区分保证 §1.1 的三档不是随意选的、而是被 前篇 §4 primitives 逼出来的、也保证 §2 的 evaluation 不会把训练侧没显式约束的内容当成有约束来验证训练合规性。
 
 ### 1.1 两类训练约束：representation-side probe + 三类 intervention consistency
 
@@ -235,7 +235,7 @@ $$\boxed{\;\text{Compliance Evidence} \;=\; \big\{E_{\mathrm{semantic}},\;E_{\ma
 | Layer | Object | Failure | Evidence | Evidence 定义在 § | Loss / Obligation 兑现 |
 |---|---|---|---|---|---|
 | Contract | $\mathcal C$ | schema ambiguity / version mismatch | schema audit + compatibility check | 前篇 §0.2.3 + 本文 §3（`SchemaCompatibilityError` fail-closed） | —— (前置条件、不产 loss) |
-| Declaration | $q_\pi$（由 $\mathcal C_\pi = (Q_\pi, \mathcal O_\pi, V_\pi)$ 诱导） | undeclared semantic collapse | quotient audit（能贴出 $Q_{\mathcal C_\pi}$ 清单吗？subsumption 覆盖吗？） | 前篇 §0.2.2（query subsumption 定义） + §0.2.3（version compatibility） + 本文 §2.0 boxed 公式 | $L_{\mathrm{declared}} = \sum w_q \mathbf 1[\nexists q' \succeq q]$（§2.0 boxed） |
+| Declaration | $q_\pi$（由 $\mathcal C_\pi = (Q_\pi, \mathcal O_\pi, V_\pi)$ 诱导） | undeclared semantic collapse | quotient audit（能贴出 $Q_{\mathcal C_\pi}$ 清单吗？subsumption 覆盖吗？） | 前篇 §0.2.2（query subsumption 定义） + §0.2.3（version compatibility） + 下方 $L_{\mathrm{declared}}$ boxed 公式 | $L_{\mathrm{declared}} = \sum w_q \mathbf 1[\nexists q' \succeq q]$（§2.0 boxed） |
 | Projection | $\Pi_\pi = e_\pi\circ q_\pi$ | residual contract information | conditional probe $I(\text{field};z_\pi\mid o)$ | §2.2（本节上半） | $L_{\mathrm{projection}} = I(Y_{\mathcal C}^{\pi};\hat S\mid Z_\pi,O,L)$ |
 | Decision | $\pi_\theta$ | wrong use / shortcut / collapse rate | Type I equivariance + Type II order-constrained + Type III ablation + $L_{\mathrm{decision}}$ | §2.1（Type I）· §2.2（$E_{\mathrm{contract}}$ / HPC / HSS）· §2.3（SDS temporal）· §2.4（source 三切片）· §2.5（CAG utility） | $L_{\mathrm{decision}} = \mathbb E[\mathbf 1[D_{\mathcal A}(\cdot)<\epsilon]]$ |
 | Safety | $g_{\mathrm{safety}}$ | unsafe interpretation of invalid / unknown evidence | constraint certification intervention（是否**收紧**、而不是**放松**） | §2.6 · 训练时对 §1.3 | $\mathcal O_{\mathrm{safety}}$：safe → relaxation permitted / unsafe → tighten or stop / unknown → conservative fallback |
@@ -258,7 +258,7 @@ L_{\mathrm{decision}} &= \mathbb E_{\mathcal R_{\mathcal D}}\!\big[\mathbf 1[D_{
 |---|---|---|---|---|---|
 | **Retention** | contract field 在 $z_\pi$ 里还在吗？ | conditional probe $I(\text{field}; z_\pi \mid o)$ | 只测"在不在"、不测"够不够" | §2.2 上半 | §1.1 类别 A（representation-side probe） |
 | **Sufficiency** | $z_\pi$ 加 side information 是否足以回答 $Y_{\mathcal C}^{\pi}$？ | $L_{\mathrm{projection}} = I(Y_{\mathcal C}^{\pi};\hat S\mid Z_\pi,O,L)$ | conditional MI = 0、不宣称 representation-level injective | §2.2 上半 + §2.0 boxed | §1.1 类别 A |
-| **Behavioral use** | policy 对 contract intervention 响应是否合法？ | Type I equivariance / Type II order-constrained / §2.2 $E_{\mathrm{contract}}(T_k)$ vs $\mathcal R_{\mathcal C}$ | 与"响应对不对"绑定、不测最终 utility | §2.1 · §2.2 · §2.3 · §2.4 | §1.1 类别 B（三类 intervention consistency） |
+| **Behavioral use** | policy 对 contract intervention 响应是否合法？ | Type I equivariance / Type II order-constrained / §2.2 $E_{\mathrm{contract}}(T_k)$ vs $\mathcal R_{\mathcal C}$ | 与"响应对不对"绑定、不测最终 utility | §2.1 · §2.2 · §2.3 · §2.4 | §1.1 类别 B（Type I / II 训练约束；Type III 不进 loss、evaluation 侧走 §2.4） |
 | **Utility** | 用了 contract 信息、decision 真的改善了吗？ | $\mathrm{CAG}^{\mathrm{fixed}}$ + §2.2 HPC（$T^{\mathrm{world}}$ 版）+ §2.4 $\Delta J_{\mathrm{where/dep/neg}}$ | 必须配 matched null 与 oracle baseline、避免只是 OOD sensitivity | §2.5 · §2.2 HPC · §2.4 | §1.2 augmentation（degradation as causal operator） |
 | **Safety** | 不确定 / 无效 evidence 时有没有保守反应？ | §2.6 constraint certification intervention + §1.3 三态 certification + $\mathcal O_{\mathrm{safety}}$ | 独立于"policy 用没用 contract"、测的是 filter 有没有兜住 | §2.6 | §1.3 safety filter 三态化 |
 
@@ -459,11 +459,11 @@ $$\boxed{\;\mathrm{CAG} \;=\; \text{task-conditional utility sensitivity}.\;}$$
 | **对象类型** | **action-set**——世界 $k$ 里的 optimal / admissible action 集合 | **policy**——允许直接读 privileged state $s^{\mathrm{priv}}$ 的一份策略 |
 | **定义来源** | simulator 世界 $k$ 的 ground-truth state + reward | 在 simulator privileged state 上跑 planner / expert 得到的 $\pi^*_{\mathrm{oracle}}$ |
 | **测什么** | $U(\pi_\theta, \mathcal{A}^*_k) = \Pr_{a \sim \pi_\theta}[a \in \mathcal{A}^*_k]$——**counterfactual world 下** policy 输出 action 落在该世界最优集合的概率 | $J_{\mathrm{oracle}} = J(\pi^*_{\mathrm{oracle}} \mid s^{\mathrm{priv}})$——**同一份 eval 分布**上、看得见全部 state 时的 task-utility upper bound |
-| **落到哪一层**（§2.0 表 2） | **Utility**（HPC 测的是 counterfactual world 下的能力、不是响应合法性；响应合法性由 §2.2 (A) $E_{\mathrm{contract}}$ 单独承担、见 §2.0 表 2 Behavioral use 行） | Utility 层的 upper bound（$\mathrm{Gap}_{\mathrm{oracle}} = J_{\mathrm{oracle}} - J_{\mathrm{full}}$ 给"contract 里有多少信息 policy 没用"定 scale） |
+| **落到哪一层**（§2.0 表 2） | **Utility**（响应合法性另归 $E_{\mathrm{contract}}$、见 §2.0 表 2 Behavioral use 行） | Utility 层的 upper bound（$\mathrm{Gap}_{\mathrm{oracle}} = J_{\mathrm{oracle}} - J_{\mathrm{full}}$ 给"contract 里有多少信息 policy 没用"定 scale） |
 | **需要 counterfactual rollout 吗** | **需要**（$(O_k, \hat S_k)$ 联合 re-render、$T_k^{\mathrm{world}}$） | **不需要**（就是原始 eval 分布 + privileged 输入） |
 | **能否合并成一个总分** | **不能** | **不能** |
 
-一句话收束：**HPC 的 $\mathcal{A}^*_k$ 是"action 集合"、oracle baseline 的 $\pi^*_{\mathrm{oracle}}$ 是"policy 对象"、二者是两种正交的 oracle**——一个从"world-consistent 下 admissible action 集合"侧、一个从"privileged-state 上 utility 上界"侧、共同把 CAG 从"policy 只是讨厌格式变化 / 学到 age↔difficulty shortcut"这两个 alternative hypothesis 里剥出来。**benchmark 报告时二者必须并列、不可合并**：合并成一个数会同时丢掉"HPC 关心的 counterfactual-world capability"与"oracle gap 关心的 current-eval upper bound"、而这两件事在 §2.0 表 2 里落到的评估层与回答的问题都不同。
+一句话收束：**HPC 的 $\mathcal{A}^*_k$ 是"action 集合"、oracle baseline 的 $\pi^*_{\mathrm{oracle}}$ 是"policy 对象"、二者是两种正交的 oracle**——一个从"world-consistent 下 admissible action 集合"侧、一个从"privileged-state 上 utility 上界"侧、共同把 CAG 从"policy 只是讨厌格式变化"与"学到 age↔difficulty shortcut"这两个 alternative hypothesis 里剥出来。**benchmark 报告时二者必须并列、不可合并**：合并成一个数会同时丢掉"HPC 关心的 counterfactual-world capability"与"oracle gap 关心的 current-eval upper bound"、而这两件事在 §2.0 表 2 里落到的评估层与回答的问题都不同。
 
 ### 2.6 Safety evidence $E_{\mathrm{safety}}$：Constraint certification intervention（v5 三态）
 
@@ -688,13 +688,13 @@ class ContractAwarePolicy(nn.Module):
 
 ### 3.1 head ↔ §2 evidence 对应（benchmark-side pseudo-stub）
 
-上面的 skeleton 定义了 **reader 侧** 每 head 的 knob 长什么样、但没说"benchmark 侧要拿这个 knob 的哪一路输出、去跑 §2 的哪一条 evidence"。这一小节把这条线补上——**每个 knob 都能对应到 §2.1–§2.6 里的一条具体 evidence call**、不留悬空字段。
+上面的 skeleton 定义了 **reader 侧** 每 head 的 knob 长什么样、但没说"benchmark 侧要拿这个 knob 的哪一路输出、去跑 §2 的哪一条 evidence"。这一小节把这条线补上——**每个 knob 都能对应到 §2.0–§2.6 里的一条具体 evidence 站点、不留悬空字段**。
 
 | §3 head / method 输出的字段或 knob | 被哪一节 evidence 消费 | 具体消费式（§2.0 表 1 / 表 2 定位） |
 |---|---|---|
 | `StructuredStateView.__init__` 的 `compatibility` | §2.0 表 1 **Contract** 行 · fail-closed `SchemaCompatibilityError` | schema audit：`assert compat.accepted` 或显式 adapter、否则整条 pipeline 视为不可审计 |
 | `StructuredStateView.declared_coverage_loss()` | §2.0 表 1 **Declaration** 行 · $L_{\mathrm{declared}}$ via query subsumption | 直接返回 $L_{\mathrm{declared}}$、benchmark 侧只需按 $w_q$ 报告非零 $q$ |
-| `project` 的 `topk_weight_mode` / `residual_mode` | §2.2 **Retention** 上半 conditional probe + §2.5 $\mathrm{CAG}^{\mathrm{fixed}}_{\mathrm{hyp}}$ | 固定 $o$、swap 两个 knob、看 $z_\pi$ 是否仍独立携带 field 信息（Retention 层）；对同一份 $\theta^*$ 施加 $\mathrm{collapse}_{\mathrm{hyp}}$、测 $\mathrm{CAG}^{\mathrm{fixed}}_{\mathrm{hyp}}$ 与 §2.5 matched null $\Delta J_{\mathrm{null}}$ 的比值 |
+| `project` 的 `topk_weight_mode` / `residual_mode` | §2.2 **Retention** 上半 conditional probe + §2.5 $\mathrm{CAG}^{\mathrm{fixed}}_{\mathrm{hyp}}$ | 固定 $o$、swap 两个 knob、看 $z_\pi$ 是否仍独立携带 field 信息（Retention 层）；对同一份 $\theta^*$ 施加 $\mathrm{collapse}_{\mathrm{hyp}}$、测 $\mathrm{CAG}^{\mathrm{fixed}}_{\mathrm{hyp}}$ 与 §2.5 matched null $\Delta J_{\mathrm{null}}$ 并列对照（要求 $\Delta J_{\mathrm{contract}} \gg \Delta J_{\mathrm{null}}$） |
 | `project` 的 `staleness` / `uncertainty` | §2.3 **SDS**（temporal 切片）+ §2.2 conditional probe | 沿 $\preceq^{\mathrm{declared}}_{\mathcal C_\pi}$ 排布 $\alpha$ 网格、测 $V_{\mathrm{order}}$ 与 $V_{\mathrm{trans}}$、以及 $I(\alpha; z_\pi \mid o)$ 是否保留 |
 | `project` 的 `provenance` / `dependency` / `negative_evidence` | §2.4 $\Delta J_{\mathrm{where}} / \Delta J_{\mathrm{dep}} / \Delta J_{\mathrm{neg}}$ + §2.5 $\mathrm{CAG}^{\mathrm{fixed}}_X$ | 三 knob 各自 `ignore ↔ harden / covariance_fusion / condition` 切换、evaluator 端算 utility 差、并跑 matched null control 排除 OOD sensitivity |
 | `project` 输出 `PolicyInput` **整体**、施加 frame / coordinate / hypothesis permutation $T^{\mathcal C}$ | §2.1 **Type I equivariance** | 测 $D_{\mathcal A}(\pi_\theta(T\hat S),\, T^{\mathcal C}_\pi \pi_\theta(\hat S))$、$\mathrm{Equiv}\to 0$ 是硬要求；这一路是**整个 `PolicyInput` 结构层面**的 equivariance、不针对单个 slot |
