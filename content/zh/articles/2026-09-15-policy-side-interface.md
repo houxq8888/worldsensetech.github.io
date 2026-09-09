@@ -4,8 +4,8 @@ slug: "2026-09-15-policy-side-interface"
 date: 2026-09-15
 draft: false
 categories: ["具身智能", "策略学习"]
-tags: ["具身智能", "策略学习", "VLA", "Diffusion Policy", "π0", "RT-2", "OpenVLA", "Action Tokenization", "Structured State Contract", "Consumer Contract", "Declared Quotient", "Query Family", "Schema Compatibility", "Semantic Preservation", "Decision-Relevant Preservation", "Decision Sufficiency", "Conditional Mutual Information", "Residual Contract Information", "Declared Coverage Loss", "Projection Residual Loss", "Decision Collapse Rate", "Safety Obligation", "Contract-Read Primitives", "Intervention Consistency", "Equivariance", "Order-Constrained Response", "Conditional Log-Likelihood Ratio", "Dependency-Aware Fusion", "Mass-Preserving Top-k", "Constraint Certification", "Contract-only Intervention", "World-consistent Counterfactual", "Action-Relevant Separation", "Contract Ablation Gap", "Fixed Policy vs Retrained Policy", "Compliance Evidence", "Contract Consumer", "Evaluation Metrics"]
-description: '《多模态融合接口》那一篇把上游交付物立成了 Structured State Contract——本文问它的对偶：如果 estimator 真的按 contract 交付、policy 侧到底能不能吃到。核心 boxed 不等式是 **Structured estimator output ≠ structured policy input**、完整 pipeline $\mathcal C\to(\mathcal C_\pi,Q_{\mathcal C_\pi})\to q_\pi\to e_\pi\to\pi_\theta\to g_{\mathrm{safety}}\to\mathcal B_{\mathcal C}$。本文把 semantic preservation 与 decision sufficiency 严格分开、并再拆出**decision-relevant semantic preservation**（用 $\mathcal A^{*},\mathcal G^{*}$ 定义、只保护会导致下游 action / safety 差异的 distinctions）、并把"decision-relevant preservation ⇒ decision sufficiency"这条 implication 显式限定在声明过的 evaluation distribution 上。interface 对象是 declared query family $Q_{\mathcal C_\pi}$、并配一条**schema compatibility 规则**：$\mathrm{schema\_version}(\mathcal C)$ 与 $\mathrm{supported\_version}(\mathcal C_\pi)$ 不兼容时**必须 fail-closed 或走显式 adapter**。审计侧本文不再讲"三层 loss"、而是 **三个 semantic losses + 一个 safety obligation**：$L_{\mathrm{declared}}$ 从 entropy 差分降级为 **weighted undeclared-query coverage** $L_{\mathrm{declared}}=\sum_{q\in Q_{\mathcal C}^{\mathrm{req}}} w_q\,\mathbf 1[q\notin Q_{\mathcal C_\pi}]$、$L_{\mathrm{projection}}=I(Y_\pi;\hat S\mid Z_\pi,O,L)$ 明确是"projection 之后的 residual contract information"（可以 operationalize representation-stage loss、但不与 encoder 强行 1:1 绑定）、$L_{\mathrm{decision}}$ 从"supremum norm"降级为**action-relevant collapse rate** $\mathbb E_{\mathcal R}[\mathbf 1[D_{\mathcal A}(\pi_\theta(\cdot|\hat S),\pi_\theta(\cdot|\hat S^{\prime}))<\epsilon]]$、$D_{\mathcal A}$ 测的是两个 admissible / optimal action set 是否被 policy 支持、与 HPC / HSS 真正闭环、第四个槽位是**safety obligation** $\mathcal O_{\mathrm{safety}}$、不是 information loss。primitive 侧：`mode_select` 用 **mass-preserving top-$k$**（本文只保证 retained mass 与 discarded residual mass 可区分、严格 Bayesian update 需要残差 component 的 sufficient statistics 另行定义）；`age_gate` 三组结构、字段名统一为 payload $(\mu,\Sigma)$ + metadata $(\alpha,\ell,h,v,\iota)$（$\alpha$ = age、$\iota$ = availability）+ derived trust $q=\tau(\alpha,\ell,h,v,\iota)$、2×2 表把 availability 与 validity 语义正交化；provenance / dependency / negative evidence 三分——`dependency_aware_fusion` 走 logit-level $L^{\prime}_{ij}=L_{ij}+b(R_{ij})$、$b$ 可正可负可 learned、logit_bias_learned 是 transformer 上的一种"便捷实现候选"、不指定为 canonical default。训练侧 intervention 分三档、Type II 是 order-constrained response。评估侧是**四种 compliance evidence** $E_{\mathrm{semantic}}/E_{\mathrm{representation}}/E_{\mathrm{decision}}/E_{\mathrm{safety}}$；HPC 拆成**contract-only intervention** $T_k^{\mathrm{contract}}$（测 interface compliance）与**world-consistent counterfactual** $T_k^{\mathrm{world}}$（测 decision competence）、benchmark 不再混用；SDS 用 $\alpha$ 而不是 $a$ 做响应参数、避免与 action 变量撞名、oracle 从"唯一定义"降级为 response set $\mathcal R_{\mathcal C}(\alpha)$ 的一种 baseline；$\Delta J_{\mathrm{prov}}$ 拆成 $\Delta J_{\mathrm{where}} / \Delta J_{\mathrm{dep}} / \Delta J_{\mathrm{neg}}$ 三条、与 provenance / dependency / negative evidence 三个 primitive 一一对应；CAG 明确"同一份训好的 policy、不 retrain"、区分 $\mathrm{CAG}^{\mathrm{fixed}}$（本文的 compliance evidence）与 $\mathrm{CAG}^{\mathrm{retrained}}$（architecture comparison）。safety 侧本文最关键的加粗一句从 "invalid evidence cannot justify relaxing the constraint" 精化为 **"invalid evidence alone cannot justify relaxing the constraint"**、并引入三态 certification $\mathrm{certification}_j\in\{\text{safe},\text{unsafe},\text{unknown}\}$、对应 relax / tighten-or-stop / conservative fallback。全文收在升级后的 boxed thesis：**A policy is a contract consumer, not merely a function approximator**、四个 contract-consumer 必答问 + 三 loss 一 obligation + 完整 pipeline。VLA / Diffusion / Flow / ACT / SAC / PPO 由此降级为实现坐标、不是理论分类。'
+tags: ["具身智能", "策略学习", "VLA", "Diffusion Policy", "π0", "RT-2", "OpenVLA", "Action Tokenization", "Structured State Contract", "Consumer Contract", "Consumer Contract Triple", "Declared Quotient", "Query Family", "Query Subsumption", "Schema Compatibility", "Semantic Preservation", "Decision-Relevant Preservation", "Decision Sufficiency", "Conditional Mutual Information", "Residual Contract Information", "Declared Coverage Loss", "Projection Residual Loss", "Decision Collapse Rate", "Safety Obligation", "Multi-Constraint Intersection", "Contract-Read Primitives", "Intervention Consistency", "Equivariance", "Order-Constrained Response", "Consumer-Declared Order", "Conditional Log-Likelihood Ratio", "Dependency-Aware Fusion", "Mass-Preserving Top-k", "Constraint Certification", "Contract-only Intervention", "World-consistent Counterfactual", "Interface Compliance Metric", "Action-Relevant Separation", "Contract Ablation Gap", "Matched Null Control", "Fixed Policy vs Retrained Policy", "Compliance Evidence", "Five-Layer Evaluation", "Separately Auditable Failure Sites", "Measurable Decoder", "Contract Consumer", "Evaluation Metrics"]
+description: '《多模态融合接口》那一篇把上游交付物立成了 Structured State Contract——本文问它的对偶：如果 estimator 真的按 contract 交付、policy 侧到底能不能吃到。核心 boxed 不等式是 **Structured estimator output ≠ structured policy input**、完整 pipeline $\mathcal C\to(\mathcal C_\pi,Q_{\mathcal C_\pi})\to q_\pi\to e_\pi\to\pi_\theta\to g_{\mathrm{safety}}\to\mathcal B_{\mathcal C}$。v6 把 Consumer Contract 拆成三段 $\mathcal C_\pi=(Q_\pi,\mathcal O_\pi,V_\pi)$——Queries / Obligations / Versions、真正长成 software-interface 的形状。§0.2.1 补两个悬空定义：**decision-relevant observable** $Y_{\mathcal C}^{\pi}=\{q(\hat S):q\in Q_{\mathcal C}^{\mathrm{req}},q\text{ influences consumer decision}\}$（由 Consumer Contract 锁定、不是 benchmark 里凭空的 latent）与 **representation equivalence** $Z_\pi(\hat S)\sim_Z Z_\pi(\hat S^{\prime})$ ⟺ 不存在 measurable decoder $h_\pi(Z_\pi,O,L)$ 在 $Y_{\mathcal C}^{\pi}$ 上把两者区分开——把 A / A′ 里的 $\equiv$ 从悬空符号变成 conditional-MI 可接线的对象。§0.2.2 里 $L_{\mathrm{declared}}$ 从字面 set membership 升级为 **query subsumption coverage** $L_{\mathrm{declared}}=\sum w_q\mathbf 1[\nexists q^{\prime}\in Q_{\mathcal C_\pi}:q^{\prime}\succeq q]$、"允许丢什么"从 checklist 变成 semantic capability lattice；$L_{\mathrm{projection}}=I(Y_{\mathcal C}^{\pi};\hat S\mid Z_\pi,O,L)$ 明确用 $Y_{\mathcal C}^{\pi}$、$L_{\mathrm{decision}}$ 用 $D_{\mathcal A}$（action-equivalence-aware distance）、第四槽 $\mathcal O_{\mathrm{safety}}$ 是 obligation 不是 loss。三 loss 是 **three separately auditable failure sites**、**不是三个 statistically independent losses**、$q_\pi\to\Pi_\pi\to\pi_\theta$ 顺序耦合。§5.1 Type II 的 order 改成 **consumer-declared order** $\preceq_{\mathcal C_\pi}^{\mathrm{declared}}$、明确它不是客观物理 degradation order（reviewer 反例：机器人静止时 vision age 无影响）。§5.3 safety 三态精化——**safe → relaxation is permitted**（not required）、多条 constraint 用 $g_{\mathrm{safety}}=\bigcap_j g_j$ 交集组合、代码层对应 `allow_normal_margin / tighten_or_stop / conservative_fallback` 而不是 `continue` 或 first-unknown-return。§6.2 把 v5 的 HPC 二次拆分成 $E_{\mathrm{contract}}(T^{\mathrm{contract}})$（interface compliance、对 $\mathcal R_{\mathcal C}$ 检查、不需要 $\mathcal A^*_k$ oracle）与 HPC($T^{\mathrm{world}}$)（decision competence、$\mathcal A^*_k$ 由 simulator 定）；HSS 用 $D_{\mathcal A}$ 且必须过 **competence gate**、与 entropy 并列报告避免 gaming。§6.3 SDS 加**操作化 violation estimator** $V_{\mathrm{order}}=\mathbb E[\max(0,r(R_\pi(\alpha_i))-r(R_\pi(\alpha_j))+\delta)]$、piecewise 情形下直接测 $V_{\mathrm{trans}}$、避免"如何计算到无限 legal curve set 的距离"这种 benchmark 打穿问题。§6.5 CAG 加 **matched null control**——format-preserving / decision-irrelevant 变化后的 $\Delta J_{\mathrm{null}}$ 与 $\Delta J_{\mathrm{contract}}$ 并排、只有前者 ≪ 后者时 CAG 才是 contract-use 证据、否则只是 OOD sensitivity。§6.7 补**五层 evaluation hierarchy**——Retention / Sufficiency / Behavioral use / Utility / Safety、四层不相互蕴含、$L_{\mathrm{declared}}/L_{\mathrm{projection}}/L_{\mathrm{decision}}/\mathcal O_{\mathrm{safety}}$ 分别落到不同层。§7 Python 骨架 v6 修 `super().__init__()` / fail-closed `raise SchemaCompatibilityError` / `topk_weight_mode` 与 `residual_mode` 拆两个 orthogonal knob / `benchmark_rng` 走 common random numbers。全文收在升级后的 boxed thesis：**A policy is a contract consumer, not merely a function approximator**、四个 contract-consumer 必答问 + 三 loss 一 obligation + 完整 pipeline。VLA / Diffusion / Flow / ACT / SAC / PPO 由此降级为实现坐标、不是理论分类。'
 toc: true
 related_articles:
   - 2026-09-14-multimodal-fusion-interface
@@ -98,7 +98,28 @@ $Q_{\mathcal C_\pi}$ 是本文真正的**接口对象**——它把"允许丢什
 
 **$\Pi_\pi$ 仍然等于 $e_\pi\circ q_\pi$、但 $q_\pi$ 不再是 primitive、它由 ${\sim_\pi}$ 唯一决定、而 ${\sim_\pi}$ 由 $\mathcal C_\pi$ 诱导**。工程上这意味着：**接口文档里必须能贴出一张 $Q_{\mathcal C_\pi}$ 清单**、否则 $q_\pi$ 就退化成 encoder 里的隐式行为——正是本文要攻击的对象。
 
-### 0.2.3 Schema version / compatibility（v5 新增）
+**v6 补·Consumer Contract 的三段式分解**。上一版本 $\mathcal C_\pi$ 只写了"$\mathcal C$ 的一个子集 / coarse-graining"、reviewer 抓得对：**这只说了 policy 要读什么、没说 policy 对这些 semantics 承担什么义务、也没说 policy 认识哪个 schema version**。v6 把 $\mathcal C_\pi$ 明确拆成三段：
+
+$$\boxed{\;\mathcal C_\pi \;=\; \big(Q_\pi,\;\mathcal O_\pi,\;V_\pi\big),\;}$$
+
+其中
+
+- $Q_\pi \equiv Q_{\mathcal C_\pi}$ · **Queries**——policy 声明"我要读哪些 contract fields / queries"（本节上面已经定义、也是 $q_\pi$ 的来源）。
+- $\mathcal O_\pi$ · **Obligations**——policy 声明"读了这些 fields 之后我承诺怎样响应"。§5.1 的 Type I equivariance / Type II order-constrained response / Type III unconstrained、以及 §5.3 的三态 safety certification 义务、**都是 $\mathcal O_\pi$ 的具体条目**、而不是散落在文中的独立规则。§0.2.2 的三个 loss + 一个 obligation 也正是从 $\mathcal O_\pi$ 派生出来的可审计 failure modes。
+- $V_\pi$ · **Versions**——policy 声明"我认识哪个 schema version"。§0.2.3 的 schema compatibility 规则就是 $V_\pi$ 的 operational form。
+
+这一分解让 Consumer Contract 长得更像真正的 software interface、而不只是一个 ML abstraction：
+
+```text
+Consumer Contract  C_π
+├── Q_π   Queries       What I read
+├── O_π   Obligations   How I must respond
+└── V_π   Versions      Which schema I understand
+```
+
+reviewer 后续追问"你说 policy 是 consumer、consumer 到底承诺了什么"、v6 有确切的答案：**它承诺 $Q_\pi$ 里的字段它都读、$\mathcal O_\pi$ 里的响应它都遵守、$V_\pi$ 里的 schema 它都兼容**。缺任何一段都不算一份完整的 consumer contract。
+
+### 0.2.3 Schema version / compatibility（v5 新增 · 即 $V_\pi$ 段）
 
 有了 $\mathcal C_\pi$ 与 $Q_{\mathcal C_\pi}$、必须再回答一个 software-interface 层面的问题：**Consumer contract 是针对哪个 schema version 的？** Estimator 升到 $\mathcal C$ 的 v2（新增 `observability` / `negative_evidence` / `sensor_health`）、如果 policy 的 $\mathcal C_\pi$ 还停在 v1、当前框架就会**默默丢掉新增字段**——这正是本文全文批评的 **undeclared semantic loss**。所以接口层再加一条小规则：
 
@@ -108,15 +129,25 @@ $$\boxed{\;\mathrm{schema\_version}(\mathcal C)\;\not\simeq\;\mathrm{supported\_
 
 ### 0.2.1 三档 preservation：full semantic / decision-relevant semantic / decision sufficiency
 
-这一小节是本文的理论锚点、必须把**三个**容易混用的性质彻底分开——上一版只分了两个、reviewer 抓得对："full semantic preservation 作为接口 criterion 是 over-preserving 的"。
+这一小节是本文的理论锚点、必须把**三个**容易混用的性质彻底分开。v6 对这一段做两处关键补定义（reviewer 抓得对）：第一、**$\equiv$ 在 A 与 A′ 里从未定义、是悬空符号**；第二、**$Y_\pi$ 到底是什么必须真正绑到 Consumer Contract、不能是一个凭空的 latent variable**。
 
-给定一组 policy 服务的 **contract-relevant decision variables** $Y_{\mathcal{C}}$（下游 controller / planner / safety filter / diagnostics 会读的量）、以及 §0.2 已经定义的 $\hat S$ 上的 contract equivalence $\sim_\pi$（由 $Q_{\mathcal C_\pi}$ 诱导）。本文区分三档性质。
+**v6 补定义 · decision-relevant observable $Y_{\mathcal C}^{\pi}$**。上一版写 $Y_{\mathcal{C}}$ / $Y_\pi$、含义模糊。v6 把它锁定：
+
+$$\boxed{\;Y_{\mathcal C}^{\pi} \;=\; \big\{q(\hat S) : q \in Q_{\mathcal C}^{\mathrm{req}},\;\text{$q$ influences consumer decision}\big\}.\;}$$
+
+也就是：$Y_{\mathcal C}^{\pi}$ 是 required queries 里**真正影响 consumer decision 的那部分输出**——太宽（$Y_{\mathcal C}^{\pi}=\hat S$）会退化成"别丢任何 contract 信息"、太窄（$Y_{\mathcal C}^{\pi}=\text{current optimal action}$）会变成 decision sufficiency、不再是 contract semantics。$Y_{\mathcal C}^{\pi}$ 恰好是 Consumer Contract 思想应该吃掉的数学对象。
+
+**v6 补定义 · representation equivalence $\sim_Z$**。A 与 A′ 里的 $\Pi_\pi(\hat S)\not\equiv\Pi_\pi(\hat S')$ 不能只是"数值不同"——否则任何 floating-point rounding 都算"preservation"。v6 定义：
+
+$$Z_\pi(\hat S) \sim_Z Z_\pi(\hat S') \quad\Longleftrightarrow\quad \nexists\;\text{measurable decoder } h_\pi(Z_\pi,O,L)\;\text{s.t.}\; h_\pi \text{ distinguishes } \hat S \text{ from } \hat S' \text{ on } Y_{\mathcal C}^{\pi}.$$
+
+用一句话讲：**如果下游 decision 在声明过的 consumer 下无法区分两份 representation、那它们就是 representation-equivalent**。这一条与 $L_{\mathcal C}^{\pi}=I(Y_{\mathcal C}^{\pi};\hat S\mid Z_\pi,O,L)$ 天然接线——$L_{\mathcal C}^{\pi}=0$ **等价于** $Z_\pi(\hat S)\sim_Z Z_\pi(\hat S')$ 对所有 $Y_{\mathcal C}^{\pi}$-不等的 $(\hat S,\hat S')$ 都成立。
 
 **Property A · Full Semantic Preservation**——投影在 contract-equivalent class 之间不做不可逆折叠：
 
-$$\hat S \not\sim_\pi \hat S' \quad \Longrightarrow \quad \Pi_\pi(\hat S) \not\equiv \Pi_\pi(\hat S').$$
+$$\hat S \not\sim_\pi \hat S' \quad \Longrightarrow \quad Z_\pi(\hat S) \not\sim_Z Z_\pi(\hat S').$$
 
-这要求 $q_\pi$ 在 $\mathcal C_\pi$ 定义的商上 injective。**是一个很强的性质、但可能 over-preserving**。
+这要求 $q_\pi$ 在 $\mathcal C_\pi$ 定义的商上 injective、且 $e_\pi$ 不把不同 class 映到 $\sim_Z$-等价的 $Z_\pi$。**是一个很强的性质、但可能 over-preserving**。
 
 **一个具体的反例（reviewer 提的、v4 接受）**：两个 hypothesis
 
@@ -138,20 +169,21 @@ $$\hat S \sim_{\pi,\mathcal D} \hat S' \quad\Longleftrightarrow\quad
 
 decision-relevant preservation 写作：
 
-$$\hat S \not\sim_{\pi,\mathcal D} \hat S' \quad\Longrightarrow\quad \Pi_\pi(\hat S) \not\equiv \Pi_\pi(\hat S').$$
+$$\hat S \not\sim_{\pi,\mathcal D} \hat S' \quad\Longrightarrow\quad Z_\pi(\hat S) \not\sim_Z Z_\pi(\hat S').$$
 
 因为 $\sim_{\pi,\mathcal D}$ 比 $\sim_\pi$ 更粗、**Property A 蕴含 Property A′、反之不成立**。这就是本文真正想要的接口要求。
 
-**Property B · Decision Sufficiency (conditional MI form)**——用**条件互信息**而不是差分 MI 来衡量"给定 policy 已经拥有的 side information、projection 后 $Y_\pi$ 里还剩多少 contract 信息"。上一版写成 $L_{\mathrm{dec}} = I(\hat S;Y_{\mathcal C}) - I(\Pi_\pi(\hat S);Y_{\mathcal C})$、reviewer 抓到了致命问题：**policy 的完整输入是 $\pi(a\mid \hat S, o, \ell, \text{language})$、raw image $o$ 里往往已经带了 age / provenance 的 proxy**。差分形式下 $L_{\mathrm{dec}} > 0$ 只说明"$\Pi_\pi(\hat S)$ 单独看对 $Y_{\mathcal C}$ 不是充分统计"、**并不说明 policy 真的缺信息**（信息可能已经从 $o$ 补回来了）。
+**Property B · Decision Sufficiency (conditional MI form)**——用**条件互信息**衡量"给定 policy 已经拥有的 side information、projection 后 $Y_{\mathcal C}^{\pi}$ 里还剩多少 contract 信息"。上一版写成 $L_{\mathrm{dec}} = I(\hat S;Y_{\mathcal C}) - I(\Pi_\pi(\hat S);Y_{\mathcal C})$、reviewer 抓到了致命问题：**policy 的完整输入是 $\pi(a\mid \hat S, o, \ell, \text{language})$、raw image $o$ 里往往已经带了 age / provenance 的 proxy**。差分形式下 $L_{\mathrm{dec}} > 0$ 只说明"$\Pi_\pi(\hat S)$ 单独看对 $Y_{\mathcal C}$ 不是充分统计"、**并不说明 policy 真的缺信息**（信息可能已经从 $o$ 补回来了）。
 
-v4 把 contract information loss 重定义为**条件 MI**：
+v5 把 contract information loss 重定义为**条件 MI**、v6 把其中的 $Y_\pi$ 锁定为 $Y_{\mathcal C}^{\pi}$：
 
-$$\boxed{\;L_{\mathcal C}^{\pi} \;=\; I\!\big(Y_\pi\,;\,\hat S \,\big|\, Z_\pi,\, O,\, L\big),\qquad Z_\pi = \Pi_\pi(\hat S, O, L).\;}$$
+$$\boxed{\;L_{\mathcal C}^{\pi} \;=\; I\!\big(Y_{\mathcal C}^{\pi}\,;\,\hat S \,\big|\, Z_\pi,\, O,\, L\big),\qquad Z_\pi = \Pi_\pi(\hat S, O, L).\;}$$
 
 （若 projection 只作用在 contract 上、可以把 $Z_\pi$ 简化为 $\Pi_\pi(\hat S)$。）这个定义干净得多：
 
-- $L_{\mathcal C}^{\pi} = 0$ **当且仅当** $Y_\pi \perp\!\!\!\perp \hat S \mid Z_\pi, O, L$——即 **$Z_\pi$ 对 $Y_\pi$ 是 sufficient given policy 已经拥有的其它输入**。
+- $L_{\mathcal C}^{\pi} = 0$ **当且仅当** $Y_{\mathcal C}^{\pi} \perp\!\!\!\perp \hat S \mid Z_\pi, O, L$——即 **$Z_\pi$ 对 $Y_{\mathcal C}^{\pi}$ 是 sufficient given policy 已经拥有的其它输入**。
 - 直接回答了"raw image 里面已经有 object identity / provenance proxy"这个 reviewer objection：**正因为我们用的是 conditional sufficiency、不是 unconditional MI、raw observation 已经补回来的那部分信息不会被误算成 loss**。
+- **v6 新增**：$Y_{\mathcal C}^{\pi}$ 的定义权在 Consumer Contract、不在 benchmark——这样"够不够"这个问题才有唯一答案、不会因 $Y$ 选得宽或窄而随意漂移。
 
 **三者的关系（v5 补上适用条件）**：
 
@@ -181,19 +213,26 @@ $$\boxed{\;\mathcal C\;\longrightarrow\;(\mathcal C_\pi, Q_{\mathcal C_\pi})\;\l
 
 **对象层面**：v4 的 $L_{\mathrm{declared}}$ 与 $L_{\mathrm{decision}}$ 都是错的、v5 分别重写。
 
-**(1) $L_{\mathrm{declared}}$ 从 entropy 差分降级为 weighted undeclared-query coverage**。v4 的 $H(Q_{\mathcal C}(Y_{\mathcal C})) - H(Q_{\mathcal C_\pi}(Y_{\mathcal C}))$ 有三个问题：$Q_{\mathcal C}(Y_{\mathcal C})$ 里的 random variable 从未定义、entropy 差分不一定非负（query 数量 / 编码 / 基数都会改变 entropy）、而且 $q_\pi$ 的核心语义是"声明哪些 distinctions 允许被丢"、天然是一个 **coverage / violation set**、不是一个 scalar entropy。v5 直接把它写成集合：
+**(1) $L_{\mathrm{declared}}$ 从 entropy 差分降级为 weighted undeclared-query coverage（v6 二次升级 · query subsumption）**。v4 的 $H(Q_{\mathcal C}(Y_{\mathcal C})) - H(Q_{\mathcal C_\pi}(Y_{\mathcal C}))$ 有三个问题：$Q_{\mathcal C}(Y_{\mathcal C})$ 里的 random variable 从未定义、entropy 差分不一定非负（query 数量 / 编码 / 基数都会改变 entropy）、而且 $q_\pi$ 的核心语义是"声明哪些 distinctions 允许被丢"、天然是一个 **coverage / violation set**、不是一个 scalar entropy。v5 直接把它写成集合 $\mathfrak D_\pi = Q_{\mathcal C}^{\mathrm{req}}\setminus Q_{\mathcal C_\pi}$——但 v6 reviewer 又抓一步：**"两条 query 相等"这件事本身就不是 set membership**。例：
 
-$$\mathfrak D_\pi \;=\; Q_{\mathcal C}^{\mathrm{req}}\setminus Q_{\mathcal C_\pi}\qquad\text{（required queries 里、consumer contract 没覆盖的部分）}$$
+- $q_1 = \text{"age"}$、$q_2 = \text{"whether age > 100ms"}$——$q_2$ 是 $q_1$ 的**函数**、$q_1$ 已经蕴含 $q_2$。
+- $q_3 = \text{"hypothesis top-3"}$、$q_4 = \text{"MAP hypothesis"}$——$q_3 \succeq q_4$、但不等于。
 
-$$\boxed{\;L_{\mathrm{declared}} \;=\; \sum_{q\,\in\, Q_{\mathcal C}^{\mathrm{req}}} w_q\,\mathbf 1\!\big[q \notin Q_{\mathcal C_\pi}\big]\;}$$
+所以 $q \notin Q_{\mathcal C_\pi}$ 不能只是字面集合成员。**v6 引入 query subsumption 序**：
 
-$w_q$ 是 task-side 权重：frame semantics 高、age 中高、provenance task-dependent、跟当前 controller 完全无关的 diagnostic field 低。最粗的 cardinality 版本 $L_{\mathrm{declared}} = |\mathfrak D_\pi|$ 就是 $w_q \equiv 1$ 的特例。这样"审 $q_\pi$"就变成**对着 $Q_{\mathcal C}^{\mathrm{req}}$ 清单一条一条勾**、不再依赖 entropy 定义。
+$$q_1 \succeq q_2 \quad:\!\!\Longleftrightarrow\quad \text{$q_1$ 所保留的信息足以让 consumer 在任何 side information 下回答 $q_2$}$$
 
-**(2) $L_{\mathrm{rep}}$ 改名 $L_{\mathrm{projection}}$、明确它是 residual contract information 而不是 encoder loss**。v4 里 $Z_\pi = \Pi_\pi(\hat S, O, L)$ 已经是"整条 projection 的输出"、不只是 encoder $e_\pi$ 的输出、所以把它叫 representation loss 是把数学对象与 pipeline layer 强行 1:1 绑定。v5 直接改名：
+（formally：$\exists$ measurable $h$ 使 $h(q_1(\hat S)) = q_2(\hat S)$、或更弱的 conditional 版本 $H(q_2 \mid q_1) \le \varepsilon$。）于是 coverage 变成：
 
-$$\boxed{\;L_{\mathrm{projection}} \;=\; I\!\big(Y_\pi\,;\,\hat S \,\big|\, Z_\pi,\, O,\, L\big)\;}$$
+$$\boxed{\;L_{\mathrm{declared}} \;=\; \sum_{q\,\in\, Q_{\mathcal C}^{\mathrm{req}}} w_q\,\mathbf 1\!\Big[\nexists\, q' \in Q_{\mathcal C_\pi}:\;q' \succeq q\Big]\;}$$
 
-语义是 **"projection 之后的 residual contract information"**——可以 operationalize 为 representation-stage loss、但不宣称它就是 $e_\pi$ 那一段的损失。
+这一步把 $L_{\mathrm{declared}}$ 从一个 checklist **升级成一个 semantic capability lattice**——$Q_{\mathcal C}^{\mathrm{req}}$ 与 $Q_{\mathcal C_\pi}$ 都在同一个 subsumption 偏序上、"允许丢什么"变成"consumer 声明的 capability 上界 $\{q' : q' \succeq q \text{ for some } q \in Q_{\mathcal C}^{\mathrm{req}}\}$ 是否覆盖 required 集合"。$w_q$ 是 task-side 权重：frame semantics 高、age 中高、provenance task-dependent、跟当前 controller 完全无关的 diagnostic field 低。最粗的 cardinality 版本 ($q' \succeq q \Leftrightarrow q' = q$) 就是 v5 的 $w_q \equiv 1$ 特例。这样"审 $q_\pi$"就变成**对着 $Q_{\mathcal C}^{\mathrm{req}}$ 沿 subsumption 逐条查上界覆盖**、不再依赖 entropy 定义、也不再被"字面 query 不等价"这种工程细节误伤。
+
+**(2) $L_{\mathrm{rep}}$ 改名 $L_{\mathrm{projection}}$、明确它是 residual contract information 而不是 encoder loss**。v4 里 $Z_\pi = \Pi_\pi(\hat S, O, L)$ 已经是"整条 projection 的输出"、不只是 encoder $e_\pi$ 的输出、所以把它叫 representation loss 是把数学对象与 pipeline layer 强行 1:1 绑定。v5 直接改名、**v6 把其中的 $Y_\pi$ 锁定成 §0.2.1 已经定义的 $Y_{\mathcal C}^{\pi}$**：
+
+$$\boxed{\;L_{\mathrm{projection}} \;=\; I\!\big(Y_{\mathcal C}^{\pi}\,;\,\hat S \,\big|\, Z_\pi,\, O,\, L\big),\qquad Y_{\mathcal C}^{\pi} = \{q(\hat S): q \in Q_{\mathcal C}^{\mathrm{req}},\;q \text{ influences consumer decision}\}.\;}$$
+
+语义是 **"projection 之后的 residual contract information"**——可以 operationalize 为 representation-stage loss、但不宣称它就是 $e_\pi$ 那一段的损失。$Y_{\mathcal C}^{\pi}$ 由 Consumer Contract 定义、**不是 benchmark 里凭空的 latent**——这是本文 Consumer Contract 思想最应该吃掉的数学对象。
 
 **(3) $L_{\mathrm{decision}}$ 从"supremum norm"降级为 action-relevant collapse rate**。v4 的 $\sup_{\hat S \not\sim_{\pi,\mathcal D} \hat S'} \|\pi_\theta(\hat S) - \pi_\theta(\hat S')\|_{\text{action-distribution}}^{\!\perp}$ 是**类型错误**——norm 是距离、不是"pair 集合大小"。v5 把它写成 collapse rate：
 
@@ -207,12 +246,12 @@ $$\boxed{\;L_{\mathrm{decision}} \;=\; \mathbb E_{(\hat S,\hat S')\sim\mathcal R
 
 | Slot | 语义 | Failure | Object |
 |---|---|---|---|
-| $q_\pi$ | 声明允许丢什么 | **Declared coverage loss**：$Q_{\mathcal C_\pi}$ 没覆盖 required query | $L_{\mathrm{declared}} = \sum w_q \mathbf 1[q\notin Q_{\mathcal C_\pi}]$ |
-| $\Pi_\pi$ | projection 之后条件 residual | **Projection residual**：条件 MI > 0 | $L_{\mathrm{projection}} = I(Y_\pi;\hat S\mid Z_\pi,O,L)$ |
+| $q_\pi$ | 声明允许丢什么 | **Declared coverage loss**：$Q_{\mathcal C_\pi}$ 沿 subsumption 没有覆盖 required query | $L_{\mathrm{declared}} = \sum w_q \mathbf 1[\nexists q' \in Q_{\mathcal C_\pi}: q' \succeq q]$ |
+| $\Pi_\pi$ | projection 之后条件 residual | **Projection residual**：条件 MI > 0 | $L_{\mathrm{projection}} = I(Y_{\mathcal C}^{\pi};\hat S\mid Z_\pi,O,L)$ |
 | $\pi_\theta$ | decision 是否用被保住的 distinctions | **Decision collapse rate**：action-relevant pair 折叠的比例 | $L_{\mathrm{decision}} = \mathbb E_{\mathcal R_{\mathcal D}}[\mathbf 1[D_{\mathcal A} < \epsilon]]$ |
 | $g_{\mathrm{safety}}$ | evidence 不足时的义务反应 | **Safety obligation violation**：unknown / invalid 时没收紧 | $\mathcal O_{\mathrm{safety}}$ |
 
-$\Pi_\pi$ injective **不蕴含** $L_{\mathrm{decision}} = 0$——三个 loss 分别可以独立爆。§6 的四种 compliance evidence 与 §6.7 的 skeleton table 都会直接引用这三个 loss + 一个 obligation。
+$\Pi_\pi$ injective **不蕴含** $L_{\mathrm{decision}} = 0$——三个 loss 是**三个可分别审计的 failure sites**、**不是三个 statistical independent losses**。这一点 v6 reviewer 抓得很准：$L_{\mathrm{declared}}$、$L_{\mathrm{projection}}$、$L_{\mathrm{decision}}$ 在数学上是通过 $q_\pi \to \Pi_\pi \to \pi_\theta$ **顺序耦合**的——上游 declaration 变了、下游"允许的 quotient"也跟着变、三者不可能随机变量独立。**"independently" 全文改为 "separately auditable"**：它们各自定位到一个可打开审计的 pipeline 站点、而不是三者统计独立。§6 的四种 compliance evidence 与 §6.7 的 skeleton table 都会直接引用这三个 loss + 一个 obligation。
 
 ### 0.3 三条本文的 boxed claim
 
@@ -223,6 +262,8 @@ $\Pi_\pi$ injective **不蕴含** $L_{\mathrm{decision}} = 0$——三个 loss �
 > **Claim 3 · Contract compliance should be tested by controlled intervention, not inferred from end-to-end success.** 端到端 success 衡量的是 policy 好不好用、而不是它有没有把 contract 语义读对。contract compliance 需要一组**受控测试**——invariance / equivariance / **order-constrained response** / task-conditional utility under contract interventions——**并且需要一条 oracle baseline 来界定每个指标的语义范围**、以及**明确的 retraining protocol**（§6.5 会区分 $\mathrm{CAG}^{\mathrm{fixed}}$ 与 $\mathrm{CAG}^{\mathrm{retrained}}$）。合规 argument 是**多证据合流**、不是单一 score。
 
 ## 1. 两种维度、而不是三个家族：conditioning representation / semantic interface × action head
+
+> **本文位置说明（v6 P1-18 加）**：§1–§3 是**接口理论的 implementation coordinates**、不是核心论证本身。§0 已经把 $\mathcal C \to (\mathcal C_\pi, Q_{\mathcal C_\pi}) \to q_\pi \to e_\pi \to \pi_\theta \to g_{\mathrm{safety}}$ 这条 pipeline、三档 preservation、三个 loss + 一个 obligation 讲清楚；§4 起进 primitives、§5 起进训练与部署、§6 起进 benchmark。§1–§3 只是给"现有 policy 到底落在 pipeline 哪一格"提供一个具体坐标、**读者若已经熟悉 VLA / Diffusion / flow / ACT / engineered-head 家族、可以直接跳到 §4**。这一节的存在不是为了 architecture ranking、是为了让 §0 定义的 pipeline 与实际系统对上号。
 
 **旧版把 "VLA / Diffusion Policy / engineered head" 当成三个互斥家族**、这个 taxonomy 有点粗糙——π0 就是 VLA + flow matching、既在 VLA 那一列也在 diffusion/flow 那一列。这一节改成**两个正交维度**、policy 家族的选择就变成 grid 上的一个坐标、而不是一个立场。
 
@@ -259,7 +300,7 @@ $\Pi_\pi$ injective **不蕴含** $L_{\mathrm{decision}} = 0$——三个 loss �
 
 一句关键区分：**Continuous actions do not imply structured state semantics.** π0 的 action head 是 flow matching 出来的连续 chunk、听起来很"结构"——但它的 conditioning representation 是 VLM token。**注意这里的措辞**：**Under the Structured State Contract defined here, π0's conditioning interface does not expose an explicit slot for hypothesis, provenance, age, or negative-evidence semantics.** 这是**本文 schema 下的分析**、不是 π0 原论文自己声明的 limitation——π0 论文事实是"预训练 VLA + proprio token + noisy action chunk + flow matching"、contract-level 的批评来自本文的分析视角。同样的 caveat 适用于 Diffusion Policy 与 OpenVLA 那两行的"破坏 contract 位置"栏——**它们都是 paper fact + 本文 interface analysis 的混合、不是原论文承认的缺陷**。
 
-一句 caveat：**这不是"哪个组合最好"的排序**。engineered state + Gaussian 依然是低维控制 baseline 之王、multimodal token + flow matching 依然是开放语义条件下唯一现实的路线——本文关心的是**每一种组合、它的 $\Pi_\pi = e_\pi \circ q_\pi$ 是否有一个写清楚的 $q_\pi$**。答案在多数现有工作里是"没有"——**不是某个家族天生不行、是这个 $q_\pi$ 层从来没有被当成接口设计过**。
+一句 caveat：**这不是"哪个组合最好"的排序**。本文关心的是**每一种组合、它的 $\Pi_\pi = e_\pi \circ q_\pi$ 是否有一个写清楚的 $q_\pi$**。答案在多数现有工作里是"没有"——**不是某个家族天生不行、是这个 $q_\pi$ 层从来没有被当成接口设计过**。
 
 ## 2. "State" 在不同 policy 里意味着什么
 
@@ -489,15 +530,15 @@ $$\pi_\theta\!\big(T^{\mathcal{C}}(\hat S),\, o,\, \ell\big) \;=\; T^{\mathcal{C
 
 **Type II · Order-constrained response**（次强的一档、**上一版叫 monotone response、这一版把它数学化**）。"monotone" 不是随便就能用的词——只有当 $M(\cdot)$ 的值域上有偏序、并且 response functional 是**明确定义的标量或全序**时才能谈单调。上一版把 variance、action norm、fallback probability、covariance PSD 全塞进同一个 $\preceq$、reviewer 抓得对：**这几种 $\preceq$ 根本不是同一个 order**。
 
-正确的提法是：先给出**contract intervention 的 severity partial order** $T_1 \preceq_{\mathcal C} T_2$（例如 "age 越大 = 越严重"、"observability 越低 = 越严重"、"validity 位为 false = 比 age 高更严重"——order 由 $\mathcal C_\pi$ 与 $Q_{\mathcal C_\pi}$ 定义、**不是由 policy 定义**）、再指定一个**response functional**
+正确的提法是：先给出**contract-declared intervention order** $T_1 \preceq_{\mathcal C_\pi}^{\mathrm{declared}} T_2$（例如 "age 越大 = 越严重"、"observability 越低 = 越严重"、"validity 位为 false = 比 age 高更严重"——**关键：这个 order 由 $\mathcal C_\pi$ 与 $Q_{\mathcal C_\pi}$ 声明、不是"客观物理 degradation order"**。reviewer 举了一个非常锋利的反例：机器人静止时、vision age 从 10 ms 到 100 ms **对 action 完全无影响**、"age 越大 = severity 越高"在这种任务下就不是天然成立的偏序——它必须由 consumer contract 显式声明、而不是从物理量猜出来。这也是 v6 把符号从 $\preceq_{\mathcal C}$ 改成 $\preceq_{\mathcal C_\pi}^{\mathrm{declared}}$ 的原因——上标 $\mathrm{declared}$、下标 $\mathcal C_\pi$ 都在提醒读者：order 属于 consumer 声明、不属于世界本身）。order 定了之后、再指定一个**response functional**
 
 $$r:\mathcal P(\mathcal A) \;\longrightarrow\; \mathbb R$$
 
 （可以是 $P(\text{fallback})$、$\mathbb E[\|a\|]$、$P(\text{stop})$、$\mathbb E[\mathrm{safe\_margin}]$ 之类、每个是 scalar、有全序 $\le$）、然后要求：
 
-$$T_1 \preceq_{\mathcal C} T_2 \quad\Longrightarrow\quad r\!\big(\pi_\theta(T_1\hat S)\big) \;\le\; r\!\big(\pi_\theta(T_2\hat S)\big).$$
+$$T_1 \preceq_{\mathcal C_\pi}^{\mathrm{declared}} T_2 \quad\Longrightarrow\quad r\!\big(\pi_\theta(T_1\hat S)\big) \;\le\; r\!\big(\pi_\theta(T_2\hat S)\big).$$
 
-**这才是严格意义的 monotonicity**。举例：$r(\pi) = P_\pi(\text{fallback})$、$T_1$ = "age 从 5 ms 到 20 ms"、$T_2$ = "age 从 20 ms 到 200 ms"、则 $T_1 \preceq_{\mathcal C} T_2$ 且要求 $P_\pi(\text{fallback}\mid T_1) \le P_\pi(\text{fallback}\mid T_2)$。
+**这才是严格意义的 monotonicity**。举例：$r(\pi) = P_\pi(\text{fallback})$、$T_1$ = "age 从 5 ms 到 20 ms"、$T_2$ = "age 从 20 ms 到 200 ms"、则 $T_1 \preceq_{\mathcal C_\pi}^{\mathrm{declared}} T_2$ 且要求 $P_\pi(\text{fallback}\mid T_1) \le P_\pi(\text{fallback}\mid T_2)$。
 
 但真实 policy 完全可能是**分段的**——
 
@@ -509,9 +550,9 @@ $$T_1 \preceq_{\mathcal C} T_2 \quad\Longrightarrow\quad r\!\big(\pi_\theta(T_1\
 
 这种 response **不 monotone、但是合法的 contract-specified response relation**。所以 Type II 的正确名字应该是 "**order-constrained response**"、**monotonicity 只是它的一个特例**。写成 loss 是：
 
-$$\mathcal{L}_{\mathrm{consistency}}^{\mathrm{II}} \;=\; \sum_{T_1 \preceq_{\mathcal C} T_2} \max\!\big(0,\; r(\pi_\theta(T_1 \hat S)) - r(\pi_\theta(T_2 \hat S)) + \delta\big).$$
+$$\mathcal{L}_{\mathrm{consistency}}^{\mathrm{II}} \;=\; \sum_{T_1 \preceq_{\mathcal C_\pi}^{\mathrm{declared}} T_2} \max\!\big(0,\; r(\pi_\theta(T_1 \hat S)) - r(\pi_\theta(T_2 \hat S)) + \delta\big).$$
 
-$\delta$ 是 margin、$r$ 与 $\preceq_{\mathcal C}$ 都必须在 $\mathcal C_\pi$ 里写死、不能事后凑。
+$\delta$ 是 margin、$r$ 与 $\preceq_{\mathcal C_\pi}^{\mathrm{declared}}$ 都必须在 $\mathcal C_\pi$ 里写死、不能事后凑。
 
 **Type III · Unconstrained intervention**（最弱、也最重要的一档）。**不预设 policy 必须变化**——典型是 **provenance removal**：拿掉一个 contributing sensor、若另一个 sensor 完全冗余替代、**最优 action 可以完全不变**。这一档的正确提法是：**when the removed evidence was decision-relevant, does performance degrade?** 也就是把它交给 §6 的 CAG 面板去测、而不是训练时强加响应规律。写成 loss 就是：**不做任何 intervention consistency、只在 evaluation 阶段做 ablation**。这一档存在本身是对上一版的一个纠正——上一版把四种 $T_{\mathcal{C}}$ 一视同仁地塞进"要求响应"、是把 Type III 错当成了 Type II。
 
@@ -538,7 +579,7 @@ $$T_d:\;(\mu_c,\,\Sigma_c,\,m_c)\;\longmapsto\;(\mu_c',\,\Sigma_c',\,m_c'),\qqua
 
 **Latent degradation class** $d_c \in \{\text{missing}, \text{stale}, \text{bias}, \text{corrupt}, \ldots\}$——augmentation 时你**知道**注入了哪一类 $T_{d}$、但部署时这个类是**latent 的**、只能由 contract estimator 从 $m_c$ 序列里推断、或只作为训练 annotation 用来加权 loss / 采样、**不能默认作为 ground-truth input 塞进 policy**。
 
-具体做法：aug pipeline 采样 $d_c$、按 $d_c$ 通过 $T_{d_c}$ 生成 $(\mu_c', \Sigma_c', m_c')$、然后把 $m_c'$ 作为 policy input、$d_c$ 只作为 loss weighting 与 evaluation 分层的 key。**这不是 curriculum、是 conditioning on observed metadata**——差别在于 conditioning 让 policy 看见的是可靠的 $m_c'$、而不是不可靠的 $d_c$。§5.1 类别 B 的 Type II order-constrained response 与 degradation-conditioned aug 天然配对——**aug 端造 $T_{\mathcal{C}}$ 的 $m_c$ 变化、loss 端测 policy 对 $m_c$ 变化的响应是否符合 $\preceq_{\mathcal C}$ 与 $r$**。
+具体做法：aug pipeline 采样 $d_c$、按 $d_c$ 通过 $T_{d_c}$ 生成 $(\mu_c', \Sigma_c', m_c')$、然后把 $m_c'$ 作为 policy input、$d_c$ 只作为 loss weighting 与 evaluation 分层的 key。**这不是 curriculum、是 conditioning on observed metadata**——差别在于 conditioning 让 policy 看见的是可靠的 $m_c'$、而不是不可靠的 $d_c$。§5.1 类别 B 的 Type II order-constrained response 与 degradation-conditioned aug 天然配对——**aug 端造 $T_{\mathcal{C}}$ 的 $m_c$ 变化、loss 端测 policy 对 $m_c$ 变化的响应是否符合 $\preceq_{\mathcal C_\pi}^{\mathrm{declared}}$ 与 $r$**。
 
 ### 5.3 Safety filter 与 contract 的接口：constraint certification（v5 三态化）
 
@@ -556,7 +597,19 @@ $g$ 是 constraint-specific 的组合规则（例如 CBF 那侧要求"距离估�
 
 $$\boxed{\;\mathrm{certification}_j \;\in\; \{\text{safe},\;\text{unsafe},\;\text{unknown}\}.\;}$$
 
-对应的反应规则：**safe → 可以 relax**（例如把 minimum distance 收回正常）、**unsafe → tighten / stop**、**unknown → conservative fallback 或 tighten**（因为不能确定、所以按更谨慎的一侧处理）。这一改让 safety contract 更接近真正的 runtime safety semantics——$v_j^{\mathrm{constraint}} = 0$ 不再意味着 "constraint false"、它意味着 **"evidence is insufficient to certify the constraint predicate"**（对应 unknown 状态）。
+对应的反应规则：**safe → relaxation is permitted**（注意 **permitted 不是 required**——见下文）、**unsafe → tighten / stop**、**unknown → conservative fallback 或 tighten**（因为不能确定、所以按更谨慎的一侧处理）。这一改让 safety contract 更接近真正的 runtime safety semantics——$v_j^{\mathrm{constraint}} = 0$ 不再意味着 "constraint false"、它意味着 **"evidence is insufficient to certify the constraint predicate"**（对应 unknown 状态）。
+
+**v6 补·safe ≠ 必须 relax**。上一版把 "safe → 可以 relax" 写成 "safe → relax"、reviewer 举了一个非常简单的反例：collision constraint = safe、joint torque constraint = unknown——即使 collision constraint 已经 safe、也**不能因此放松整个 safety envelope**、因为 joint torque 那一路的 constraint 还在 unknown 状态。正确的语义是：**safe 只表示"这一条 constraint 允许按正常 margin 执行"、不表示"这一条 constraint 允许被拆开"**。因此本文把三态反应规则精化为：
+
+1. **safe → allow_normal_margin**（不放松 constraint、只是把这一条 constraint 的 margin 保持默认、继续与其它 constraint 求交）；
+2. **unsafe → tighten_or_stop**；
+3. **unknown → conservative_fallback**。
+
+**多条 constraint 应该组合、而不是第一条 unknown 就 return**。safety filter 真正的形式是 $g_{\mathrm{safety}} = \bigcap_j g_j$——每条 constraint 独立给出它允许的 action subset、最终允许的 action 是**所有 constraint 的交集**。工程写法对应：
+
+$$a_{\mathrm{applied}} \;=\; \Big(\bigcap_{j:\,\mathrm{cert}_j = \text{safe}} g_j^{\mathrm{normal}}(a_{\mathrm{proposed}})\Big) \;\cap\; \Big(\bigcap_{j:\,\mathrm{cert}_j = \text{unsafe}} g_j^{\mathrm{tighten}}(a_{\mathrm{proposed}})\Big) \;\cap\; \Big(\bigcap_{j:\,\mathrm{cert}_j = \text{unknown}} g_j^{\mathrm{fallback}}(a_{\mathrm{proposed}})\Big).$$
+
+任何一条 constraint 单独把 action 空间"松"回去都不合法——只有**所有 constraint 都允许**的那部分 action 才能被 apply。这条性质也决定了 §7 里 `SafetyFilterHead.forward` 的正确写法（详见 v6 版代码：`continue` 只跳过本条 constraint 的收紧、绝不 `return` 提前结束循环）。
 
 **这一节最重要的一句话（v5 加了一个词）**：
 
@@ -605,45 +658,48 @@ $$\mathrm{Equiv}(\mathcal{C}) \;=\; \mathbb{E}_{\hat S}\!\left[d\!\left(\pi_\the
 
 $\mathrm{Equiv} \to 0$ 是硬要求、$\mathrm{Equiv} \gg 0$ 意味着 $e_\pi$ 学坏了、或者 $q_\pi$ 直接把这一层 quotient 丢了。这一类是最"干净"的一类、因为规则是 mathematically defined 的、不需要 oracle 也不需要 $J$ 的定义。§3.2 Failure 2 的 severity 可以直接由 $\mathrm{Equiv}(\text{frame})$ 量化。
 
-### 6.2 Representation evidence $E_{\mathrm{representation}}$：Conditional Probes + HPC / HSS（v5 拆两种 counterfactual） + Calibration
+### 6.2 Representation evidence $E_{\mathrm{representation}}$：Conditional Probe + Interface-Compliance $E_{\mathrm{contract}}$ + Decision-Competence HPC + HSS（v6 二次拆分） + Calibration
 
 **Conditional probe**（§5.1 类别 A 升级版）：Retention$_{\mathrm{cond}} = I(\text{field}; z_\pi \mid o)$——固定 raw observation $o$、测 $z_\pi$ 里还**独立**携带多少 contract 信息。这是**避免 image-proxy 泄漏**的必要形式。
 
-**v4 的 HPC 用 $T_k^{\mathrm{hyp}}$、v5 把它拆成两种 intervention**——reviewer 抓得非常准：**"改变 hypothesis、但固定 raw observation"并不是天然合法的 counterfactual**。真实图像 $o$ 明明显示物体在左边、你把 contract 改成"$H_2$：物体在右边"、同时保持同一张图像——这时候你到底测的是什么？两种截然不同的东西被 v4 的记号混在了一起。v5 拆成：
+**v5 已经把 $T_k^{\mathrm{hyp}}$ 拆成 $T_k^{\mathrm{contract}}$（raw obs 不变）与 $T_k^{\mathrm{world}}$（obs 与 contract 联合 re-render）两档、但 HPC 公式本身仍然是错的**——v6 reviewer 一句戳穿：
 
-**(A) Contract-only intervention**——$T_k^{\mathrm{contract}}:\hat S \mapsto \hat S_k$、**raw observation 不变**。它测的是：
+> **If the raw observation is held fixed and the contract is intentionally made inconsistent with it, what defines the ground-truth optimal action set $\mathcal{A}^{*}_k$?**
 
-> **policy 是否会响应 contract semantic change？**
+这个问题 v5 答不上来。$T_k^{\mathrm{contract}}$ 只改了 contract、世界并没有变——那么"world-consistent optimal action set"仍然是原世界的 $\mathcal{A}^*(O, W)$、不该因为你把 contract 换成 $H_k$ 就自动出现一个新的 $\mathcal{A}_k^*$。**v5 的 HPC 公式实际上偷偷假设了"改变 contract = 改变 world"**、恰好把 v5 花大篇幅拆开的两件事又揉在一起。v6 二次拆分——**HPC 不再同时承担两件事、拆成两个 metric**：
 
-这是本文真正想要的 **interface compliance**。但**不要**再把它叫"$H_k$ as true latent"、因为世界并没有变、变的只是 contract。它测的是"contract parser 对一份自相矛盾输入的响应能力"、不是"policy 在另一个真实世界的决策能力"。
+**(A) Contract-only intervention → Interface compliance $E_{\mathrm{contract}}$**——$T_k^{\mathrm{contract}}:\hat S \mapsto \hat S_k$、raw observation 固定不变、**不引入任何 $\mathcal{A}^*_k$ oracle**。它测的是：policy 在 contract 声明变化后、是否落在 §5.1 已经写进 $\mathcal{C}_\pi$ 的**声明响应关系** $\mathcal{R}_{\mathcal{C}}(T_k)$ 之内——与 §5.1 Type I equivariance / Type II order-constrained response 完全闭环：
 
-**(B) World-consistent counterfactual**——同时改 $(o, \hat S)\mapsto(o_k, \hat S_k)$、其中 $o_k$ 与 $\hat S_k$ 都来自 simulator / renderer / privileged state、保证 observation 与 contract **一致**。它测的是：
+$$\boxed{\;E_{\mathrm{contract}}(T_k) \;=\; D_{\mathcal{A}}\!\big(\pi_\theta(T_k^{\mathrm{contract}}(\hat S)),\;\mathcal{R}_{\mathcal{C}}(T_k)\big),\qquad E_{\mathrm{contract}}^{\mathrm{overall}} = \tfrac{1}{K}\sum_k \mathbf 1\!\big[E_{\mathrm{contract}}(T_k) > \epsilon_{\mathrm{resp}}\big].\;}$$
 
-> **policy 是否能在另一个真实世界 hypothesis 下正确行动？**
+$D_{\mathcal{A}}$ 与 §0.2.2 的 $L_{\mathrm{decision}}$、§6.2 HSS 用同一族（action-equivalence-aware distance、测两个 action 分布是否**支持不同的 admissible / optimal action set**）。$\mathcal{R}_{\mathcal{C}}(T_k)$ 里允许 piecewise、允许 flat、允许 conditional、只要不违反 §5.1 声明的 $\preceq_{\mathcal{C}_\pi}^{\mathrm{declared}}$ 与 $r$ 就合法——**reviewer 追问"如果 contract 与 observation 自相矛盾、ground-truth action 从哪来"、这一版的回答是"不需要 ground-truth action、只需要 contract 自己声明过的响应集合"**。这才是 interface compliance 该有的样子。
 
-这是 **decision competence**。
+**(B) World-consistent counterfactual → Decision competence HPC**——同时改 $(O, \hat S) \mapsto (O_k, \hat S_k)$、$O_k$ 与 $\hat S_k$ 都来自 simulator / renderer / privileged state、保证 observation 与 contract 一致。此时 $\mathcal{A}^*_k$ 有天然的定义——**它就是世界 $k$ 里的 optimal / admissible action set**、由 simulator 的 ground-truth state 与 reward 决定：
 
-两种 benchmark 明确分开、否则 reviewer 一句 **"Is your counterfactual intervention semantically consistent with the observation?"** 就能把整段拆开。本文下面公式默认走 (A) $T_k^{\mathrm{contract}}$ 测 interface compliance、并把 (B) $T_k^{\mathrm{world}}$ 留给下一篇 benchmark paper。
+$$\boxed{\;\mathrm{HPC} \;=\; \frac{1}{K} \sum_{k=1}^{K} U\!\big(\pi_\theta(T_k^{\mathrm{world}}(\hat S, O)),\;\mathcal{A}^{*}_k\big),\qquad U(\pi, \mathcal{A}^*_k) = \Pr_{a \sim \pi}\!\big[a \in \mathcal{A}^{*}_k\big].\;}$$
 
-**Hypothesis Coverage (HPC)**：
+HPC **只在 $T_k^{\mathrm{world}}$ 下有意义**——它测的是"policy 在另一个真实世界 hypothesis 下的 decision competence"、而不是"policy 会不会响应 contract 变化"。两件事由两个不同的 metric 承担、benchmark 报告时**必须并列 $E_{\mathrm{contract}}$ 与 HPC**、不能合并成一个总分。这一拆分正好与本文全篇"contract 变化 ≠ world 变化"的哲学一致。
 
-$$\mathrm{HPC} \;=\; \frac{1}{K} \sum_{k=1}^{K} U\!\big(\pi_\theta(T_k^{\mathrm{contract}}(\hat S)),\;\mathcal{A}^{*}_k\big).$$
+**Hypothesis Separation Score (HSS)**——**必须只在 action-relevant hypothesis pairs 上平均**、reviewer 抓到了 gaming：如果 $\mathcal A^*(H_1) = \mathcal A^*(H_2)$、policy 输出不同不是优点、**是 noise**。定义 action-relevant pair set（走 §0.2.1 已经定义的 $\sim_{\pi,\mathcal D}$、不是"raw representation 不同"）：
 
-$U(\cdot, \mathcal A^*_k)$ 是 policy 输出与 counterfactual contract 下**理想 action set** $\mathcal A^*_k$ 的 utility、$\mathcal A^*_k$ 与 §6.5 的 oracle 一样在 benchmark 里由 privileged simulator state / oracle planner / offline expert rollouts 构造。这一改把 HPC 与全文 intervention philosophy 对齐——**HPC 测的是"如果 contract 被 counterfactually 换成 $H_k$、policy 会不会响应"、不再宣称"$H_k$ 就是 true latent"**。
+$$\mathcal R \;=\; \big\{(i, j): \hat S_i \not\sim_{\pi,\mathcal D} \hat S_j\big\} \;\cap\; \big\{(i, j): T_i, T_j \text{ 都属于 } \{T^{\mathrm{contract}}, T^{\mathrm{world}}\} \text{ 中的一类}\big\}.$$
 
-**Hypothesis Separation Score (HSS)**——**必须只在 action-relevant hypothesis pairs 上平均**、reviewer 抓到了 gaming：如果 $\mathcal A^*(H_1) = \mathcal A^*(H_2)$、policy 输出不同不是优点、**是 noise**。定义 action-relevant pair set：
+**第二个交集很关键**——$T^{\mathrm{contract}}$ 与 $T^{\mathrm{world}}$ 语义不同、不能混在同一个 HSS 里平均。HSS 只在 $\mathcal R$ 上算、**并且 $D$ 一律用 $D_{\mathcal A}$、不用普通 distribution distance**（KL、TV、Wasserstein 都可能被"每个 hypothesis 输出一个不同随机分布"这种 gaming 拉满）：
 
-$$\mathcal R \;=\; \big\{(i, j): \mathcal A^{*}_i \not\equiv \mathcal A^{*}_j\big\}.$$
+$$\mathrm{HSS}^{c} \;=\; \frac{1}{|\mathcal R^{c}|} \sum_{(i, j) \in \mathcal R^{c}} D_{\mathcal{A}}\!\big(\pi_\theta(\cdot \mid T_i^{c}\hat S),\;\pi_\theta(\cdot \mid T_j^{c}\hat S)\big),\qquad c \in \{\mathrm{contract},\mathrm{world}\}.$$
 
-HSS 只在 $\mathcal R$ 上算：
+**separation is useful only when distinctions are decision-relevant**——这一句必须写死。**并且光靠 $D_{\mathcal A}$ 还挡不住"完全随机 policy 不同 hypothesis 下随机分布也不同"这种 gaming**、所以 v6 引入 **competence gate**：**HSS 只在 $E_{\mathrm{contract}}$ 已经通过（$E_{\mathrm{contract}}^{\mathrm{overall}} < \tau_E$）的前提下才作为 positive evidence**、否则高 HSS 只说明 policy 在乱动。**不要把两个 metric 硬乘成一个总分**（例如 $E_{\mathrm{contract}} \cdot \mathrm{HSS}$）——reviewer 更接受**并列报告**：
 
-$$\mathrm{HSS} \;=\; \frac{1}{|\mathcal R|} \sum_{(i, j) \in \mathcal R} D\!\big(\pi_\theta(\cdot \mid T_i^{\mathrm{contract}}\hat S),\;\pi_\theta(\cdot \mid T_j^{\mathrm{contract}}\hat S)\big).$$
+| 指标 | 问题 | 抗 gaming 手段 |
+|---|---|---|
+| $E_{\mathrm{contract}}^{\mathrm{overall}}$ | policy 是否落在声明过的响应集合内 | 用 $D_{\mathcal A}$、$D$ 与 $\mathcal R_{\mathcal C}$ 都对齐 §5.1 |
+| $\mathrm{HPC}$ | world-consistent 下 policy 是否支持正确的 action set | 只在 $T^{\mathrm{world}}$ 上算、$\mathcal A^*_k$ 由 simulator 定 |
+| $\mathrm{HSS}^{c}$ | policy 是否区分 action-relevant pairs | $D_{\mathcal A}$ + competence gate（$E_{\mathrm{contract}}$ 已 pass） |
+| Entropy / diversity（对照） | 是不是只是随机化 | 与 HSS 并列报告、随机 policy 的 entropy 会异常高、HSS 会不涨 |
 
-**separation is useful only when distinctions are decision-relevant**——这一句必须写死、否则 HSS 会被 policy 用"每个 hypothesis 输出一个不同的随机 action"这种 gaming 拉满。
+HPC / HSS / $E_{\mathrm{contract}}$ / entropy **四列并排**、reviewer 一眼能看出"高 HSS + 高 entropy"就是 gaming、"高 HSS + 低 entropy + $E_{\mathrm{contract}}$ 通过"才是真的 separation。
 
-$D$ 的选择与 §0.2.2 的 $D_{\mathcal A}$ 用同一族——**测的是两个 action distribution 是否支持不同的 admissible / optimal action set**——HSS 与 $L_{\mathrm{decision}}$ 语义闭环。
-
-HPC 与 HSS 一起才对应 decision-relevant semantic preservation（§0.2.1 Property A′）——**coverage** 保证"每个 action-relevant hypothesis 都被 support"、**separation** 保证"policy 保留了 action-relevant 的 hypothesis distinction"、**同时不惩罚那些不该区分的 pair**。这三条限制一起才让 representation evidence 有意义。
+**四者合力才对应 decision-relevant semantic preservation（§0.2.1 Property A′）**——$E_{\mathrm{contract}}$ 保证"contract 变化时 policy 响应合法"、**HPC** 保证"world-consistent 下每个 action-relevant hypothesis 都被 support"、**HSS** 保证"policy 保留了 action-relevant 的 hypothesis distinction"、**entropy 对照**保证"HSS 不是随机化 gaming"、**同时不惩罚那些不该区分的 pair**。四条限制一起才让 representation evidence 有意义。
 
 **Calibration diagnostic**——$\mathrm{ECE}_{\text{top-}k}$、NLL、Brier、calibration curve、coverage / credibility 五条并列（§4.1 已经把它们从 primitive 里剥出来、这一节是它们真正的家）。
 
@@ -655,11 +711,23 @@ HPC 与 HSS 一起才对应 decision-relevant semantic preservation（§0.2.1 Pr
 
 $$R_\pi(\alpha) \;=\; \pi_\theta\!\big(\cdot \,\big|\, \mathrm{do}(\alpha_c = \alpha),\, o\big).$$
 
-baseline 侧：SDS 不再对着单一 $R^*$ 定义、而是对着 **contract-permitted response set** $\mathcal R_{\mathcal C}(\alpha)$ 定义——这个 set 由 §5.1 已经写进 $\mathcal C_\pi$ 的 $\preceq_{\mathcal C}$ 与 $r$ 声明、允许 piecewise、允许 flat、只要**不违反 relation 就是合法**：
+baseline 侧：SDS 不再对着单一 $R^*$ 定义、而是对着 **contract-permitted response set** $\mathcal R_{\mathcal C}(\alpha)$ 定义——这个 set 由 §5.1 已经写进 $\mathcal C_\pi$ 的 $\preceq_{\mathcal C_\pi}^{\mathrm{declared}}$ 与 $r$ 声明、允许 piecewise、允许 flat、只要**不违反 relation 就是合法**：
 
 $$\boxed{\;\mathrm{SDS} \;=\; D\!\big(R_\pi,\;\mathcal R_{\mathcal C}\big),\;}$$
 
-$D$ 是 "distance from a curve to a set of legal curves"、可以是 sup-based violation measure $\sup_{\alpha_1 \preceq_{\mathcal C} \alpha_2} \max\!\big(0, r(R_\pi(\alpha_1)) - r(R_\pi(\alpha_2)) + \delta\big)$（等价于 §5.1 Type II hinge loss 在 evaluation 上的复用）、也可以是别的 curve-set divergence。**oracle policy curve $R^*$ 只是 $\mathcal R_{\mathcal C}$ 的一种 baseline、不是定义本身**。这样 SDS 就与 §5.1 Type II "order-constrained 不一定 monotone" 完全一致、不再强迫所有任务共用一条唯一正确的 staleness response。
+$D$ 是 "distance from a curve to a set of legal curves"、可以是 sup-based violation measure $\sup_{\alpha_1 \preceq_{\mathcal C_\pi}^{\mathrm{declared}} \alpha_2} \max\!\big(0, r(R_\pi(\alpha_1)) - r(R_\pi(\alpha_2)) + \delta\big)$（等价于 §5.1 Type II hinge loss 在 evaluation 上的复用）、也可以是别的 curve-set divergence。**oracle policy curve $R^*$ 只是 $\mathcal R_{\mathcal C}$ 的一种 baseline、不是定义本身**。这样 SDS 就与 §5.1 Type II "order-constrained 不一定 monotone" 完全一致、不再强迫所有任务共用一条唯一正确的 staleness response。
+
+**v6 补·SDS 的操作化定义（$V_{\mathrm{order}}$ violation estimator）**——上面 $D(R_\pi, \mathcal R_{\mathcal C})$ 是漂亮但抽象的记号、reviewer 一句 **"How do you compute distance to a set of legal curves?"** 就能把 benchmark 版打穿（$\mathcal R_{\mathcal C}$ 一般是无穷集）。v6 明确 SDS 的**推荐实现是 violation functional**、不是 curve-to-set distance：
+
+$$\boxed{\;\mathrm{SDS} \;=\; V_{\mathrm{order}} \;=\; \mathbb E_{(\alpha_i, \alpha_j)\,:\,\alpha_i \preceq_{\mathcal C_\pi}^{\mathrm{declared}} \alpha_j}\!\Big[\max\!\big(0,\; r\!\big(R_\pi(\alpha_i)\big) - r\!\big(R_\pi(\alpha_j)\big) + \delta\big)\Big].\;}$$
+
+这个式子是**有限可测**的：给定一组 grid $\{\alpha_1, \alpha_2, \ldots\}$、遍历所有 declared order 兼容的 pair、跑 policy 读出 $r(R_\pi(\alpha))$、算 hinge、平均即可。$\delta$ 与 §5.1 Type II hinge loss 里的 $\delta$ **取同一个值、由任务级原则选取**（例如 $\delta = \sigma_r / 2$、$\sigma_r$ 是 $r$ 在 benchmark noise 下的经验标准差；或者 $\delta$ 与 §6.2 $E_{\mathrm{contract}}$ 的 $\epsilon_{\mathrm{resp}}$ 通过同一族 action-distance 校准）——不能只是叫 "margin"、不能事后凑。
+
+如果 §5.1 Type II 声明的是 **piecewise policy**（例如 $\alpha<50$ → normal、$50\le\alpha<100$ → fallback、$\alpha\ge 100$ → stop），那么 $V_{\mathrm{order}}$ 直接测**状态 transition violation**就够了：
+
+$$V_{\mathrm{trans}} = \mathbb E\!\big[\mathbf 1\big[\text{observed state}\big(R_\pi(\alpha)\big) \neq \text{declared state at }\alpha\big]\big].$$
+
+正文里保留 $D(R_\pi, \mathcal R_{\mathcal C})$ 是**理论定义**、实验实现一律走 $V_{\mathrm{order}}$ 或 $V_{\mathrm{trans}}$、这样 benchmark paper 版可以直接把 estimator 抄过去。
 
 响应属性 $R$ 根据任务定义、可以取 **variance / action norm / fallback probability / safety margin / stop probability**——**必须与 §5.1 Type II 里声明的 $r$ 是同一个**、否则训练与评估各说各话。平坦不代表差、只要与 $\mathcal R_{\mathcal C}$ 里某一条 legal curve 匹配即可。
 
@@ -707,6 +775,33 @@ $$\mathrm{CAG}_X^{\mathrm{fixed}} \;=\; J_{\mathrm{full}}^{\theta^*} - J_{\mathr
 
 其中 $\theta^*$ 是原训练好的参数、$\theta^*_X$ 是用 collapsed representation **重新训练**出来的参数。**本文的 compliance evidence 只走 $\mathrm{CAG}^{\mathrm{fixed}}$；$\mathrm{CAG}^{\mathrm{retrained}}$ 是 architecture 论文的问题、不是本文的**。
 
+**v6 补·matched null control**（reviewer 抓得非常狠的一步）——上面的 $\mathrm{CAG}^{\mathrm{fixed}}$ 有一个**极容易被误解读**的地方：$\mathrm{collapse}_X$ 之后 policy 拿到的输入很可能**已经不在训练分布里**。比如训练时 hypothesis payload 长这样：
+
+```text
+hypothesis = [(μ1, Σ1, w1), (μ2, Σ2, w2), ...]
+```
+
+collapse 后变成：
+
+```text
+collapse_hyp → 单个 Gaussian (μ̄, Σ̄)
+```
+
+那么 policy 遇到的**未必是**"contract information 被拿掉"、也可能只是**"输入格式突然变成模型没见过的东西"**——于是 $\mathrm{CAG} > 0$ 可能只是 **OOD sensitivity**、跟"contract 语义有没有被用"没关系。这一版必须给 CAG 加一个 **matched null control**：
+
+**Format-preserving null intervention** $S \mapsto \tilde S$ 满足四条：
+
+- shape 与 collapsed version 相同（比如同样折成"一个 Gaussian"）；
+- marginal distribution 与 $S$ 相同（比如 $\tilde\mu$ 从原 mixture 里按权重随机取一个 component）；
+- **decision-relevant information 不变**（比如保留 top-1 hypothesis 的 mode identity）；
+- **irrelevant semantics 改变**（比如把 hypothesis identity 的 index permutation、把 component 的 provenance tag 打个随机重排、保留 shape 与 marginal）。
+
+跑同一份 $\theta^*$、得到 $\Delta J_{\mathrm{null}} = J_{\mathrm{full}}^{\theta^*} - J_{\mathrm{null}}^{\theta^*}$。**benchmark 报告 CAG 的时候必须并排 $\Delta J_{\mathrm{null}}$**：
+
+$$\boxed{\;\text{只有当 } \Delta J_{\mathrm{contract}} \gg \Delta J_{\mathrm{null}} \text{ 时、CAG 才能作为 contract-use 的证据；否则它只是 OOD sensitivity}.\;}$$
+
+这一步把"policy 只是讨厌输入格式变化"这个 alternative hypothesis 从 CAG 里剥出去。一个具体的对照实验设计（v6 reviewer 建议 §6.5 的 CAG shortcut detection 应该配的）：**打乱 `age` 与 `task difficulty` 的相关性重训一份对照 policy**、然后观察 §5.1 Type I/II pass/fail 与 CAG 之间的关系是否改变——如果 correlation-shuffled 之后 CAG 归零、那原来的 CAG 就是 shortcut；如果 CAG 仍在、才是真的在读 contract semantic。
+
 **再加 oracle privileged-state baseline**：
 
 $$J_{\mathrm{oracle}} \;=\; J(\pi^{*}_{\mathrm{oracle}} \mid s^{\mathrm{priv}}), \qquad \mathrm{Gap}_{\mathrm{oracle}} \;=\; J_{\mathrm{oracle}} - J_{\mathrm{full}}.$$
@@ -735,28 +830,43 @@ $$\boxed{\;\mathrm{CAG} \;=\; \text{task-conditional utility sensitivity}.\;}$$
 
 四类合起来构成一个**多证据 compliance argument**：**semantic 测"响应规则对不对"、representation 测"信息还在不在（且独立于 raw observation）"、decision 测"用了没 / 有没有 shortcut"、safety 测"unknown / invalid 时收紧没"**。它们都**不能替代**任何端到端 success rate——它们衡量的是 policy 侧对 contract 的**读取度**、不是**表现力**。这一点与 §0.3 Claim 3 完全对齐：**contract compliance must be tested by controlled intervention、并且必须由四类证据合流支持**。
 
-### 6.7 全文理论骨架表（v5 修订：三 loss + 一 obligation）
+### 6.7 全文理论骨架表（v6 修订：三 loss + 一 obligation + 五层 evaluation hierarchy）
 
 把 §0 到 §6 收在一张表上、reviewer 最希望看到的就是这个：
 
 | Layer | Object | Failure | Evidence |
 |---|---|---|---|
 | Contract | $\mathcal C$ | schema ambiguity / version mismatch | schema audit + compatibility check |
-| Declaration | $q_\pi$（由 $\mathcal C_\pi$ + $Q_{\mathcal C_\pi}$ 诱导） | undeclared semantic collapse | quotient audit（能贴出 $Q_{\mathcal C_\pi}$ 清单吗？） |
+| Declaration | $q_\pi$（由 $\mathcal C_\pi = (Q_\pi, \mathcal O_\pi, V_\pi)$ 诱导） | undeclared semantic collapse | quotient audit（能贴出 $Q_{\mathcal C_\pi}$ 清单吗？subsumption 覆盖吗？） |
 | Projection | $\Pi_\pi = e_\pi\circ q_\pi$ | residual contract information | conditional probe $I(\text{field};z_\pi\mid o)$ |
 | Decision | $\pi_\theta$ | wrong use / shortcut / collapse rate | Type I equivariance + Type II order-constrained + Type III ablation + $L_{\mathrm{decision}}$ |
 | Safety | $g_{\mathrm{safety}}$ | unsafe interpretation of invalid / unknown evidence | constraint certification intervention（是否**收紧**、而不是**放松**） |
 
-**三个 semantic losses + 一个 safety obligation**：
+**三个 semantic losses + 一个 safety obligation**（v6 版、公式与 §0.2.2 严格对齐）：
 
 $$\boxed{\begin{aligned}
-L_{\mathrm{declared}} &: \;\textstyle\sum_{q\in Q_{\mathcal C}^{\mathrm{req}}} w_q\,\mathbf 1[q\notin Q_{\mathcal C_\pi}];\\[1mm]
-L_{\mathrm{projection}} &= I(Y_\pi;\hat S\mid Z_\pi, O, L);\\[1mm]
+L_{\mathrm{declared}} &: \;\textstyle\sum_{q\in Q_{\mathcal C}^{\mathrm{req}}} w_q\,\mathbf 1\!\big[\nexists\, q' \in Q_{\mathcal C_\pi}:\, q' \succeq q\big];\\[1mm]
+L_{\mathrm{projection}} &= I\!\big(Y_{\mathcal C}^{\pi};\hat S \mid Z_\pi, O, L\big);\\[1mm]
 L_{\mathrm{decision}} &= \mathbb E_{\mathcal R_{\mathcal D}}\!\big[\mathbf 1[D_{\mathcal A}(\pi_\theta(\cdot\mid\hat S),\pi_\theta(\cdot\mid\hat S'))<\epsilon]\big];\\[1mm]
-\mathcal O_{\mathrm{safety}} &: \;\text{safe → relax allowed; unknown / invalid → tighten or stop.}
+\mathcal O_{\mathrm{safety}} &: \;\text{safe} \Rightarrow \text{relaxation permitted (constraint policy still applies)};\\
+&\quad \text{unsafe} \Rightarrow \text{tighten or stop};\quad \text{unknown} \Rightarrow \text{conservative fallback}.
 \end{aligned}}$$
 
-三个 loss 分别落在 $q_\pi / \Pi_\pi / \pi_\theta$ 上、safety obligation 落在 $g_{\mathrm{safety}}$ 上、**四层各自独立审计**、合起来形成 compliance argument。这就是本文从"给 VLA 加 metadata"走到 "contract-aware policy design" 的具体形状。
+三个 loss 分别落在 $q_\pi / \Pi_\pi / \pi_\theta$ 上、safety obligation 落在 $g_{\mathrm{safety}}$ 上、**四个可分别审计的 pipeline 站点**（**four separately auditable failure sites**）、合起来形成 compliance argument。**注意 v6 措辞**——本文**不宣称**这四个槽位是"statistically independent"的（reviewer 抓得对：$L_{\mathrm{declared}}$ 变了会改 $q_\pi$、改 $q_\pi$ 会改 $\Pi_\pi$ 的允许 quotient、进而改 $L_{\mathrm{decision}}$ 的评估集、四者是**顺序耦合**的、只是各自定位到一个可打开审计的站点）。这就是本文从"给 VLA 加 metadata"走到 "contract-aware policy design" 的具体形状。
+
+**v6 再补·五层 evaluation hierarchy（reviewer 提的最值得加的一张表）**。本文一直想区分"信息还在不在 / 够不够 / 有没有用 / 用了值不值 / 不确定时怎么反应"——v6 之前散在 §6.1–§6.6、没有一张表把它们钉在一起。这张表是全文 evaluation 层的**类型系统**：
+
+| 层 | 问题 | 主要指标 / primitive | 与其它层的分离点 |
+|---|---|---|---|
+| **Retention** | contract field 在 $z_\pi$ 里还在吗？ | conditional probe $I(\text{field}; z_\pi \mid o)$ | 只测"在不在"、不测"够不够" |
+| **Sufficiency** | $z_\pi$ 加 side information 是否足以回答 $Y_{\mathcal C}^{\pi}$？ | $L_{\mathrm{projection}} = I(Y_{\mathcal C}^{\pi};\hat S\mid Z_\pi,O,L)$ | conditional MI = 0、不宣称 representation-level injective |
+| **Behavioral use** | policy 对 contract intervention 响应是否合法？ | Type I equivariance / Type II order-constrained / §6.2 $E_{\mathrm{contract}}(T_k)$ vs $\mathcal R_{\mathcal C}$ | 与"响应对不对"绑定、不测最终 utility |
+| **Utility** | 用了 contract 信息、decision 真的改善了吗？ | $\mathrm{CAG}^{\mathrm{fixed}}$ + §6.2 HPC（$T^{\mathrm{world}}$ 版）+ §6.4 $\Delta J_{\mathrm{where/dep/neg}}$ | 必须配 matched null 与 oracle baseline、避免只是 OOD sensitivity |
+| **Safety** | 不确定 / 无效 evidence 时有没有保守反应？ | §6.6 constraint certification intervention + §5.3 三态 certification + $\mathcal O_{\mathrm{safety}}$ | 独立于"policy 用没用 contract"、测的是 filter 有没有兜住 |
+
+这五层是**层层递进、但不是相互蕴含**的关系——Retention 通过不蕴含 Sufficiency（信息在可能也不足以回答 query）、Sufficiency 通过不蕴含 Behavioral use（够信息 policy 可能不用）、Behavioral use 通过不蕴含 Utility（响应对了 utility 可能仍然差、因为 contract 未必是当前瓶颈）、Utility 与 Safety 完全正交（safety 侧兜底与 utility 侧表现是两件事）。**这四条"不蕴含"关系**是 §6.2 拆 $E_{\mathrm{contract}}$ / HPC、§6.5 拆 CAG fixed / retrained、§6.6 拆 constraint certification intervention 的根本动机。**Retention ≠ Sufficiency ≠ Use ≠ Utility**——这一句 v6 之前只是隐含、v6 明确写出来。
+
+合起来，§6.7 的两张表共同承担本文 evaluation 部分的**理论骨架**：上一张表把 loss/obligation 落到 pipeline 的四个可审计站点、下一张表把 evidence 落到五个层层不相互蕴含的评估层。这两张表是本文"从概念文章走到 benchmark protocol 文章"最直接的接口。
 
 ## 7. 最小可执行接口草图
 
@@ -774,21 +884,33 @@ class StructuredStateView:
             consumer_contract.supported_version,
             adapter=consumer_contract.adapter,   # may be None -> strict fail
         )
+        # v6 P1-10: fail-closed is actually enforced, not just recorded.
+        if not self.compatibility.accepted:
+            raise SchemaCompatibilityError(
+                f"schema_version={contract.schema_version} incompatible with "
+                f"supported_version={consumer_contract.supported_version}; "
+                f"either upgrade C_pi or provide an explicit adapter."
+            )
         self.contract = contract
         self.C_pi = consumer_contract
         self.Q = query_family
         self.Q_req = required_queries
 
     def declared_coverage_loss(self) -> float:
-        # L_declared = sum_{q in Q_req} w_q * 1[q not in Q_C_pi]
-        return sum(self.Q_req[q].weight for q in self.Q_req if q not in self.Q)
+        # v6 P1-4: L_declared via query subsumption, not literal set membership.
+        # A required q is covered if ∃ q' ∈ Q_C_pi such that q' ≽ q.
+        def covered(q):
+            return any(self.Q[q2].subsumes(q) for q2 in self.Q)
+        return sum(self.Q_req[q].weight for q in self.Q_req if not covered(q))
 
     def project(
         self,
         schema: PolicySchema,
         # --- mode_select (mass-preserving, not calibration) ---------
         mode: Literal["map", "posterior_sample", "topk"] = "topk",
-        topk_residual: Literal["renormalize", "keep_residual"] = "renormalize",
+        # v6 P1-11: two ORTHOGONAL knobs (previously conflated in `topk_residual`)
+        topk_weight_mode: Literal["conditional", "raw"] = "conditional",
+        residual_mode: Literal["drop", "mass_only", "sufficient_stats"] = "mass_only",
         # --- staleness / uncertainty knobs --------------------------
         staleness: Literal["ignore", "parallel_field", "condition"] = "parallel_field",
         uncertainty: Literal["none", "conservative_inflation", "propagate"] = "conservative_inflation",
@@ -797,6 +919,8 @@ class StructuredStateView:
         dependency: Literal["ignore", "logit_bias_learned",
                             "covariance_fusion", "hierarchical_mixture"] = "covariance_fusion",
         negative_evidence: Literal["ignore", "condition", "belief_update"] = "condition",
+        # --- v6 P1-12: benchmark-side RNG control -------------------
+        benchmark_rng: Optional[np.random.Generator] = None,
     ) -> PolicyInput:
         """
         Project StructuredState (upstream, 9/14) to PolicyInput (downstream, this piece).
@@ -804,6 +928,12 @@ class StructuredStateView:
         e_pi is the encoder of the specific backbone and must not silently drop anything
         q_pi declared preserved; pi_theta may further collapse distinctions at the
         action level (see §0.2.2: three semantic losses + one safety obligation).
+
+        Benchmark note (v6 P1-12): when `mode='posterior_sample'` is used inside an
+        intervention benchmark (T_i vs T_j), caller MUST pass a shared `benchmark_rng`
+        so both arms consume the same random numbers. Otherwise the observed distance
+        D(π(T_i S), π(T_j S)) mixes intervention effect with sampling noise and
+        contaminates HSS / SDS / E_contract.
         """
         slots = {}
         for field_name in schema.fields:
@@ -813,18 +943,26 @@ class StructuredStateView:
             if mode == "map":
                 mu, Sigma, w_payload, residual = h.most_likely().mu, h.most_likely().Sigma, None, None
             elif mode == "posterior_sample":
-                mu, Sigma, w_payload, residual = h.sample().mu, h.sample().Sigma, None, None
+                rng = benchmark_rng or h.default_rng   # v6: shared RNG in benchmark mode
+                sample = h.sample(rng=rng)
+                mu, Sigma, w_payload, residual = sample.mu, sample.Sigma, None, None
             else:  # "topk"
                 top = h.top_k(k=schema.k_per_field[field_name])
-                residual = 1.0 - top.total_weight()
-                if topk_residual == "renormalize":
+                residual_mass = 1.0 - top.total_weight()
+                # v6 P1-11: weight handling and residual handling are ORTHOGONAL.
+                if topk_weight_mode == "conditional":
                     w_payload = top.renormalize()          # sum w̃_i = 1 within top-k
-                else:  # "keep_residual"
-                    w_payload = top.weights                 # raw weights kept
-                residual_declared = residual                # explicitly recorded, not silently dropped
-                # NOTE: `residual_declared` is AGGREGATE residual mass, not residual sufficient
-                # statistics. Strict posterior update over the residual component still requires
-                # separate mu/Sigma/likelihood specifications (see §4.1 v5 caveat).
+                else:  # "raw"
+                    w_payload = top.weights                # raw weights kept
+                # residual_mode expresses what we DO with the discarded mass:
+                if residual_mode == "drop":
+                    residual_declared = None               # explicitly dropped, not silently
+                elif residual_mode == "mass_only":
+                    residual_declared = residual_mass      # aggregate residual mass only
+                else:  # "sufficient_stats"
+                    residual_declared = h.residual_sufficient_stats()  # full μ/Σ/likelihood
+                # NOTE: mass_only ≠ sufficient_stats. Strict Bayesian update over the residual
+                # component requires separate mu/Sigma/likelihood specifications (see §4.1).
                 # Calibration (ECE_top-k / NLL / Brier) is measured in §6.2, NOT here.
 
             # --- age_gate: three groups, never multiplicative on mu ---
@@ -858,7 +996,7 @@ class StructuredStateView:
                 alpha=age, validity=validity, iota=availability,   # v5: α / ι names
                 health=health, latency_status=latency,
                 trust=trust, w_payload=w_payload,
-                residual_declared=(residual if mode == "topk" else None),
+                residual_declared=(residual_declared if mode == "topk" else None),
             )
 
         # --- provenance / dependency / negative evidence, three reads ---
@@ -887,25 +1025,36 @@ class StructuredStateView:
 
 
 class SafetyFilterHead(nn.Module):
-    """v5: safety is not a fourth information loss; it is a distinct obligation slot.
+    """v6: safety is not a fourth information loss; it is a distinct obligation slot.
     Reads three-state certification, NOT a binary validity bit.
+    Multi-constraint combination is INTERSECTION, not short-circuit on first unsafe/unknown.
     """
+    def __init__(self):
+        super().__init__()
+
     def forward(self, a_proposed, contract) -> Action:
+        # g_safety = ⋂_j g_j — every constraint contributes its own allowed subset,
+        # we compose them; we never `return` early on the first tightening.
+        a_applied = a_proposed
         for j, constraint in enumerate(contract.constraints):
             cert = constraint.certification      # ∈ {safe, unsafe, unknown}
             if cert == "safe":
-                continue                         # relaxation allowed by positive evidence
-            if cert == "unsafe":
-                return tighten_or_stop(a_proposed, constraint)
-            if cert == "unknown":
+                # safe → relaxation is PERMITTED, not required: constraint policy
+                # still applies at its normal margin. Do NOT `continue` past it.
+                a_applied = allow_normal_margin(a_applied, constraint)
+            elif cert == "unsafe":
+                a_applied = tighten_or_stop(a_applied, constraint)
+            elif cert == "unknown":
                 # invalid evidence ALONE cannot justify relaxing the constraint.
-                return conservative_fallback(a_proposed, constraint)
+                a_applied = conservative_fallback(a_applied, constraint)
+        return a_applied
 
 
 class ContractAwarePolicy(nn.Module):
     def __init__(self, backbone, schema: PolicySchema, cfg: ContractReadConfig,
                  consumer_contract: ConsumerContract, query_family: QueryFamily,
                  required_queries: QueryFamily):
+        super().__init__()                 # v6 P1-10: nn.Module init (was a real bug)
         self.backbone = backbone
         self.schema = schema
         self.cfg = cfg                 # cfg is a *materialization* of q_pi,
@@ -913,10 +1062,12 @@ class ContractAwarePolicy(nn.Module):
         self.Q = query_family
         self.Q_req = required_queries
         # three semantic loss sites + one safety obligation site:
-        #   L_declared     — on (C_pi, Q, Q_req): coverage of required queries
-        #   L_projection   — on Π_π output Z_π: I(Y_π; Ŝ | Z_π, O, L)
+        #   L_declared     — on (C_pi, Q, Q_req): coverage via query subsumption
+        #   L_projection   — on Π_π output Z_π: I(Y_C^π; Ŝ | Z_π, O, L)
         #   L_decision     — on π_θ: E_{R_D}[ 1[D_A(π(.|S), π(.|S')) < ε] ]
-        #   O_safety       — on g_safety: safe / unsafe / unknown response correctness
+        #   O_safety       — on g_safety: safe→allow_normal_margin /
+        #                                     unsafe→tighten_or_stop /
+        #                                     unknown→conservative_fallback
 
     def forward(self, state: StructuredState, obs, lang) -> ActionDistribution:
         x = StructuredStateView(state, self.C_pi, self.Q, self.Q_req).project(
@@ -932,7 +1083,7 @@ class ContractAwarePolicy(nn.Module):
 
 ## 8. 三条收束 claim 与一个升级的 thesis（与 §0.3 对齐）
 
-> **Claim 1 · Contract semantics can be lost at the policy boundary.** A structured estimator output does not imply a structured policy input. 完整 pipeline $\mathcal C\to(\mathcal C_\pi,Q_{\mathcal C_\pi})\to q_\pi\to e_\pi\to\pi_\theta\to g_{\mathrm{safety}}$ 是**一个可审计的 semantic interface**、三层 loss 分别落在 $q_\pi$ / $\Pi_\pi$ / $\pi_\theta$ 上、第四个槽位 $g_{\mathrm{safety}}$ 不是 loss、是 obligation。三个 loss 各自可能被无声破坏、对应 §0.2.2 的三种定义：$L_{\mathrm{declared}}$（$\sum w_q \mathbf 1[q\notin Q_{\mathcal C_\pi}]$、required queries 中未被覆盖的部分）、$L_{\mathrm{projection}} = I(Y_\pi;\hat S\mid Z_\pi, O, L)$（projection 之后的 conditional residual）、$L_{\mathrm{decision}} = \mathbb E_{\mathcal R_{\mathcal D}}[\mathbf 1[D_{\mathcal A}(\cdot\mid\hat S,\cdot\mid\hat S') < \epsilon]]$（action-relevant pair 的 collapse rate）。$\Pi_\pi$ injective **不蕴含** $L_{\mathrm{decision}} = 0$——这是本版最重要的补强。
+> **Claim 1 · Contract semantics can be lost at the policy boundary.** A structured estimator output does not imply a structured policy input. 完整 pipeline $\mathcal C\to(\mathcal C_\pi,Q_{\mathcal C_\pi})\to q_\pi\to e_\pi\to\pi_\theta\to g_{\mathrm{safety}}$ 是**一个可审计的 semantic interface**、三个 loss 分别定位到 $q_\pi$ / $\Pi_\pi$ / $\pi_\theta$ 上、第四个槽位 $g_{\mathrm{safety}}$ 不是 loss、是 obligation——**四个可分别审计的 failure sites**（v6 措辞、**不是四个 statistical independent losses**、四者通过 $q_\pi \to \Pi_\pi \to \pi_\theta$ 顺序耦合）。三个 loss 各自可能被无声破坏、对应 §0.2.2 的三种定义：$L_{\mathrm{declared}}$（**query subsumption 版** coverage $\sum w_q \mathbf 1[\nexists q' \in Q_{\mathcal C_\pi}: q' \succeq q]$、required queries 中未被 $\mathcal C_\pi$ 沿 subsumption 覆盖的部分）、$L_{\mathrm{projection}} = I(Y_{\mathcal C}^{\pi};\hat S\mid Z_\pi, O, L)$（$Y_{\mathcal C}^{\pi}$ 由 Consumer Contract 定义、不是 benchmark 里凭空的 latent）、$L_{\mathrm{decision}} = \mathbb E_{\mathcal R_{\mathcal D}}[\mathbf 1[D_{\mathcal A}(\cdot\mid\hat S,\cdot\mid\hat S') < \epsilon]]$（action-relevant pair 的 collapse rate、$D_{\mathcal A}$ 与 §6.2 HSS 同一族）。$\Pi_\pi$ injective **不蕴含** $L_{\mathrm{decision}} = 0$——这是本版最重要的补强、也是 §6.7 **五层 evaluation hierarchy**（Retention ≠ Sufficiency ≠ Behavioral use ≠ Utility ≠ Safety）在 loss 层的对应。
 
 > **Claim 2 · Contract preservation is not architecture-specific.** Engineered-state head、latent visuomotor policy、autoregressive VLA、diffusion、flow policy 用的 conditioning 与 action generator 都不一样——但它们作为 contract consumer 都必须回答**同一组四个问题**（本文真正的 thesis、下面会 boxed）。攻击的对象是 interface contract、不是模型架构；π0 是 VLA + flow matching、Diffusion Policy 是 visual-latent + diffusion、ACT 是 visual-latent + generative sequence decoder——**用两个正交维度切、比用"三个家族"切更贴近事实、也更不容易被"某族天生好"的直觉误导**。
 
@@ -948,13 +1099,13 @@ $$\boxed{\;\textbf{Structured estimator output} \;\neq\; \textbf{structured poli
 
 $$\boxed{\;\textbf{A policy is a contract consumer, not merely a function approximator.}\;}$$
 
-而一个 contract consumer 至少要回答四个问题：
+而一个 contract consumer 至少要回答四个问题（v6 措辞、与 §0.2 的 $\mathcal C_\pi = (Q_\pi, \mathcal O_\pi, V_\pi)$ 三段分解完全对齐）：
 
 $$\boxed{\begin{array}{ll}
-\text{1.} & \textbf{What may I discard?} \quad (q_\pi, \mathcal C_\pi, Q_{\mathcal C_\pi}, L_{\mathrm{declared}})\\[2mm]
-\text{2.} & \textbf{What did I actually retain?} \quad (\Pi_\pi = e_\pi\circ q_\pi,\; L_{\mathrm{projection}})\\[2mm]
-\text{3.} & \textbf{How should decisions respond to contract interventions?} \quad (\pi_\theta,\; L_{\mathrm{decision}})\\[2mm]
-\text{4.} & \textbf{What happens when the evidence becomes invalid or unknown?} \quad (g_{\mathrm{safety}},\; \mathcal O_{\mathrm{safety}})
+\text{1.} & \textbf{What may I discard?} \quad (q_\pi;\;\mathcal C_\pi=(Q_\pi,\mathcal O_\pi,V_\pi);\;L_{\mathrm{declared}}\text{ via query subsumption }q'\succeq q)\\[2mm]
+\text{2.} & \textbf{What did I actually retain?} \quad (\Pi_\pi = e_\pi\circ q_\pi,\; L_{\mathrm{projection}}=I(Y_{\mathcal C}^{\pi};\hat S\mid Z_\pi,O,L))\\[2mm]
+\text{3.} & \textbf{How should decisions respond to contract interventions?} \quad (\pi_\theta,\; L_{\mathrm{decision}};\;\text{§6.2: }E_{\mathrm{contract}}(T^{\mathrm{contract}})\text{ for interface compliance, HPC}(T^{\mathrm{world}})\text{ for decision competence})\\[2mm]
+\text{4.} & \textbf{What happens when the evidence becomes invalid or unknown?} \quad (g_{\mathrm{safety}}=\bigcap_j g_j;\;\text{safe}\Rightarrow\text{relaxation permitted},\;\text{unsafe}\Rightarrow\text{tighten or stop},\;\text{unknown}\Rightarrow\text{conservative fallback})
 \end{array}}$$
 
 这四问一旦立住、**VLA / Diffusion / Flow / ACT / SAC / PPO 都只是实现坐标、不再是理论分类**。
@@ -972,9 +1123,8 @@ $$\boxed{\;\mathcal C\;\longrightarrow\;(\mathcal C_\pi, Q_{\mathcal C_\pi})\;\l
 ### A · VLA 家族（支撑 §1 grid、§3 Failure 1–2、§5.1 类别 B）
 
 - Brohan et al., *RT-2: Vision-Language-Action Models Transfer Web Knowledge to Robotic Control*, CoRL 2023 · [arXiv:2307.15818](https://arxiv.org/abs/2307.15818)（**paper fact**：把 robot action 明确表达成 text token 与 VLM 联合 fine-tune · §3.2 Failure 2 的 tokenizer 侧典型形态、"contract flattening" 是本文分析、不是原论文的 limitation）
-- Kim et al., *OpenVLA: An Open-Source Vision-Language-Action Model*, CoRL 2024 · [arXiv:2406.09246](https://arxiv.org/abs/2406.09246)（**paper fact**：7B VLA、大规模机器人 demonstration 训练、强调 fine-tune 与 generalization；**本文分析**：其配置含多相机 / depth / proprioceptive state encoding、但"支持输入" ≠ "读到 contract 的哪一站"）
-- Black et al., *$\pi_0$: A Vision-Language-Action Flow Model for General Robot Control*, 2024 · [arXiv:2410.24164](https://arxiv.org/abs/2410.24164)（**paper fact**：预训练 VLM + proprio token + noisy action chunk + flow matching；**本文分析**：Under the Structured State Contract defined here, π0's conditioning interface does not expose an explicit slot for hypothesis / provenance / age / negative evidence——"Continuous actions do not imply structured state semantics" 是本文的分析、不是原论文的 self-limitation）
-- Octo Model Team, *Octo: An Open-Source Generalist Robot Policy*, RSS 2024 · [arXiv:2405.12213](https://arxiv.org/abs/2405.12213)（transformer-based readout · §4.3.2 dependency_aware_fusion 中 logit_bias_learned 路径的一个参照）
+- Kim et al., *OpenVLA: An Open-Source Vision-Language-Action Model*, CoRL 2024 · [arXiv:2406.09246](https://arxiv.org/abs/2406.09246)（**paper fact**：7B VLA、大规模机器人 demonstration 训练；具体到"多相机 + depth + proprioceptive state encoding"是 §4 "Model Architecture & Training"、Table 2 与 §5.1 报告的输入配置、**不是 abstract-level claim**。**本文分析**：即便引到具体 implementation section、"支持哪些输入 modality" ≠ "读到 contract 的哪一站"、本文对 OpenVLA 的批评是 interface analysis、不是原论文 self-limitation）
+- Black et al., *$\pi_0$: A Vision-Language-Action Flow Model for General Robot Control*, 2024 · [arXiv:2410.24164](https://arxiv.org/abs/2410.24164)（**paper fact**：预训练 VLM + proprio token + noisy action chunk + flow matching；**本文分析**：Under the Structured State Contract defined here, π0's standard conditioning interface does not expose an explicit **first-class contract slot** for hypothesis / provenance / age / negative evidence——注意措辞是"standard conditioning interface 未暴露 first-class slot"、**不是说 π0 "丢失了 provenance"**、provenance 从没有被 π0 conditioning interface 承诺过。**"Continuous actions do not imply structured state semantics" 是本文的分析、不是原论文的 self-limitation**）
 
 ### B · Diffusion / Generative-Sequence / Flow-Matching Policy（支撑 §1 grid、§5.1）
 
