@@ -1,7 +1,7 @@
 ---
 title: 'All Eyes, No Fingertips: Why General Robots Still Lack a Sense of Touch'
-slug: "2026-09-11-tactile-force-sensing"
-date: 2026-09-11
+slug: "2026-09-13-tactile-force-sensing"
+date: 2026-09-13
 draft: false
 categories: ["Embodied AI", "Multimodal Perception"]
 tags: ["Embodied AI", "Tactile Sensing", "Force Control", "Impedance Control", "Admittance Control", "Contact-Rich Manipulation", "Active Perception", "VLA", "Sim-to-Real", "Robot Data", "GelSight", "Contact State Estimation"]
@@ -9,11 +9,11 @@ description: 'What general-purpose robots really lack is not "one more tactile s
 toc: true
 related_articles:
   - 2026-09-10-sim-to-real-methodology
+  - 2026-09-11-sim-to-real-intervention-lenses
+  - 2026-09-12-sim-to-real-evaluation-protocol
+  - 2026-09-14-multimodal-fusion-interface
   - 2026-09-09-robot-data-scaling
-  - 2026-08-26-world-model-in-robotics
   - 2026-09-07-vla-world-models
-  - 2026-09-03-vla-deep-dive
-  - 2026-09-06-embodied-ai-landscape
 ---
 
 > Picking up from [Sim-to-Real methodology](/en/articles/2026-09-10-sim-to-real-methodology/) and [robot data scaling](/en/articles/2026-09-09-robot-data-scaling/): those two pieces talked about how to budget and intervene on the mismatch between training and evaluation distributions, and what the next unit of data collection should buy us. This one drills down one more level — **the real world is not a purely visual world; a lot of the state that decides success or failure lives on the contact interface. And general-purpose robots are exactly where the "contact → feedback → adjust-action" loop is least mature.**

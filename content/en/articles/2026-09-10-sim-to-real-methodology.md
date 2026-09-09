@@ -1,20 +1,21 @@
 ---
-title: 'A Deep Dive into Sim-to-Real Methodology for Embodied AI: Treating "From Simulation to Reality" as an Error-Budget Allocation'
+title: 'Embodied AI Sim-to-Real Methodology (I): Treating Sim-to-Real as an Error-Budget Allocation'
 slug: "2026-09-10-sim-to-real-methodology"
 date: 2026-09-10
 draft: false
 categories: ["Embodied AI", "Training Methods"]
-tags: ["Embodied AI", "Sim-to-Real", "Domain Randomization", "System Identification", "Differentiable Simulation", "Residual Physics", "World Model", "Domain Adaptation", "Robot Data"]
-description: 'Sim-to-real is not a single transfer trick but a closed-loop resource allocation. This article reframes the reality gap as a policy-conditioned, multi-source mismatch, turns error-budget allocation into an estimable, iteratively optimizable decision framework through intervention sensitivity and cost-normalized marginal value, and works through the mechanisms and failure boundaries of the four intervention lenses - SI, DR, DA, and fine-tuning.'
+tags: ["Embodied AI", "Sim-to-Real", "Reality Gap", "Error-Budget Allocation", "Sequential Allocation", "Policy-conditioned Mismatch", "Domain Randomization", "System Identification", "World Model", "Domain Adaptation"]
+description: 'Trilogy - Theory. Sim-to-real is not a single transfer trick but a closed-loop resource allocation. This piece recasts reality gap as a policy-conditioned multi-source mismatch, formalizes error-budget allocation as an estimable iterative decision framework (L1-L5 spine), and defines the formal allocation structure for "where to invest the next unit of budget." Method genealogy in Part 2, evaluation and protocol in Part 3.'
 toc: true
 related_articles:
+  - 2026-09-11-sim-to-real-intervention-lenses
+  - 2026-09-12-sim-to-real-evaluation-protocol
+  - 2026-09-13-tactile-force-sensing
+  - 2026-09-14-multimodal-fusion-interface
   - 2026-09-09-robot-data-scaling
   - 2026-09-08-data-and-training-recipes
-  - 2026-09-06-embodied-ai-landscape
-  - 2026-09-04-rssm-beyond
-  - 2026-09-01-world-model-h2-review
-  - 2026-08-25-dreamer-explained
 ---
+
 
 > This piece follows [Data Sources and Interfaces](/en/articles/2026-09-08-data-and-training-recipes/) and [Data Scaling for Robots](/en/articles/2026-09-09-robot-data-scaling/). The first split sim-to-real into four tool families — only a taxonomy. The question actually worth asking:
 
@@ -188,222 +189,6 @@ Each intervention mapped to its primary compressed term and budget:
 
 With this framing, the article is not "which of the four methods is better" but a loop: locate the dominant $\Delta_k$, judge importance via sensitivity, take $m_t^* = \arg\max Q_{\lambda_t}$ over the feasible set, measure return in real evaluation, decide the next unit.
 
-## Four intervention lenses (composable analytical dimensions)
-
-SI, DR, DA, and FT **are not peers at the same abstraction level** — SI is model calibration, DR is distribution manipulation, DA is representation alignment, FT is optimization strategy. Together they form **four composable intervention lenses** (analytical decomposition, not domain-recognized ontology):
-
-$$\boxed{\text{Model} \times \text{Data} \times \text{Representation} \times \text{Optimization}}$$
-
-"$\times$" here is a **combinatorial space**, not mathematical orthogonality — DR touches Model / Observation / Distribution, DA can happen at input / feature / latent / policy / output, and "DA = the Representation axis" is only one abstraction layer of this article.
-
-**The tool criterion is not "systematic → SI, random → DR"** — the useful partition is the continuum "**point estimate → posterior → robust randomization**". SI can do **point calibration** or, further, produce a **posterior**; we start with the point-estimate form:
-
-$$\hat\phi \;=\; \operatorname*{arg\,min}_{\phi}\; \mathcal{L}_{\mathrm{ID}}\big(D_{\mathrm{real}},\ f_{\mathrm{sim}}(\cdot\,;\,\phi)\big)$$
-
-$\mathcal{L}_{\mathrm{ID}}$ may be trajectory prediction / one-step transition error / force-torque residual / likelihood — **classical SI objectives are typically parameter estimation or transition / observation prediction-error minimization, without an explicit trajectory-distribution-matching term**. SI handles **parameterizable model mismatch**: dynamics residual, contact / friction coefficients, latency, camera extrinsics — when the gap lies outside the model class (unobserved long tail, semantic-level visual difference), SI runs out of leverage and one must switch to DR / DA / WM.
-
-| Nature of the mismatch | More natural tool |
-| --- | --- |
-| Parameterizable + identifiable | System Identification (point estimate $\hat\phi$) |
-| Parameterizable but only uncertainty available | Bayesian / posterior SI → posterior-guided DR |
-| Parameterizable but hard to identify / high uncertainty | Domain Randomization |
-| Difficult to express with low-dimensional physical parameters, but has a structured residual | Residual learning |
-| Observation / appearance mismatch | Domain Adaptation |
-| Policy still has systematic residual on the target domain | Fine-tuning |
-
-Key point: **"not precisely identifiable" $\neq$ "no knowledge at all"** — with a posterior $p(\phi \mid D_{\mathrm{real}})$, the natural move is $\phi \sim p(\phi \mid D_{\mathrm{real}})$ for **posterior-guided randomization**, stitching SI and DR into a continuous spectrum.
-
-### Axis A — Model: system identification, differentiable simulation, and residual physics
-
-This axis handles $\Delta_{\mathrm{model}}$ and contains three **distinct levels** usually bundled into "differentiable simulation is stronger SI":
-
-$$y_t \;=\; \underbrace{g_{\mathrm{physics}}(x_t,a_t;\phi)}_{\text{parameterizable physics}} \;+\; \underbrace{r_\theta\big(\psi(x_t,a_t)\big)}_{\text{residual}} \;+\; \epsilon_t$$
-
-**Only a representative parameterization.** $y_t$ may be the next state $x_{t+1}$, a contact impulse, an acceleration, a deformation field, or another observable; $\psi$ is the residual's input view. The additive state-transition form is one instance; soft-robot residual deformation field, contact-impulse residual, and state residual are not the same mathematical object.
-
-- **Differentiable simulation** answers "how to optimize the model" — a gradient path through simulator parameters / states / controls, an **optimization interface** for identification and trajectory optimization (**not itself system identification**). DiffTaichi (Hu et al., ICLR 2020, 1910.00935) and Interactive Differentiable Simulation (Heiden et al., arXiv 2019, 1905.10706) are representative implementations.
-- **System identification** answers "which parameter to optimize" — real workflow often **real → identify → sim → train → real**, more accurately **real-to-sim-to-real**.
-- **Residual physics** answers "who explains what the model missed" — instead of forcing calibration of $\phi$, let a network learn $r_\theta$ to fill the gap.
-
-$r_\theta$ is only **unified notation**: the actual residual may be defined on state transition, force, acceleration, contact impulse, deformation field, or other latents.
-
-A make-or-break point hidden behind "differentiable": **differentiability solves the optimization interface, not model-class correctness**. If the contact model simply cannot express a real phenomenon, gradients only give "the optimum under a wrong model." **Commonly ignored**: contact-mode switches and complementarity constraints in collision / friction produce **nonsmooth or piecewise-smooth dynamics** — even when $\partial f/\partial\phi$ exists, no guarantee the gradient is stable (it may be discontinuous, high-variance, or simply ill-defined — not necessarily vanishing), that the gradient at mode transitions is meaningful, or that it beats derivative-free optimization. Soft-contact modeling and smooth relaxation are common engineering workarounds.
-
-SI has two further pitfalls. **First, $p_{\mathrm{real}}(\tau)$ is essentially never directly accessible** — only a finite set of real trajectories. **Second, parameters existing $\neq$ identifiable** — identifiability also depends on excitation and sensor observability: mass / damping / stiffness can produce nearly identical observable trajectories under some excitations and cannot be estimated independently.
-
-Residual physics needs a narrowed boundary: a **common applicability range** is where $f_{\mathrm{physics}}$ still provides a **useful structural inductive bias** and the residual makes only a bounded correction on the target distribution — soft robots (Gao et al., RA-L 2024, 2402.01086) and buoyancy-assisted legged robots (Sontakke et al., 2023, 2303.09597) are exactly "trunk physics counts, local residual stable." If $f_{\mathrm{physics}}$ is fully wrong and the residual has to carry the whole dynamics, better learn a model outright. $r_\theta$ **is not naturally "the missing physics"** — an unrestricted additive residual absorbs sensor bias / actuator error / timing / calibration / reward mismatch into an **error sponge** that fits the training distribution and falls apart OOD; so it needs structural constraints (low-dim / sparse / force or acceleration scale / physical priors / active only in specific contact regimes). Under those structural conditions, differentiable simulation is usually the first thing worth evaluating.
-
-Also **confounding** between $\phi$ and $r_\theta$ — a flexible enough residual absorbs effects belonging to $\phi$, making $\hat\phi$ meaningless; identifiability requires $f_{\mathrm{physics}}$ and $r_\theta$ to be distinguishable in data (regularization / scale separation / structural constraints).
-
-### Axis B — Data distribution: domain randomization and its family
-
-This axis does not chase some "most accurate" $p_{\mathrm{real}}$; it makes the policy robust to a family $\{\phi\}$. **Tobin et al. (1703.06907) is the classic representative starting point of modern deep-vision / robotics sim-to-real literature** (the idea of domain randomization predates it; the point is its representative position in end-to-end visual policy transfer). Peng et al. (1710.06537) pushed randomization into dynamics; OpenAI in-hand manipulation (Akkaya et al., 1808.00177) nearly took DR to its extreme — **absorbing difference not through precise calibration but through "a randomization range wide enough."**
-
-A commonly mis-written intuition: **DR is not an "implicit ensemble"** — what is trained is a **single** shared policy $\pi_\theta$, with the objective
-
-$$\max_{\theta}\; \mathbb{E}_{\phi \sim p(\phi)}\big[J(\pi_\theta;\phi)\big]$$
-
-More precisely: **DR is a population-level optimization over a family of environment models**. The formula above is a **baseline abstraction of risk-neutral average-case DR**; robust / adversarial DR instead uses $\max_\theta \min_{\phi \in \Phi} J(\pi_\theta; \phi)$, CVaR, or other risk-sensitive forms. A common engineering heuristic is **support inclusion**, $\mathrm{supp}(p_{\mathrm{real}}) \subseteq \mathrm{supp}(p_{\mathrm{DR}})$ with adequate density in the real-typical region — read it as a **conservative / sufficient coverage proxy**, not as a necessary condition for transfer success: a policy can remain robust outside its training support. **But this carries a deeper premise**: real dynamics must be expressible by the same $\phi$-parameterization; if the sim's model class cannot express the phenomenon, $\phi_{\mathrm{real}}$ is undefined and the support statement **collapses at the root** — the problem becomes **model-class** uncertainty, not "DR not wide enough." (Parameter uncertainty = "where in $\phi$-space reality sits," addressable by posterior or DR; model-class uncertainty = "can this $\phi$-parameterization express real dynamics," not solvable by widening ranges.) **Main conclusion**: parameter-space support is a design proxy, **but the deployment-relevant object is the policy-conditioned occupancy it induces** — from $p_{\mathrm{DR}}(\phi)$ through $d_{\mathrm{train}}^{\pi}(s,a,\text{mode})$ and $d_{\mathrm{real}}^{\pi}(s,a,\text{mode})$, their overlap governs transfer. Parameter-space differences are **not automatically sufficient for deployment failure**.
-
-One layer down: **DR is not choosing scalar ranges, it is designing a joint distribution** — **when the true parameters have significant joint dependency** (payload co-varies with actuator regime, temperature with motor resistance / friction / battery), independent sampling wastes finite budget on low-deployment-relevance or physically inconsistent combinations; independent uniform DR remains a reasonable approximation when the true parameter distribution is close to independent. $p(\phi_1,\phi_2) \neq p(\phi_1)p(\phi_2)$ is common but not universal. The question returns to allocation: **the randomization distribution must align with evaluation and objective**; overly wide or task-irrelevant randomization hurts sample efficiency, but in robust settings a larger uncertainty set can help. **"Wider = more conservative" is not a universal rule; shape and alignment matter.**
-
-"Adaptive / Automatic DR" is a family rather than a single method: curriculum / adversarial / automatic / posterior-based sampling / performance-driven range adaptation — the common thread is **avoiding over-randomization from the start**.
-
-### Axis C — Observation / Representation: domain adaptation and observation translation
-
-This axis handles $\Delta_{\mathrm{obs}}$, aligning sim and real **at the observation / representation layer**. **"Representation" is this article's abstraction** — DA acts on input / feature / latent / output / policy / dynamics model. Mechanisms include feature-level adapters, latent alignment, policy distillation, sim-to-sim canonicalization (image translation / GAN / diffusion is an input-level special case; RCAN, James et al., CVPR 2019, 1812.07252, translates randomized sim images toward a canonical clean image before the policy, stitching DR to this axis). **Do not flatten DA into "DA = image translation."** Two boundaries: **DA only covers part of $\Delta_{\mathrm{obs}}$** — camera intrinsics / extrinsics, temporal sync, sensor bias, depth distortion are better handled by calibration / SI / sensor modeling. **Task-relevant invariance is the goal** — aligning $z_{\mathrm{sim}} \approx z_{\mathrm{real}}$ is not enough; keep $I(z; y_{\mathrm{task}})$ high while pushing $D(z_{\mathrm{sim}}, z_{\mathrm{real}})$ low, same statement as "overly wide DR washes out the task signal."
-
-### Axis D — Optimization / adaptation: real-world fine-tuning
-
-This axis **is not a mismatch class — it is an adaptation operator**: keep optimizing the policy on the target domain. It can be both the closing relay after the first three axes and an **early diagnostic or fast-adaptation tool**. FT **may change transfer delta and real-domain learning gap simultaneously**, but the two still diagnose separately; two regimes with very different cost structures:
-
-- **Offline / imitation:** $D_{\mathrm{real}} \to \theta$, main cost is **data collection**.
-- **Online RL:** $\pi_\theta \to a \to$ real transition $\to \theta'$, main cost is **interaction + safety + hardware wear + exploration**.
-
-So comparing methods cannot look only at final success rate; it must also consider **the real-robot interaction budget required to reach target performance**. A rough indicator:
-
-$$\eta_{\mathrm{real}} \;=\; \frac{\Delta J_{\mathrm{real}}}{\text{robot-hours}} \qquad \text{or}\qquad \frac{\Delta J_{\mathrm{real}}}{N_{\mathrm{real}}}$$
-
-but only a **rough indicator**: baseline-dependent, not true marginal efficiency. Look instead at learning curve / AULC / marginal gain per 100 trajectories,
-
-$$MV_{\mathrm{real}} \;\approx\; \frac{J(N+\Delta N)-J(N)}{\Delta N}$$
-
-— the only form that connects with the article-wide $MV$. Risks go beyond catastrophic forgetting: more common is **distribution narrowing** — real FT data is much narrower than sim, so the post-FT policy is better on the target slice but robustness can drop, **generalization traded for specialization**. $MV_{\mathrm{real}}(N)$ is **not guaranteed positive**: the first 100 may buy a big jump, later returns decay quickly, and beyond that you may overfit or regress — **FT itself can enter a negative marginal-return region**.
-
-## Two new routes that loosen the environment-generating-process assumption
-
-The four axes above share an implicit premise: the classical framing treats simulator and real environment as **two given environment-generating processes** (with distributions $p_{\mathrm{sim}}$, $p_{\mathrm{real}}$). The two routes below loosen this premise itself — not "the fifth and sixth tricks" but a reformulation: **the first four change the intervention; world model and co-training change the underlying training substrate on which interventions operate** — a different abstraction level, not foldable back into the same taxonomy.
-
-### World model: not cancelling the simulator, but replacing the simulator's source
-
-**This section's lens**: we read WM as a "model source replacement" reformulation — only the slice "relative to physics sim, the model source and inductive bias have been replaced." This is not a standard definition of world models and not the only reading.
-
-[Data Scaling for Robots](/en/articles/2026-09-09-robot-data-scaling/) already covered WM and data utility. Placed into sim-to-real, first correct a misreading: **WM does not naturally belong to sim-to-real** — the two routes have different causal directions:
-
-```
-Physics-sim route：  hand-designed dynamics  → train / optimize → deploy real
-Learned-model route：interaction data → learned dynamics → imagine → optimize
-```
-
-**Interaction data can come from real, sim, or a mixture** — the learned-model route ≠ real-only learning.
-
-Precisely: WM **does not cancel the simulator** — still simulating / imagining, only the predictive model is now learned. Better phrasing: **changing the source and inductive bias of the predictive model**:
-
-$$\text{model source} \;=\; \text{physics prior} \;+\; \text{learned dynamics} \;+\; \text{data}$$
-
-**The three can be hybrid** — reading WM as "simulator replacement" (a binary swap $f_{\mathrm{hand}} \rightarrow f_{\mathrm{learned}}$) oversimplifies.
-
-Dreamer (1912.01603) and TD-MPC2 (2310.16828) embody this route. When **the model bias of a hand-crafted simulator is too large to be worth fixing first**, the world model offers a rewrite of the problem itself. DayDreamer (2206.14176) is often misread as "sim pretraining → real fine-tuning"; the more accurate statement is: **it demonstrates a real-interaction-driven experimental route** — learning a world model directly on a real robot and doing policy improvement via latent imagination. **Not depending on a handcrafted simulator ≠ model-free** — world-model learning still eats its full share of assumptions; it merely moves the inductive bias from "explicit physics" into the "learned world model."
-
-Honest boundary: "learning dynamics from real data" **does not mean naturally better than simulation** — it swaps "hand-modeling cost" for "real collection + model capacity cost"; in contact-rich / long-tail / sensor-noisy settings, learned models often give **very confident and very wrong imagination** OOD — another trade-off between handcrafted sim and direct real-world RL, not the endgame. Once uncertainty enters the allocation core, the WM ↔ uncertainty interface must be explicit: **WM net value = predictive utility − model-uncertainty risk**; uncertainty must enter a **risk-aware decision layer**, implemented either as a hard feasibility gate ($\Pr(\text{model-induced unsafe}) \le \alpha$) or as a soft risk penalty ($U_{\mathrm{WM}} = U_{\mathrm{prediction}} - \gamma R_{\mathrm{model}}$), depending on deployment requirements. Only safety-critical deployments should default to the hard-gate form; otherwise a larger simulation budget just amplifies model bias.
-
-### Sim-and-real co-training: reframing "transfer" as data mixture
-
-Maddukuri et al. (RSS 2025, 2503.24361) proposed Sim-and-Real Co-Training as a pragmatic direction. **What the paper actually reports**: mixing sim and real within one training run yields an **average aggregate relative improvement of roughly 37.9% over the real-only baseline** across **two platforms and six visual manipulation tasks (across 6 tasks / 2 embodiments)** — a **relative lift under a paper-defined aggregate metric**, **not an absolute success-rate gain**, and not directly comparable to per-task deltas. When quoting 37.9%, always state the baseline (real-only) and aggregation definition; check per-task numbers against the original paper. It is not one-way sim→real transfer but a single recipe setting the ratio and schedule between the two.
-
-**This article's reading (not the paper's proof)**: push one step further into a **data-mixture problem** — co-training's **primary intervention variable is the mixture** $p_{\mathrm{train}}=\alpha_{\mathrm{mix}}\, p_{\mathrm{sim}}+(1-\alpha_{\mathrm{mix}})\, p_{\mathrm{real}}$ ($\alpha_{\mathrm{mix}}$ avoids clashing with $\lambda$), not sim calibration and not a deployment-time adapter; **$\alpha_{\mathrm{mix}}$ is only a sampling-level simplification, $\alpha_{\mathrm{sampling}} \neq \alpha_{\mathrm{effective}}$** — sample repetition, augmentation, importance / loss weighting, curriculum, batch composition all change effective contribution; mixture weight $\neq$ dataset proportion. Lei et al. (arXiv 2026, 2604.13645) show that, **within the generative-robot-policy setting that paper studies**, changing the mixture induces **structured representation alignment and importance reweighting** — a **paper-specific explanation, not a universal claim**. Enough to establish "mixture as the primary lever, spanning multiple dimensions," not a fifth axis strictly orthogonal to the previous four.
-
-## Evaluation: how do you know you actually closed the gap?
-
-**All claims rest on a three-tier evidence stack** — $\boxed{\text{A: mechanism}\quad \text{B: policy-response}\quad \text{C: deployment}}$ — A: friction ID / calibration / latency; B: $\hat S_k^{\mathrm{int}}$ / ablation / finite-difference; C: real $\Delta J$ / $Q_{\lambda_t}$ / $MV$ / sim ranking. **Tiers are evidence levels, not a fixed execution order** — diagnosis cycles between them (deployment failure → suspect latency → back to A); but **cannot substitute** — SI fitting well is A, not C improvement.
-
-Reporting performance only on sim benchmarks is dangerous. A credible evaluation should at least:
-
-Reporting performance only on sim benchmarks is dangerous. A credible evaluation should at least:
-- report **zero-shot transfer** alongside curves after **few-shot / N-shot** adaptation;
-- test on **held-out hardware / calibration / object / contact / environmental regimes**;
-- declare whether **task / initial-state / evaluation distributions** match between sim and real;
-- do **failure attribution**: which $\Delta_k$ dominates? wrong attribution sends the budget to the wrong place;
-- **not just means**: at least mean ± CI across seeds / resets; prefer **paired evaluation**;
-- **report safety failures separately**: $J_{\mathrm{real}}$ alongside violation / e-stop / intervention count / hardware fault / recovery time; **for low-frequency events, "zero failures in 20 runs" cannot conclude failure probability is low** — use binomial UCB or CVaR-style **tail-risk measure**, not mean ± CI. **Concrete estimator**: with $X \sim \mathrm{Binomial}(n, p)$ and $X = 0$, only an upper confidence bound on $p$ (Clopper–Pearson or Bayesian Beta posterior $1-\delta$ quantile) turns $\Pr[\text{unsafe}] \le \alpha$ into a **gate on the upper bound $\le \alpha$**, not a point-estimate comparison — this keeps the chance constraint from staying purely symbolic.
-
-Following "the simulator is a proxy for reality," a more fundamental question than numerical alignment: **can the sim correctly predict which policy is better?**
-
-A **conceptual example** (numbers do not represent experimental results):
-
-| Policy | Sim | Real |
-| --- | ---: | ---: |
-| A | 90 | 50 |
-| B | 80 | 70 |
-| C | 70 | 65 |
-
-In sim it looks like $A > B > C$; on the real robot it is $B > C > A$. Here the simulator has **lost model-selection utility** — you would use it to pick out the worst policy. So **when the simulator is used for policy / model selection**, look at rank correlation $\rho_{\mathrm{rank}} = \mathrm{Spearman}(J_{\mathrm{sim}}(\pi_i), J_{\mathrm{real}}(\pi_i))$ together with selection regret:
-
-$$\pi_{\mathrm{sim}} = \operatorname*{arg\,max}_{\pi \in \Pi} J_{\mathrm{sim}}(\pi), \qquad R_{\mathrm{select}} = J_{\mathrm{real}}\big(\pi^{*}_{\mathrm{real}}\big) - J_{\mathrm{real}}\big(\pi_{\mathrm{sim}}\big)$$
-
-**On a larger policy pool**, even $\rho_{\mathrm{rank}} = 0.95$ can still miss the true top-1 — the disaster is unchanged; conversely $\rho_{\mathrm{rank}} = 0.7$ can be enough to "pick one deployable policy" as long as top-1 is rarely wrong. (**Note**: this Spearman intuition refers to a large policy pool; on the $A/B/C$ three-policy toy above, Spearman $\rho$ can only take a discrete set of values and $0.95$ is not applicable — the continuous-number example belongs to the general case, not that toy.) Both are **conditional metrics**. **The allocation framework naturally yields**: **simulator fidelity is task-of-use dependent, not absolute** — change the use (pretraining / exploration / curriculum / safety filter) and "which errors matter" changes entirely. $\pi^*_{\mathrm{real}}$ is typically unavailable, so $R_{\mathrm{select}}$ — like the earlier learning gap — is **oracle-defined**; in practice use $J_{\mathrm{real}}(\pi_{\mathrm{best\text{-}validated}}) - J_{\mathrm{real}}(\pi_{\mathrm{sim}})$ as a **validated-best observed proxy** (best on an independent audit / held-out slice, not argmax over a single noisy evaluation, avoiding winner's curse).
-
-**More importantly**, real projects rarely need the sim to precisely rank every policy — only to narrow candidates to an acceptable set. **top-$k$ recall** and **regret@k** should be peers of ranking. **Beware adaptive selection bias**: if sim adaptively filters policies (sim select → real eval → update → re-select), using the same selected candidates to evaluate sim creates self-confirming loops. **Maintain two pools**: $\Pi_{\mathrm{adapt}}$ for training/selection, $\Pi_{\mathrm{audit}}$ for held-out evaluation. **Held-out evaluation sets are not infinitely immune** — long-running projects should reserve an audit slice or periodically refresh the evaluation set to avoid adaptive experimentation overfitting a fixed real benchmark.
-
-At this point, **a corollary of the allocation framework**: **simulator utility is not a single property but three non-substitutable dimensions — and it must be validated by independent real evidence; internal consistency, low prediction loss, or high training reward cannot alone prove downstream utility** —
-
-| Simulator utility dimension | Typical metric |
-| --- | --- |
-| Numerical prediction accuracy (absolute error / calibration) | MAE / RMSE $\mathbb{E}\big[|J_{\mathrm{sim}}(\pi) - J_{\mathrm{real}}(\pi)|\big]$, calibration curve, prediction interval coverage |
-| Ranking accuracy | Spearman $\rho_{\mathrm{rank}}$, Kendall $\tau$, top-k recall, regret@k |
-| Quality of the selected policy (decision quality) | $R_{\mathrm{select}} = J_{\mathrm{real}}(\pi^{*}_{\mathrm{real}}) - J_{\mathrm{real}}(\pi_{\mathrm{sim}})$ (in practice use a **best-validated proxy** — argmax on an independent audit slice, not on a single noisy eval) |
-
-A simulator can be very well calibrated and still pick the wrong policy (narrow distribution); another can be numerically wrong across the board yet rank stably with small regret — the three dimensions cannot substitute, **and the three metric families differ not only in scale but in the loss they optimize, so there is no natural universal scalar simulator score**. $U_{\mathrm{sim}}$ should not be an abstract scalar; index it **by use as a superscript**: $U_{\mathrm{sim}}^{(u)}$, $u \in \{\text{pretrain},\ \text{selection},\ \text{exploration},\ \text{curriculum},\ \text{safety}\}$. Evaluating fidelity is not staring at a single policy; it must be relative to the **candidate family** and the **concrete use**: $U_{\mathrm{sim}}^{(u)}(\cdot \mid \Pi_{\mathrm{candidate}},\ p_{\mathrm{eval}}^{\mathrm{real}})$.
-
-## Composition, decision, and a question usually dodged
-
-With priorities in hand, a more useful shape for real projects is a **gap × modellability × real-budget** decision matrix:
-
-| Gap | Parameterizable / identifiable? | Real data | Natural candidates (final choice still set by state-conditioned $\Delta J,\Delta C,\mathrm{CVU}$) |
-| --- | --- | ---: | --- |
-| low-dimensional dynamics bias | high | scarce | SI |
-| parameterizable dynamics uncertainty | medium | scarce | posterior-guided DR / Bayesian SI → DR |
-| dynamics residual | low (but structured) | medium | Residual learning |
-| visual appearance | high | none / scarce | DA / DR (candidates) |
-| actuator latency | high | scarce | SI + DR |
-| unobserved rare tail, representable by current model family | low | scarce | targeted simulation / DR |
-| unknown long-tail, sim untrustworthy | low | medium | real data |
-| model class uncertain | low | abundant | learned world model (if real is scarce, prefer physics prior + residual / DR) |
-| mixed | mixed | mixed | co-training candidate (verify positive-transfer conditions first) |
-
-**The first-two-row qualifiers cannot be dropped**: if uncertainty is **model-class uncertainty** (the sim's functional form cannot express the real phenomenon), neither SI nor DR may apply — fall to residual / WM / real-data rows first. Second-to-last: "model unknown" alone does not imply WM; criterion is **model uncertainty × real-data budget** — learned WM is reasonable only when the model class is uncertain **and** real interaction is abundant. Last row: "co-training as a safety net" clashes with the allocation thesis — when sim quality is bad, real data scarce, and the two disagree on action space / task semantics, negative transfer is entirely possible.
-
-A common combo is **SI → DR → DA → co-training / FT**: **arrows are schematic, not a fixed workflow** — real order is set by the currently dominant gap and marginal utility. **When sim has strong coverage and the dominant unknown is model misspecification**, the most valuable use of real data is not broad coverage but **discovering failure modes the sim has not modeled**, then having sim amplify them; **when the deployment distribution is already fairly fixed**, real data mainly serves direct adaptation / imitation, no need to walk discovery / amplify first —
-
-$$\text{discover real tail} \rightarrow \text{identify structure} \rightarrow \text{synthetically amplify} \rightarrow \text{real validation}$$
-
-**Real discovers, sim amplifies, real re-validates.** Hard precondition: the discovered failure modes must be representable in the current model class / learned surrogate with acceptable fidelity; otherwise after discovery turn directly to a richer model / WM / more real data, rather than force an unrepresentable tail through sim amplification (this is the concrete form of the model-class-uncertainty point above).
-
-This lets us answer the counter-question the article has almost dodged but the framework itself allows: **when is the optimal move to not do sim-to-real at all?**
-- **Real data already so cheap that $C_{\mathrm{SI}}+C_{\mathrm{DR}} > C_{\mathrm{real}}^{\mathrm{effective}}$** — $C_{\mathrm{real}}^{\mathrm{effective}}$ = **effective real-robot cost** (safety / operator / reset / wear / failure recovery / deployment diversity). Compare "expected cumulative value / cost within the current budget horizon," not "raw hours of one intervention."
-- **Simulator's model class itself is bad** ($\Delta_{\mathrm{model}}$ dominates, hard to parameterize — soft bodies / fluids / complex contact) — fixing sim has such low marginal utility that WM or real-data learning is often cheaper.
-- **Deployment distribution is very fixed** — no need for large-scale DR; targeted real FT is usually more cost-effective.
-- **Simulator offers no unique coverage / safety / exploration / counterfactual access** — $U_{\mathrm{sim}}^{\mathrm{downstream}} < C_{\mathrm{sim}}^{\mathrm{effective}}$: not that sim is "bad," but no **unique utility**, opportunity cost exceeds benefit.
-
-Admitting "sometimes the optimal move is not doing sim-to-real" is exactly what the allocation framing looks like: **it does not take the "simulation" team; it takes the "next unit of budget buys the most real-world performance" team.** Sequential allocation needs an explicit stopping rule with three triggers: **(a) local net-value stop (economic stop)** — $\max_{m \in \mathcal{M}_t^{\mathrm{feasible}}} Q_{\lambda_t}^{\mathrm{perf+CVU}}(m \mid s_t) \le 0$; local one-step stop, not global optimal stopping — if a complementary portfolio is known a priori, evaluate as a portfolio candidate. **(b) continuation-value stop** — **the best remaining positive continuation uplift is already near zero**: $\max_{m \in \mathcal{M}_t^{\mathrm{feasible}}} \mathrm{CVU}(m \mid s_t) \le \varepsilon$ for a small positive threshold $\varepsilon$ (note: because $\mathrm{CVU}$ may be negative, an "expected $\mathrm{CVU} \approx 0$" formulation silently misses the case "current best CVU is strongly negative, must stop immediately" — the $\max$ operator, not the expectation, is the correct stopping test). **(c) safety / feasibility stop** — remaining candidates all outside feasible set. Any one triggers stop, not "spend down by default."
-
-## A minimum executable Sim-to-Real allocation protocol
-
-A framework that never lands on "how the project runs tomorrow" is only clever framing. Six steps below are the **minimum executable version** — any one can be skipped, but only with an explicit reason it is a no-op here.
-
-**Step 1 — Freeze the evaluation.** Lock down task / initial-state distribution / horizon / success metric / safety threshold / policy interface (obs + action schema + control frequency). **If $\pi$ is stochastic ($a_t \sim \pi_\theta(\cdot \mid o_t)$), $J(\pi)$ is the expectation over policy / reset / hardware randomness under the evaluation protocol**, estimated via repeated / block runs. Without this, every downstream $\Delta J$ uses a different ruler.
-
-**Step 2 — Build a held-out real evaluation set.** Real evaluation data must be **strictly disjoint from real training data** and cover held-out hardware / calibration / objects / scene slices. Evaluating interventions on training data makes $\widehat{\Delta J}$ systematically optimistic. **But eval results can still feed the allocator's belief update**: $\mathcal{D}_t$ is "all evidence available to the allocator at step $t$," which includes $D_{\mathrm{eval}}$-derived failure modes and uncertainty shifts. "Not participating in training" and "participating in posterior update" are two separate claims — not contradictory.
-
-**Step 3 — Enumerate mismatch hypotheses as a falsifiable table.**
-
-| Hypothesis | Evidence | Belief | Candidate intervention |
-| --- | --- | ---: | --- |
-| friction $\mu$ too low | contact slip | med | SI + DR |
-| actuator latency unmodeled | high-frequency oscillation | high | SI + timing re-ID |
-| camera extrinsics off | systematic grasp offset | high | Calibration / DA-input-level |
-| contact model wrong | soft-object OOD failure | low | Residual / world model |
-
-Every hypothesis must be **falsifiable by a concrete experiment**; drop any that cannot specify what would refute it.
-
-**Step 4 — one-time initial calibration pilot** (Step 5 is where sequential adaptive allocation begins, avoiding the pilot-selection circularity). **For actions that will directly change the current policy, estimate an immediate effect distribution** for $\mu_{\Delta J,t}(m)$ (Bayesian implementations realize it as a posterior; frequentist implementations report a CI); **for diagnosis and model-refresh-only actions, estimate evidence quality / continuation uplift distribution instead** — their immediate $\Delta J \equiv 0$ means there is no meaningful "immediate effect distribution" to estimate, and the experimental target is the CVU-side evidence and posterior improvement. Screening a diagnostic by performance gain is a category error. No preset sample count. **$\widehat{\Delta J}_t(m) = J_{\mathrm{real}}(\pi_t^{m}) - J_{\mathrm{real}}(\pi_t^{\mathrm{control}})$** — control bears the same extra training steps, **same elapsed time (so robot temperature, battery, wear, and other background drift are matched)**, and the same **training seed**; note that real hardware itself has no "seed" to share, so the physical side is aligned through matched evaluation blocks / hardware conditions, not through seed equality. Only this intervention is toggled. $\widehat{\Delta J}_t$ is incremental deployment utility, not absolute post-intervention performance; **for diagnostic-only actions and for model-refresh-only actions (update simulator / surrogate without retraining the current policy), $\widehat{\Delta J}_t \equiv 0$; within the article's one-step approximation their value is aggregated through $\mathrm{CVU}$ as a unified continuation surrogate — no separate reward channel is defined**. Matched / paired / block evaluation: same training seed, and where feasible matched evaluation blocks / hardware conditions on the same held-out slice; record drift (tire, motor, battery). **A single-intervention matched control identifies the incremental effect relative to the current protocol; it does not identify higher-order interaction effects. Combined actions (e.g. SI + DR, or SI + WM refresh) must be evaluated as independent candidates through their own matched comparison**; otherwise synergy / conflict cannot be recovered from data.
-
-**Step 5 — sequential adaptive allocation**: $m_t^* = \arg\max_{m \in \mathcal{M}_t^{\mathrm{feasible}}(s_t)} Q_{\lambda_t}^{\mathrm{perf+CVU}}(m \mid s_t)$ — $\lambda_t$ is a resource-weight estimate; objective and local score must agree. Cost and budget are simultaneously state-conditioned ($\Delta C(m \mid s_t)$, $b_{t+1} = b_t - \Delta C(m_t^*\mid s_t)$). Execution-level safety flows through $\alpha_{\mathrm{exec}}$ gate on every step; deployment-level safety is a terminal $\alpha_{\mathrm{deploy}}$ chance constraint on $\pi_T$; neither enters the cost term.
-
-**Step 6 — Real evaluation → belief update → back to Step 3.** Update $\mathcal{D}_t \rightarrow \mathcal{D}_{t+1}$ (Bayesian implementation realizes this as a posterior; other implementations use moment / CI updates), re-estimate $\lambda_t$, retire falsified hypotheses, add newly observed failure modes, run the next round. **The most-skipped, most-important step** — without belief update the pipeline degrades to a static checklist.
-
-**Positioning.** This is the **minimum landing version** of the allocation framework, not the only implementation. Small teams can merge Step 3 and Step 4; larger teams can add a portfolio-optimization layer on top of Step 5. But none of the six steps may stay implicit — writing them down makes review possible, and review is what stops allocation from quietly degrading into "using whichever method the team already knows."
-
 ## What this means: a loop, not a switch
 
 The core sentence of [Data Scaling for Robots](/en/articles/2026-09-09-robot-data-scaling/) is evaluation-aware distribution allocation. Applied to sim-to-real — **simulation data's utility is never an internal property of the simulator; it is a property relative to the real evaluation distribution:**
@@ -517,3 +302,10 @@ There is not yet a widely accepted cross-task quantitative comparison in sim-to-
 ---
 
 *This piece continues the two-part "data problem for embodied AI" series: the first covered data sources and interfaces, the second covered the data-scaling framework; here the camera pans to sim-to-real, reframing it from "a pile of transfer tricks" into a closed-loop allocation problem with empirical marginal utility.*
+---
+
+> **Next (Part 2)**: [Sim-to-Real Methodology (II): Four Intervention Lenses and Two Reformulation Routes](/en/articles/2026-09-11-sim-to-real-intervention-lenses/) -- SI / DR / DA / FT / World Model / Co-training unpacked.
+>
+> **Part 3**: [Evaluation, Decision Matrix, and Protocol](/en/articles/2026-09-12-sim-to-real-evaluation-protocol/) -- three evidence levels, sim utility tripartition, 6-step executable protocol.
+
+*This is the Theory piece of the three-part Sim-to-Real Methodology series. Method genealogy is in Part 2, evaluation and protocol in Part 3. The trilogy continues the Data Problem articles (upper and lower).*

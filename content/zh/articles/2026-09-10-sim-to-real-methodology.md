@@ -1,20 +1,21 @@
 ---
-title: '具身智能 Sim-to-Real 方法论深潜：把"从仿真到真实"当成一次误差预算分配'
+title: '具身智能 Sim-to-Real 方法论（一）：把"从仿真到真实"当成一次误差预算分配'
 slug: "2026-09-10-sim-to-real-methodology"
 date: 2026-09-10
 draft: false
 categories: ["具身智能", "训练方法"]
-tags: ["具身智能", "Sim-to-Real", "Domain Randomization", "System Identification", "可微仿真", "Residual Physics", "世界模型", "Domain Adaptation", "机器人数据"]
-description: 'sim-to-real 不是单一迁移技巧、而是闭环资源分配。本文把 reality gap 重述成 policy-conditioned 多源 mismatch、以 intervention sensitivity 与 cost-normalized marginal value 把误差预算写成可迭代的决策框架、厘清 SI / DR / DA / fine-tuning 四条 intervention lens 的机制与失效边界。'
+tags: ["具身智能", "Sim-to-Real", "Reality Gap", "误差预算分配", "Sequential Allocation", "Policy-conditioned Mismatch", "Domain Randomization", "System Identification", "世界模型", "Domain Adaptation"]
+description: '三部曲-理论篇。Sim-to-real 不是单一迁移技巧、而是闭环资源分配。本文把 reality gap 重述成 policy-conditioned 多源 mismatch、以 intervention sensitivity 与 cost-normalized marginal value 把误差预算写成可迭代的决策框架（L1-L5 spine），厘清"下一次 intervention 往哪投"的 formal allocation 结构。方法谱系详解见 Part 2、评估与落地见 Part 3。'
 toc: true
 related_articles:
+  - 2026-09-11-sim-to-real-intervention-lenses
+  - 2026-09-12-sim-to-real-evaluation-protocol
+  - 2026-09-13-tactile-force-sensing
+  - 2026-09-14-multimodal-fusion-interface
   - 2026-09-09-robot-data-scaling
   - 2026-09-08-data-and-training-recipes
-  - 2026-09-06-embodied-ai-landscape
-  - 2026-09-04-rssm-beyond
-  - 2026-09-01-world-model-h2-review
-  - 2026-08-25-dreamer-explained
 ---
+
 
 > 接[数据问题上篇](/zh/articles/2026-09-08-data-and-training-recipes/)与[数据 scaling 下篇](/zh/articles/2026-09-09-robot-data-scaling/)。上篇把 sim-to-real 粗分四类工具、那只是 taxonomy、这一篇真正要回答的是——
 
@@ -137,7 +138,7 @@ $$\boxed{\;\max_{\{\mu_t\}_{t=1}^{T}}\ \mathbb{E}\big[J_{\mathrm{real}}(\pi_T)\b
 
 $\lambda_r$ **在具有良好值函数与约束正则性的情形下、可解释为最优值函数对 $B_r$ 的边际价值**（ideal shadow price）、实际本文只需 resource-weight estimate $\lambda_t = \lambda(s_t)$（实现时可再展开为 $\lambda(s_t) = \lambda(b_t, q_t, \pi_t, h_t)$、不再人为漏掉 $h_t$）、随 allocation state 更新；下文一律简称 **resource weights $\lambda_t$**。由于 $\lambda_t$ 本身 state-dependent、$s_{t+1}$ 里的 continuation 使用**更新后的** $\lambda_{t+1} = \lambda(s_{t+1})$——因此 $U_0(m' \mid s_{t+1}) = \mu_{\Delta J, t+1}(m') - \lambda_{t+1}^\top \Delta C(m' \mid s_{t+1})$ 里的 shadow price 是**下一步**的、不是当前 $\lambda_t$ 的沿用，$s_t \to \lambda_t \to m_t \to s_{t+1} \to \lambda_{t+1}$ 才形成完整闭环。五条 caveat：**(i)** $Q_{\lambda_t}$ 默认 posterior mean、风险敏感可换 LCB / CVaR-adjusted utility——禁"公式 mean、文字 LCB"。**(ii)** SI fixed cost、DR diminishing returns、FT threshold、negative transfer 可让 $MV < 0$。**(iii) $\mathrm{CVU}$ 采用 counterfactual 定义、避免与 $U_0$ 重复计费当前 ΔC。** $\mathrm{CVU}(m\mid s_t)$（**signed, one-step, candidate-relative, performance-only continuation uplift heuristic**）定义为**执行 $m$ 所导致的下一状态**与**同一时间推进下不执行 $m$ 的 counterfactual 下一状态**之间、one-step continuation surrogate $G_0(\cdot)$ 的差：
 $$\mathrm{CVU}(m\mid s_t) \;=\; \mathbb{E}_{Y \sim p(\cdot\mid s_t, m)}\!\big[G_0(s_{t+1}^{m, Y})\big] \;-\; G_0(s_{t+1}^{\varnothing}),\qquad G_0(s) := \max_{m' \in \mathcal{M}^{\mathrm{feasible}}(s)} U_0(m' \mid s).$$
-其中 $s_{t+1}^{m,Y}$ 是执行 $m$ 并观察 $Y$ 后的 state（携带 $b_{t+1} = b_t - \Delta C(m\mid s_t)$、$\pi_{t+1}$、$q_{t+1}$、$h_{t+1}$、$\lambda_{t+1}$），$s_{t+1}^{\varnothing}$ 是**相同时间推进 / background drift convention 下不执行 $m$ 的 counterfactual state**（保留当前 policy $\pi_{t+1}^{\varnothing} = \pi_t$、保留未扣减的 action-specific 预算（$\Delta C(m)$ 未从 $b_t$ 扣除）、只推进与执行 $m$ 相同的 background time / drift process、其余 convention 与执行 $m$ 时可比）。这样当前 action 的即时资源消耗 $\Delta C$ **只在 $U_0$ 里被扣一次**、$\mathrm{CVU}$ 只度量"$m$ 相对 $\varnothing$ 为未来 **decision state / opportunity set**（含 policy、belief、budget、hardware、candidate set）带来的额外 value"、不再叠加同一份 cost——即 **$U_0$ 处理当前 action 的 gain-cost、$\mathrm{CVU}$ 处理它对未来的边际影响**、二者互补。$\mathrm{CVU}$ 依然不是 VoI 也不是 Bellman continuation value function：$s_{t+1}$ 除了 evidence 更新之外、还携带 policy 改变、hardware drift、candidate-set 变化，标准 continuation term 应是 $V_{t+1}(s_{t+1})$、这里用 $G_0$ 代替，因此是 heuristic 而非真 value function。**$\mathrm{CVU}$ 可以为负**（budget depletion、hardware degradation、policy transition、candidate elimination、adverse evidence 都能让 $G_0(s_{t+1}^{m,Y})$ 低于 $G_0(s_{t+1}^{\varnothing})$）；**本文不再讨论"信息是不是有负价值"这类 VoI 语境问题**——$\mathrm{CVU}$ 就是净 continuation uplift、符号直接由上式给出。**Terminal convention**：在终止步 $T$ 之后没有下一步决策、约定 $terminal continuation value $V^{\mathrm{cont}}_{T+1}(s) := 0$$、因此 terminal step 的 $Q_T = U_0(m\mid s_T) + \beta \cdot 0 = U_0$——不是"CVU 自动退化"、而是显式 convention。$\beta$ 是 dimensionless 偏好权重、若 $\mathrm{CVU}$ 与 $U_0$ 同尺度可令 $\beta=1$。$V(\mathcal{D}) = -\Pr(\arg\max Q_{\lambda_t}$ flips$)$ 只是 decision-stability proxy。**(iv)** $\Delta J$ 非天然 causal effect——matched / paired evaluation、$\Delta C$ 含全部 incremental cost；$\widehat{\Delta J}_t(m)$（realized）与 $\mu_{\Delta J,t}(m) = \mathbb{E}[\Delta J(m)\mid s_t]$（belief）两层次分开、公式中一律用 $\mu_{\Delta J,t}$。**(v) Diagnostic-only action 与"只更新 simulator / surrogate、暂不重新训练当前 policy 的 model-refresh action"** 均满足 immediate $\pi_t^m = \pi_t^{\mathrm{control}}$、$\mu_{\Delta J,t} = 0$（**注**：若 model update 内含"更新 model 后立刻重训 policy"、$\Delta J \neq 0$、此时应按 adaptation 处理）；因此 diagnostic / model-refresh 的 immediate value 恰好等于 $-\lambda_t^\top \Delta C$（即"净机会成本"）、其信息收益完全通过 $\mathrm{CVU}$ 侧的 counterfactual continuation 差体现——**$MV$ 对二者不提供有效信息（且当 incremental cost 也为 0 时 $MV$ 未定义）**、**在本文一步近似下、这些非即时 performance effects（evidence / hypothesis posterior / candidate space / safety feasibility / simulator quality 的改善）统一通过 $\mathrm{CVU}$ 汇总、不再单独定义额外 reward channel**。数值只在固定 $p_{\mathrm{eval}}$ 下有意义；**跨时比较 $MV(m \mid s_t)$ 还要求 utility（$J$）scale 与 resource-weight calibration（$\lambda_t$ 的解释）保持一致**、否则不同时刻的 $MV$ 已不在同一经济刻度上、不能直接连成一条趋势线。
+其中 $s_{t+1}^{m,Y}$ 是执行 $m$ 并观察 $Y$ 后的 state（携带 $b_{t+1} = b_t - \Delta C(m\mid s_t)$、$\pi_{t+1}$、$q_{t+1}$、$h_{t+1}$、$\lambda_{t+1}$），$s_{t+1}^{\varnothing}$ 是**相同时间推进 / background drift convention 下不执行 $m$ 的 counterfactual state**（保留当前 policy $\pi_{t+1}^{\varnothing} = \pi_t$、保留未扣减的 action-specific 预算（$\Delta C(m)$ 未从 $b_t$ 扣除）、只推进与执行 $m$ 相同的 background time / drift process、其余 convention 与执行 $m$ 时可比）。这样当前 action 的即时资源消耗 $\Delta C$ **只在 $U_0$ 里被扣一次**、$\mathrm{CVU}$ 只度量"$m$ 相对 $\varnothing$ 为未来 **decision state / opportunity set**（含 policy、belief、budget、hardware、candidate set）带来的额外 value"、不再叠加同一份 cost——即 **$U_0$ 处理当前 action 的 gain-cost、$\mathrm{CVU}$ 处理它对未来的边际影响**、二者互补。$\mathrm{CVU}$ 依然不是 VoI 也不是 Bellman continuation value function：$s_{t+1}$ 除了 evidence 更新之外、还携带 policy 改变、hardware drift、candidate-set 变化，标准 continuation term 应是 $V_{t+1}(s_{t+1})$、这里用 $G_0$ 代替，因此是 heuristic 而非真 value function。**$\mathrm{CVU}$ 可以为负**（budget depletion、hardware degradation、policy transition、candidate elimination、adverse evidence 都能让 $G_0(s_{t+1}^{m,Y})$ 低于 $G_0(s_{t+1}^{\varnothing})$）；**本文不再讨论"信息是不是有负价值"这类 VoI 语境问题**——$\mathrm{CVU}$ 就是净 continuation uplift、符号直接由上式给出。**Terminal convention**：在终止步 $T$ 之后没有下一步决策、约定 terminal continuation value $V^{\mathrm{cont}}_{T+1}(s) := 0$、因此 terminal step 的 $Q_T = U_0(m\mid s_T) + \beta \cdot 0 = U_0$——不是"CVU 自动退化"、而是显式 convention。$\beta$ 是 dimensionless 偏好权重、若 $\mathrm{CVU}$ 与 $U_0$ 同尺度可令 $\beta=1$。$V(\mathcal{D}) = -\Pr(\arg\max Q_{\lambda_t}$ flips$)$ 只是 decision-stability proxy。**(iv)** $\Delta J$ 非天然 causal effect——matched / paired evaluation、$\Delta C$ 含全部 incremental cost；$\widehat{\Delta J}_t(m)$（realized）与 $\mu_{\Delta J,t}(m) = \mathbb{E}[\Delta J(m)\mid s_t]$（belief）两层次分开、公式中一律用 $\mu_{\Delta J,t}$。**(v) Diagnostic-only action 与"只更新 simulator / surrogate、暂不重新训练当前 policy 的 model-refresh action"** 均满足 immediate $\pi_t^m = \pi_t^{\mathrm{control}}$、$\mu_{\Delta J,t} = 0$（**注**：若 model update 内含"更新 model 后立刻重训 policy"、$\Delta J \neq 0$、此时应按 adaptation 处理）；因此 diagnostic / model-refresh 的 immediate value 恰好等于 $-\lambda_t^\top \Delta C$（即"净机会成本"）、其信息收益完全通过 $\mathrm{CVU}$ 侧的 counterfactual continuation 差体现——**$MV$ 对二者不提供有效信息（且当 incremental cost 也为 0 时 $MV$ 未定义）**、**在本文一步近似下、这些非即时 performance effects（evidence / hypothesis posterior / candidate space / safety feasibility / simulator quality 的改善）统一通过 $\mathrm{CVU}$ 汇总、不再单独定义额外 reward channel**。数值只在固定 $p_{\mathrm{eval}}$ 下有意义；**跨时比较 $MV(m \mid s_t)$ 还要求 utility（$J$）scale 与 resource-weight calibration（$\lambda_t$ 的解释）保持一致**、否则不同时刻的 $MV$ 已不在同一经济刻度上、不能直接连成一条趋势线。
 
 **$MV_i = MV_i(s_t)$ state-dependent**。先 SI 可使 DR $MV$ 下降、先 DR 可使 FT $MV$ 上升——**方向取决于 interaction、不假设单调**。intervention 之间有 complementarity / substitutability / conflict（不写成 bandit）。反馈层：**intervention 改 policy、进而改 $S_k^{\mathrm{int}}(\pi)$**：
 
@@ -162,210 +163,6 @@ estimate mismatch → estimate sensitivity → intervention
 | Sim-and-real co-training | 改变 $p_{\mathrm{train}}$（$\Delta_{\mathrm{dist}}$ 为主） | 混合数据（$C_{\mathrm{real}}+C_{\mathrm{compute}}$） |
 
 有了这套写法、全文就非"四种方法谁更好"、而是闭环：定位主导 $\Delta_k$、sensitivity 判重要度、$\arg\max Q_{\lambda_t}$ 选下一步、真实评估回报、再定下一份。
-
-## 四个 intervention lenses（可组合的分析维度）
-
-SI / DR / DA / FT **非同一抽象层级**——SI 是 model calibration、DR 是 distribution manipulation、DA 是 representation alignment、FT 是 optimization strategy——并排成"四类方法"会误导四选一、其实是**四个可组合的 intervention lens**（本文 analytical decomposition、非领域公认 ontology）：
-
-$$\boxed{\text{Model} \times \text{Data} \times \text{Representation} \times \text{Optimization}}$$
-
-"$\times$" 是组合空间、非正交——DR 触及 Model / Observation / Distribution、DA 可发生在多层。
-
-选工具标准是**"点估计 → 后验 → 鲁棒随机化"连续谱**。SI 可以做 point calibration、也可以进一步给出 posterior；下面先写 point estimate：
-
-$$\hat\phi \;=\; \operatorname*{arg\,min}_{\phi}\; \mathcal{L}_{\mathrm{ID}}\big(D_{\mathrm{real}},\ f_{\mathrm{sim}}(\cdot\,;\,\phi)\big)$$
-
-$\mathcal{L}_{\mathrm{ID}}$ 可取 trajectory prediction / one-step transition error / force-torque residual / likelihood——**经典 SI 的目标通常是参数估计或 transition / observation prediction error minimization、而不必显式做 trajectory-distribution matching**。SI 处理的是**可参数化的 model mismatch**：动力学残差、接触/摩擦系数、延迟、相机外参等——若 gap 落在 model class 之外（未建模 long tail、语义级视觉差），SI 就力不从心、需换 DR / DA / WM。
-
-| mismatch 的性质 | 更自然的工具 |
-| --- | --- |
-| 可参数化 + 可辨识 | System Identification（point estimate $\hat\phi$） |
-| 可参数化但只能给出不确定性 | Bayesian / posterior SI → posterior-guided DR |
-| 可参数化但难辨识 / uncertainty 大 | Domain Randomization |
-| 难以由低维物理参数充分表达、但有结构化 residual | Residual learning |
-| observation / appearance mismatch | Domain Adaptation |
-| policy 在目标域仍有 systematic residual | Fine-tuning |
-
-关键：**"不能精确辨识" ≠ "完全不知道"**——拿到 $p(\phi\mid D_{\mathrm{real}})$、最自然动作 $\phi\sim p(\phi\mid D)$ 做 posterior-guided DR、**SI 与 DR 是连续谱两端**。
-
-### Axis A — Model：system identification、可微仿真与 residual physics
-
-这条轴处理 $\Delta_{\mathrm{model}}$、三层次常被混淆：
-
-$$y_t \;=\; \underbrace{g_{\mathrm{physics}}(x_t,a_t;\phi)}_{\text{可参数化的物理}} \;+\; \underbrace{r_\theta\big(\psi(x_t,a_t)\big)}_{\text{残差}} \;+\; \epsilon_t$$
-
-**这只是 representative parameterization**——$y_t$ 可为 $x_{t+1}$、contact impulse、acceleration、deformation field 或其他 observable、$\psi$ 是 residual 的 input view；additive state-transition form 是一种 parameterization assumption、部分动力学更自然的 residual 是加在 acceleration 或 latent dynamics 上、而非 observable 本身。
-
-- **可微仿真**解决 optimization interface、不解决 model class correctness；
-- **Residual physics** 保留 prior、有限修正；
-- **Full-learned dynamics** 处理 physics 不适用的场景。
-
-**可微性在 discontinuous contact / complementarity / friction cone 切换处面临 gradient instability 或 ill-defined gradients 的风险**（不一定表现为 vanishing、更常见是不连续或高方差梯度）。工程上 soft-contact / smooth relaxation 是常见的处理手段。工程判据：physics 结构基本正确、参数或边界不准时、可微仿真性价比最高。
-
-Residual physics 一个常见的适用区间是 $f_{\mathrm{physics}}$ 已提供**结构性归纳偏置**、residual 只在目标分布上有限修正的场景。风险：sim 有 residual 补偿后看似好、到 OOD 失效——**residual model 的 valid domain 需与 deployment condition 对齐**。可微仿真在 contact-rich 场景受 contact mode switches / complementarity constraints 带来的非光滑与梯度不稳定问题掣肘；在 physics 结构基本正确、残差相对局域的条件下，可微仿真通常更值得优先评估。
-
-### Axis B — Data distribution：domain randomization 及其家族
-
-这条轴让 policy 对一族参数 $\{\phi\}$ 都稳健、不追求逼近最准 $p_{\mathrm{real}}$。**Tobin et al.（1703.06907）是现代深度视觉 / 机器人 sim-to-real 文献中的经典代表性起点**（domain randomization 思想本身更早、此处指其在端到端视觉 policy transfer 里的代表性位置）。
-
-**DR 非"隐式 ensemble"**——训练的是单个共享 $\pi_\theta$、目标是：
-
-$$\max_{\theta}\; \mathbb{E}_{\phi \sim p(\phi)}\big[J(\pi_\theta;\phi)\big]$$
-
-更准确：**DR 是对一族环境模型做 population-level 优化**、risk-neutral average-case baseline；worst-case 可写 $\max_\theta\min_\phi$。过度 DR 让 policy 过于保守、牺牲 performance。
-
-**DR 非选 scalar range、而是设计 joint distribution**——**当真实参数本身存在显著 joint dependency 时**、$p(\phi_1,\phi_2)\neq p(\phi_1)p(\phi_2)$、independent sampling 会把有限 sampling budget 分配到大量低 deployment relevance 或物理不一致组合；若真实参数本就近似独立、independent DR 反而是合理近似。**correlated / adversarial curriculum** 是 dependency 存在时的对策。
-
-### Axis C — Observation / Representation：domain adaptation 与观测翻译
-
-处理 $\Delta_{\mathrm{obs}}$。DA 可发生在 input / feature / latent / policy / dynamics 多层。机制包括 feature-level adapters、latent alignment、RCAN (1812.07252)。**不把 DA 压成 image translation**。边界：camera intrinsics / temporal sync 更适合 calibration、非 DA。
-
-### Axis D — Optimization / adaptation：真机微调
-
-这条轴**是 adaptation operator**：直接在目标域继续优化。可作前三轴收尾、也可作早期诊断（少量 FT 暴露哪些 mismatch 最伤 deployment）。
-
-- **Offline / imitation：** $D_{\mathrm{real}} \to \theta$、主要成本是**采集**。
-- **Online RL：** $\pi_\theta \to a \to$ 真实 transition $\to \theta'$、主要成本是**交互 + 安全 + 磨损 + 探索**。
-
-比较不能只看最终 success rate、还要看**达目标所需真机交互预算**。粗略指标：
-
-$$\eta_{\mathrm{real}} \;=\; \frac{\Delta J_{\mathrm{real}}}{\text{robot-hours}} \qquad \text{或}\qquad \frac{\Delta J_{\mathrm{real}}}{N_{\mathrm{real}}}$$
-
-但只是**粗略指标**：依赖 baseline、非真 marginal efficiency。真正该看 learning curve / AULC / 每 100 条轨迹的边际收益
-
-$$MV_{\mathrm{real}} \;\approx\; \frac{J(N+\Delta N)-J(N)}{\Delta N}$$
-
-——这才与全文 $MV$ 框架接上。风险不止灾难性遗忘、更常见是**分布收窄**——真机数据比 sim 窄得多、微调后目标切片更好但鲁棒性反降、**generalization 换 specialization**；$MV_{\mathrm{real}}(N)$ **不保证始终为正**、**FT 本身可进入负边际收益区间**。
-
-## 两条松动 environment-generating-process 假设的新路线
-
-上面四条轴共享一隐含前提：经典 framing 把 simulator / real environment 视为**两个给定的 environment-generating processes**（对应分布 $p_{\mathrm{sim}}$、$p_{\mathrm{real}}$）。下面两条路线恰在松动这个前提——非"第五第六种技巧"、是整个问题的 reformulation：**前四条 lens 改变 intervention、WM 与 co-training 改变的是 intervention 所作用的 underlying training substrate**、不塞回同一 taxonomy。
-
-### World model：不是取消 simulator，而是换掉 simulator 的来源
-
-**本文 lens**：本节把 world model 读作"model source replacement"的 reformulation、只挑"相对 physics-sim 换掉 model 来源与 inductive bias"这个切面——不是 world model 的标准定义、也不声称这是唯一读法。
-
-[数据 scaling 下篇](/zh/articles/2026-09-09-robot-data-scaling/)讨论过 world model 与 data utility。放进 sim-to-real 语境先纠正定位误读：**world model 不天然属于 sim-to-real**——两条路线 causal direction 不同：
-
-```
-Physics-sim route：  hand-designed dynamics  → train / optimize → deploy real
-Learned-model route：interaction data → learned dynamics → imagine → optimize
-```
-
-**interaction data 可来自 real / sim 或混合**——learned-model route ≠ real-only。
-
-需要说准：WM **并未取消 sim**、仍在做 simulation / imagination、只是 predictive model 是学出来的、更精确表述是**改变 predictive model 的来源与 inductive bias**：
-
-$$\text{model source} = \text{physics prior} + \text{learned dynamics} + \text{data}$$
-
-三者可 hybrid、不必是 $f_{\mathrm{hand}} \rightarrow f_{\mathrm{learned}}$ 的二元替换。Dreamer（1912.01603）、TD-MPC2（2310.16828）体现这条路——**人工 sim 的 model bias 大到不值得先修**时、WM 提供的是问题本身的改写。DayDreamer（2206.14176）常被误读成"sim 预训练 → real 微调"、更准是展示 **real-interaction-driven 实验路线**。**不依赖手工 sim ≠ model-free**、WM 仍吃假设、只是把 inductive bias 从显式 physics 移到 learned model。
-
-诚实边界：contact-rich / long-tail 场景学到的 model 常在 OOD 给出很自信也很错的想象。**WM net value = predictive utility − model uncertainty risk**——uncertainty 必须进入一个 risk-aware decision layer、按部署需求可选 **hard feasibility gate**（$\Pr(\text{model-induced unsafe}) \le \alpha$）或 **soft risk penalty**（$U_{\mathrm{WM}} = U_{\mathrm{prediction}} - \gamma R_{\mathrm{model}}$）；只有 safety-critical deployment 才更适合前者。
-
-### Sim-and-real co-training：把"迁移"重述成 data mixture
-
-Maddukuri et al.（RSS 2025, 2503.24361）的 Sim-and-Real Co-Training 是务实方向。**论文报告**：sim + real 混合采样、两平台六视觉操作任务、相对**real-only baseline** 观测到**约 37.9% aggregate relative improvement**（across 6 tasks / 2 embodiments）——是**跨任务归一化的 relative lift**、非绝对百分点；引用务必带 baseline 与 aggregation 定义。不做单向迁移、而是一个 recipe 决定比例与调度。
-
-读成 **data-mixture**——$p_{\mathrm{train}}=\alpha_{\mathrm{mix}} p_{\mathrm{sim}}+(1-\alpha_{\mathrm{mix}}) p_{\mathrm{real}}$；$\alpha_{\mathrm{sampling}} \neq \alpha_{\mathrm{effective}}$。Mechanistic 分析（Lei et al., 2604.13645）指出在该 generative robot policy 设置中 mixture 诱发 structured representation alignment——**paper-specific、不外推为 universal**。
-
-## 评估：你怎么知道自己把 gap 补好了？
-
-本文 claim 挂在**三级证据层**上——$\boxed{\text{A: mechanism}\quad \text{B: policy-response}\quad \text{C: deployment}}$：A 是 friction ID / calibration / latency measurement、B 是 $\hat S_k^{\mathrm{int}}$ / ablation / 有限差分 attribution、C 是真机 $\Delta J$ / $Q_{\lambda_t}$ / $MV$ / sim ranking utility。**三层是证据层级、非固定执行顺序**——诊断可循环（真机 failure → 怀疑 latency → 回测 A）；**不能互相替代**——SI 拟合属 A、不等于 C deployment 改善。
-
-危险的做法是只在 sim benchmark 报性能。可信评估至少：
-
-- 报 **zero-shot** 与 **few-shot / N-shot** 曲线；
-- 用一组 **held-out hardware / object / contact / environmental regimes**；
-- 明确声明 sim 与 real evaluation distribution 是否一致；
-- **不只报均值**：mean ± CI、多 seeds、paired evaluation；
-- **安全失败单独统计**：$X\sim\mathrm{Bin}(n,p),\;X=0$ 只能给 $p$ 的 UCB（Clopper–Pearson）。
-
-顺着"sim 是真实世界的代理"、还有个比"数值对齐"更本质的问题：**sim 能否正确预测"哪个 policy 更好"？**
-
-一个**概念性例子**（数值不代表实验结果）：
-
-| Policy | Sim | Real |
-| --- | ---: | ---: |
-| A | 90 | 50 |
-| B | 80 | 70 |
-| C | 70 | 65 |
-
-在 sim 上 $A > B > C$、真机却是 $B > C > A$。这时 simulator **失去 model-selection utility**——你会用它挑出最差的 policy。故 **simulator 用于 policy / model selection** 时应同时看排序相关性 $\rho_{\mathrm{rank}} = \mathrm{Spearman}(J_{\mathrm{sim}}(\pi_i), J_{\mathrm{real}}(\pi_i))$ 与 selection regret：
-
-$$\pi_{\mathrm{sim}} = \operatorname*{arg\,max}_{\pi \in \Pi} J_{\mathrm{sim}}(\pi), \qquad R_{\mathrm{select}} = J_{\mathrm{real}}\big(\pi^{*}_{\mathrm{real}}\big) - J_{\mathrm{real}}\big(\pi_{\mathrm{sim}}\big)$$
-
-**在更大的 policy pool 上**、即使 $\rho_{\mathrm{rank}} = 0.95$、top-1 仍可能被选错、灾难不减；反过来 $\rho_{\mathrm{rank}} = 0.7$、若 top-1 基本不出错、对"选一个能部署的 policy"就够用（**注意**：此处 $\rho_{\mathrm{rank}}$ 的直觉例子是更大 policy 集合上的相关性、而非上文 $A/B/C$ 三个 policy 的统计量——$n = 3$ 时 Spearman 只能取有限离散值、$0.95$ 那样的连续数字不适用）。**sim fidelity 是 task-of-use dependent、不是 absolute property**——换用途（pretrain / exploration / curriculum / safety filter）"哪些误差重要"整个变一遍。$\pi^*_{\mathrm{real}}$ 不可得、$R_{\mathrm{select}}$ 与 real-domain learning gap 一样都是 oracle-defined 量、实际用 $J_{\mathrm{real}}(\pi_{\mathrm{best\text{-}validated}}) - J_{\mathrm{real}}(\pi_{\mathrm{sim}})$ 作 **validated-best observed proxy**（$\pi_{\mathrm{best\text{-}validated}}$ 在独立 audit / held-out 切片上评估最优、不是 noisy eval 里的 argmax、避免 winner's curse）。
-
-**更重要的一层**：真实项目通常不要求 sim 精确排序所有 policy、只要求把值得上真机的候选压到可接受集合——**top-$k$ recall**、**regret@k** 应与 ranking 同级。**警惕 adaptive selection bias**：sim 若被 adaptive filter policy、用同一批被选候选反过来评 sim 造成 self-confirming 循环。**维护两个 pool**——$\Pi_{\mathrm{adapt}}$ 参与 training / selection、$\Pi_{\mathrm{audit}}$ 只做 held-out evaluation。**held-out set 并非无限次免疫的**：长期项目应保留 audit slice 或定期 refresh evaluation set、避免 adaptive experimentation 过拟合固定真机评测集。
-
-至此、**allocation framework 的一个 corollary**：**sim utility 不是单一属性、是三个不能互替的维度；sim 内部自洽、低 prediction loss 或高 training reward 不能单独证明 downstream utility——必须由独立 real evidence 验证**——
-
-| Simulator utility 维度 | 典型 metric |
-| --- | --- |
-| 数值预测准不准（absolute error / calibration） | MAE / RMSE $\mathbb{E}\big[|J_{\mathrm{sim}}(\pi) - J_{\mathrm{real}}(\pi)|\big]$、calibration curve、prediction interval coverage |
-| 排序准不准（ranking） | Spearman $\rho_{\mathrm{rank}}$、Kendall $\tau$、top-k recall、regret@k |
-| 选出的 policy 好不好（decision quality） | $R_{\mathrm{select}} = J_{\mathrm{real}}(\pi^{*}_{\mathrm{real}}) - J_{\mathrm{real}}(\pi_{\mathrm{sim}})$（实际用 **best-validated proxy**、独立 audit 切片上的 argmax、非 noisy eval 上的 argmax） |
-
-一个 sim 可校得很准却选错 policy、也可数值全错但排序稳、regret 小——三维不能互替，**三类 metric 不仅量纲不同、优化目标也不同、因此不存在一个自然的 universal scalar simulator score**。$U_{\mathrm{sim}}$ 不该写成抽象标量、应按用途**上标索引**：$U_{\mathrm{sim}}^{(u)}$、$u \in \{\text{pretrain},\ \text{selection},\ \text{exploration},\ \text{curriculum},\ \text{safety}\}$。评 fidelity 要相对**候选 policy family** 与用途：$U_{\mathrm{sim}}^{(u)}(\cdot \mid \Pi_{\mathrm{candidate}},\ p_{\mathrm{eval}}^{\mathrm{real}})$。**更关键的是**：simulator 的最终 utility 不只看 $U_{\mathrm{sim}}^{(u)}$ 本身、还看它在 downstream allocation 里引发的期望价值——一个数值预测不够准、但能稳定做 candidate screening 的 sim、其 downstream allocation utility 可能仍很高。
-
-## 组合与决策，以及一个常被回避的问题
-
-真实项目更有用的是 **gap × 可建模性 × 真机预算** 矩阵：
-
-| Gap | 可参数化 / 可辨识？ | Real data | 更自然的候选（最终仍由 state-conditioned $\Delta J,\Delta C,\mathrm{CVU}$ 决定） |
-| --- | --- | ---: | --- |
-| low-dimensional dynamics bias | 高 | 少 | SI |
-| parameterizable dynamics uncertainty | 中 | 少 | posterior-guided DR / Bayesian SI → DR |
-| dynamics residual | 低（但有结构） | 中 | Residual learning |
-| visual appearance | 高 | 无 / 少 | DA / DR（候选） |
-| actuator latency | 高 | 少 | SI + DR |
-| unobserved rare tail、可被 model family 表示 | 低 | 少 | targeted simulation / DR |
-| unknown long-tail，sim 生成不可信 | 低 | 中 | real data |
-| model class 不确定 | 低 | 多 | learned world model（若 real 稀缺则先 physics prior + residual / DR） |
-| mixed | mixed | mixed | co-training candidate（需先验证正迁移条件） |
-
-**限定词不能省**：model-class uncertainty 下 SI 与 DR 未必适用、得先落到 residual / WM / 真机。"co-training 兜底"与 allocation 冲突——sim 质量差时可能负迁移。
-
-常见组合 **SI → DR → DA → co-training / fine-tune**：**箭头只是示意、非固定 workflow**、顺序由主导 gap 与边际效用决定。**当 sim 已有较强 coverage、主要未知来自 model misspecification**、real data 的高价值用途是**发现 sim 未建模的 failure mode** 让 sim 放大；**若 deployment distribution 已相当固定**、real data 也可能主要承担直接 adaptation / imitation、不必先走 discovery / amplify——
-
-$$\text{discover real tail} \rightarrow \text{identify structure} \rightarrow \text{amplify} \rightarrow \text{real validation}$$
-
-即 **real 发现、sim 放大、real 再验证**。**这条 chain 成立有硬前提**：发现的 failure mode 能被当前 model class / learned surrogate 以可信方式表示；否则 real discover 之后应直接转向 richer model / world model / 追加 real data、而不是强把不可表示的 tail 塞进 sim 放大（这正是 model-class uncertainty 那一段的具体化）。
-
-**什么时候最优解其实是"不做 sim-to-real"？**
-- **真机数据已便宜到 $C_{\mathrm{SI}}+C_{\mathrm{DR}} > C_{\mathrm{real}}^{\mathrm{effective}}$**（比较的是 horizon 内 cumulative value / cost）。
-- **仿真器 model class 本身就差**（软体 / 流体 / 复杂接触）——不如 WM 或真机数据。
-- **部署分布非常固定**——少量 targeted real FT 更划算。
-- **sim 不提供 unique coverage / safety / exploration / counterfactual access**——$U_{\mathrm{sim}}^{\mathrm{downstream}} < C_{\mathrm{sim}}^{\mathrm{effective}}$。
-
-**stopping rule 三类**：**(a) local net-value stop（economic stop）**——$\max_{m \in \mathcal{M}_t^{\mathrm{feasible}}} Q_{\lambda_t}^{\mathrm{perf+CVU}}(m \mid s_t) \le 0$（local one-step stop、非全局最优——已知强互补 portfolio 应作为 candidate 一并评估）；**(b) continuation-value stop**——**best remaining positive continuation uplift 已经接近零**：$\max_{m \in \mathcal{M}_t^{\mathrm{feasible}}} \mathrm{CVU}(m \mid s_t) \le \varepsilon$（$\varepsilon$ 为小正阈值；**因 $\mathrm{CVU}$ 可正可负、"expected CVU 接近 0" 表述会漏掉"当前最优 CVU 严重为负、必须立即停"的情形、$\max$ 而非 expectation 才是正确的停止判据**）；**(c) safety / feasibility stop**——剩余 candidate 全在 feasible 集外。任一触发即停。
-
-## 一个最小可执行的 Sim-to-Real Allocation Protocol
-
-框架不落到"明天项目组怎么跑"、就还是聪明的 framing。以下 6 步是**最小可执行版**、可跳过、但跳之前要说清对本项目 no-op 的原因。
-
-**Step 1 — 固定 evaluation。** 锁死 task / initial-state 分布 / horizon / success metric / safety threshold / policy interface（obs + action schema + control freq）。**若 $\pi$ stochastic（$a_t \sim \pi_\theta(\cdot \mid o_t)$）、$J(\pi)$ 应理解成 evaluation protocol 下对 policy / reset / hardware randomness 的期望**、用 repeated runs / block evaluation 估计。**没这一步、后面 $\Delta J$ 没有共同基准**。
-
-**Step 2 — 建 held-out real evaluation set。** 真机 eval 集与训练数据**必须分开**、覆盖 held-out hardware / calibration / object / 场景切片。用训练数据 evaluate、$\widehat{\Delta J}$ 一定 optimistic。**但 eval 结果可进入 allocator 的 belief update**：$\mathcal{D}_t$ = "allocator 在 step $t$ 可获得的全部 evidence"、包括 $D_{\mathrm{eval}}$ 反馈的 failure mode 与 uncertainty 变化；"不参与 training" 与 "参与 posterior update" 是两件事、不冲突。
-
-**Step 3 — 列 mismatch hypotheses（可 falsify）。**
-
-| Hypothesis | Evidence | Belief | 候选 intervention |
-| --- | --- | ---: | --- |
-| friction $\mu$ 偏低 | contact slip | med | SI + DR |
-| actuator latency 未建模 | 高频振荡 | high | SI + timing |
-| camera extrinsics 偏 | grasp offset | high | Calibration / DA |
-| contact model 错 | 柔性物体 OOD 失败 | low | Residual / WM |
-
-每条 hypothesis **必须能被具体实验否证**、写不出否证条件的先剔除。
-
-**Step 4 — one-time initial calibration pilot**（Step 5 才进入 sequential adaptive allocation）。**对会直接改变当前 policy 的 action 估计 immediate effect distribution**（$\mu_{\Delta J,t}(m)$ 与其 spread、Bayesian 实现下即 posterior、频率派实现下即 CI）、**对 diagnosis / model-refresh action 主要估计 evidence quality / continuation uplift distribution**（其 immediate $\Delta J \equiv 0$、不存在 meaningful 的 immediate effect distribution 可估、experimental target 是 $\mathrm{CVU}$ 相关的 evidence 与后验改善量）；不预设固定样本数。**$\widehat{\Delta J}_t(m) = J_{\mathrm{real}}(\pi_t^{m}) - J_{\mathrm{real}}(\pi_t^{\mathrm{control}})$**——control 承担相同 training 步数、**相同 elapsed time（覆盖机器人温度 / 电量 / wear 等 background drift）**、相同 training seed（真机硬件扰动本身没有"seed"可对齐、只能靠 matched evaluation block 逼近），只关掉本 intervention；**diagnostic-only action 与"只更新 simulator / surrogate、暂不重新训练当前 policy 的 model-refresh action"的 $\widehat{\Delta J}_t \equiv 0$、其价值在本文一步近似中统一通过 $\mathrm{CVU}$ 汇总（unified continuation surrogate）、不再单独定义额外 reward channel**。**matched / paired / block 化评估**：同 training seed、并在可行时采用 matched evaluation blocks / hardware conditions、同 held-out slice；漂移系统记录 hardware state。**单 intervention matched control 识别的是 incremental effect relative to the current protocol、不识别高阶 interaction effect；组合 action（例如 SI+DR 或 SI+WM refresh）需作为独立 candidate 做 matched comparison**，否则 synergy / conflict 无法从数据里分离。
-
-**Step 5 — sequential adaptive allocation**：$m_t^* = \arg\max_{m\in\mathcal{M}_t^{\mathrm{feasible}}(s_t)} Q_{\lambda_t}^{\mathrm{perf+CVU}}(m\mid s_t)$——$\lambda_t$ 是 resource-weight estimate、objective 与 local score 必须一致；cost 与预算同时 state-conditioned（$\Delta C(m\mid s_t)$、$b_{t+1} = b_t - \Delta C(m_t^*\mid s_t)$）。Execution-level safety 走 $\alpha_{\mathrm{exec}}$ gate、deployment-level safety 走 $\alpha_{\mathrm{deploy}}$ terminal 约束、都不进 cost。
-
-**Step 6 — real evaluation → posterior update → 回到 Step 3。** 更新 $\mathcal{D}_t \rightarrow \mathcal{D}_{t+1}$、重估 $\lambda_t$、淘汰否证 hypothesis、新失败补入表。**最易跳过、最关键**——没 posterior update、流程退化为静态 checklist。
-
-**定位**：最低落地版——小团队可合并 Step 3/4、大团队可加 portfolio opt。6 步都要写下来。
 
 ## 这意味着什么？：一个闭环，而不是一个开关
 
@@ -480,3 +277,10 @@ sim-to-real 尚无公认跨任务定量对照、不同任务 / 硬件 / fidelity
 ---
 
 *本篇是"具身智能的数据问题"上下篇续篇：上篇讲数据来源与接口、下篇讲数据 scaling 框架；本篇把镜头拉到 sim-to-real、把它从"一堆迁移技巧"重述成带经验边际效用的闭环分配问题、接回 sequential data allocation 主线。*
+---
+
+> **下一篇（Part 2）**：[Sim-to-Real 方法论（二）：四把手术刀与两条新路线](/zh/articles/2026-09-11-sim-to-real-intervention-lenses/) -- 把 SI / DR / DA / FT / World Model / Co-training 逐一拆开。
+>
+> **评估与落地（Part 3）**：[你怎么知道 gap 补好了](/zh/articles/2026-09-12-sim-to-real-evaluation-protocol/) -- 三级证据层、sim utility 三维切分、6 步 protocol。
+
+*本篇是"具身智能 Sim-to-Real 方法论"三部曲-理论篇。方法谱系详解在 Part 2、评估与落地在 Part 3。三部曲承接"数据问题"上下篇的数据来源与 scaling 主线。*

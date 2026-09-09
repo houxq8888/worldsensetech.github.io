@@ -1,7 +1,7 @@
 ---
 title: '只会看、不会摸：机器人为什么缺一双"手感"的手'
-slug: "2026-09-11-tactile-force-sensing"
-date: 2026-09-11
+slug: "2026-09-13-tactile-force-sensing"
+date: 2026-09-13
 draft: false
 categories: ["具身智能", "多模态感知"]
 tags: ["具身智能", "触觉", "力控", "阻抗控制", "导纳控制", "接触丰富操作", "Active Perception", "VLA", "Sim-to-Real", "机器人数据", "GelSight", "接触状态估计"]
@@ -9,11 +9,11 @@ description: '通用机器人真正稀缺的、不是"再多一个触觉传感�
 toc: true
 related_articles:
   - 2026-09-10-sim-to-real-methodology
+  - 2026-09-11-sim-to-real-intervention-lenses
+  - 2026-09-12-sim-to-real-evaluation-protocol
+  - 2026-09-14-multimodal-fusion-interface
   - 2026-09-09-robot-data-scaling
-  - 2026-08-26-world-model-in-robotics
   - 2026-09-07-vla-world-models
-  - 2026-09-03-vla-deep-dive
-  - 2026-09-06-embodied-ai-landscape
 ---
 
 > 接 [Sim-to-Real 方法论](/zh/articles/2026-09-10-sim-to-real-methodology/) 与 [机器人数据 scaling](/zh/articles/2026-09-09-robot-data-scaling/)：那两篇分别在讲"训练分布与 evaluation 分布之间的错配怎么预算、怎么干预"、"下一份数据该采什么"。这一篇想往下再切一层——**真实世界不是纯视觉世界，很多关键状态发生在接触界面上；而通用机器人恰恰在"接触 → 反馈 → 调整动作"这条闭环上还远没有像视觉那样成熟**。

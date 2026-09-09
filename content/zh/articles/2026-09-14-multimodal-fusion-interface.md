@@ -1,22 +1,24 @@
 ---
 title: '拼起来不等于看懂：机器人多模态融合缺的不是模型、是接口'
-slug: "2026-09-12-multimodal-fusion-interface"
-date: 2026-09-12
+slug: "2026-09-14-multimodal-fusion-interface"
+date: 2026-09-14
 draft: false
 categories: ["具身智能", "多模态感知"]
 tags: ["具身智能", "多模态融合", "视觉-触觉", "力觉", "本体感觉", "表示接口", "多模态状态估计", "Hybrid State Estimator", "Structured State Contract", "Observability", "Identifiability", "Registration", "Cross-attention", "Modality Dropout", "VLA", "世界模型", "坐标系对齐", "时间对齐", "不确定性"]
 description: '多模态融合常被讲成"选哪种 attention 结构"的问题、但机器人场景真正的瓶颈在更上游：Vision / Tactile / Force-torque / Proprioception 四路信号在时间基、坐标系基、任务语义、有效性与来源上从来没对齐过。本文把系统拆成四层——measurement layer（时间/坐标/标定）→ perception & semantic projection → state estimation → structured state contract——再交给 policy / world model / controller / diagnostics 多消费者。核心主张不是"再要一个 fusion operator"、而是 heterogeneous observation 与多消费者之间缺一层稳定的 structured state contract：它规定"什么信息必须以什么语义、单位、frame、时间、不确定性、来源、有效性暴露出来"、但把推理算法与下游表示学习完全留白。interface ≠ inference algorithm ≠ latent representation；belief 只是这份 contract 可能携带的一类内容。Contact set 是一个 manipulation-specific 实例、不是接口定义。Benchmark 部分给出 Interface Property Benchmark：schema/encoder/consumer swap、oracle/estimated/end-to-end 三组受控 baseline、uncertainty-aware disagreement、consistency graph 与 fault isolation、representation bottleneck ablation。三条设计原则：Register before compose · Expose belief at the interface · Design for disagreement。'
 toc: true
 related_articles:
-  - 2026-09-11-tactile-force-sensing
+  - 2026-09-13-tactile-force-sensing
   - 2026-09-10-sim-to-real-methodology
+  - 2026-09-11-sim-to-real-intervention-lenses
+  - 2026-09-12-sim-to-real-evaluation-protocol
   - 2026-09-09-robot-data-scaling
   - 2026-09-07-vla-world-models
   - 2026-09-03-vla-deep-dive
   - 2026-08-26-world-model-in-robotics
 ---
 
-> 接 [只会看、不会摸：机器人为什么缺一双"手感"的手](/zh/articles/2026-09-11-tactile-force-sensing/)：那一篇钉下三个标签——Action-conditioned observation · Contact-state representation · Closed-loop value——并留下一个明显的问号：**触觉/力觉/本体感觉既然各自都有价值、为什么没有像视觉那样形成一个可复用的共同表示？** 这一篇正面回答这个问号。答案不在模型结构、**在接口**。
+> 接 [只会看、不会摸：机器人为什么缺一双"手感"的手](/zh/articles/2026-09-13-tactile-force-sensing/)：那一篇钉下三个标签——Action-conditioned observation · Contact-state representation · Closed-loop value——并留下一个明显的问号：**触觉/力觉/本体感觉既然各自都有价值、为什么没有像视觉那样形成一个可复用的共同表示？** 这一篇正面回答这个问号。答案不在模型结构、**在接口**。
 
 想象一个把 RGB 相机、GelSight 指尖、腕部六维力/力矩、关节编码器全部装齐的双臂机器人。硬件清单看起来很"多模态"、但把它交给一个 policy、很多工作会告诉你"用 cross-attention 融合一下"就完事了。这在 demo 里能跑通、**但在真实部署里常常会遇到四类翻车**：某一路掉帧、某个传感器坏掉、坐标系漂移、模型悄悄把某一路当成主导路径而其他路变成噪声。这四类不是工程细节、**它们指向的是同一个根因：模态之间没有先约定好一份可被 policy、world model、controller、diagnostics 共同消费的、显式表达时间、坐标、语义、不确定性、来源、有效性的 structured state contract**。
 
@@ -101,7 +103,7 @@ $$
 
 **"modality" 本身没有一个唯一的物理学定义、它是分析视角的产物**。为了讨论方便、本文的 taxonomy 用一个四要素约定：**measurement space（信号值域）、physical origin（物理来源）、noise model（噪声结构）、update semantics（触发 / 采样 / 时钟语义）**。这四件事一起决定了一个数据流能不能被"当成同一种东西"处理。不同作者可以把边界画得略松或略紧、但只要一次性约定清楚、后面的讨论就不会飘。
 
-按这套 taxonomy、几个常被误当作"多模态"的例子：腕部相机 + 头顶相机是**同模态多视角**；GelSight 指尖的 4 个小摄像头是**一个触觉模态的内部结构**、measurement space 是弹性体表面形变场、下游语义是 contact geometry 而不是 object detection；关节编码器 + 电机电流是**同一 robot-state modality 下的两个 observation channels**、共享同一 latent 物理状态、当作两个模态融合大概率只学到冗余。反过来、**Vision / Tactile / Force-torque / Proprioception** 是本文 taxonomy 下真正的四个不同模态——各自的 measurement space、坐标系、effective observation rate 见 §5 表格。有些工作还会加 audio、thermal、gas、ultrasound 当第五 / 第六模态、分类逻辑一致。9/11 §2.1 用一棵 taxonomy 树把 contact sensing 分成 Tactile / Force-torque / Proprioceptive 三支、本文沿用同样的三分法、把讨论限定在 V + T + F + P。
+按这套 taxonomy、几个常被误当作"多模态"的例子：腕部相机 + 头顶相机是**同模态多视角**；GelSight 指尖的 4 个小摄像头是**一个触觉模态的内部结构**、measurement space 是弹性体表面形变场、下游语义是 contact geometry 而不是 object detection；关节编码器 + 电机电流是**同一 robot-state modality 下的两个 observation channels**、共享同一 latent 物理状态、当作两个模态融合大概率只学到冗余。反过来、**Vision / Tactile / Force-torque / Proprioception** 是本文 taxonomy 下真正的四个不同模态——各自的 measurement space、坐标系、effective observation rate 见 §5 表格。有些工作还会加 audio、thermal、gas、ultrasound 当第五 / 第六模态、分类逻辑一致。《触觉·力控》 §2.1 用一棵 taxonomy 树把 contact sensing 分成 Tactile / Force-torque / Proprioceptive 三支、本文沿用同样的三分法、把讨论限定在 V + T + F + P。
 
 ## 2. 四层系统的最底两层：Measurement layer 与 Semantic projection
 
@@ -135,7 +137,7 @@ $$
 t_{\text{effective}} \;=\; t_{\text{sens}} + \Delta_{\text{processing}} + \Delta_{\text{transport}} + \Delta_{\text{queue}}
 $$
 
-而 **timestamp synchronization $\neq$ causal synchronization**：把 camera timestamp 对齐到 tactile timestamp、不代表两者描述的是同一个 physical state 时刻——中间那段 processing / transport 延迟才是真正决定"这条观测对应哪一刻世界状态"的东西。三个必须写进接口层的时间细节：**时间戳语义**（sensor / arrival / host timestamp、三者差 5–20 ms 就足以让"抓杯子的接触瞬间"被错位到"合指之前"）、**latency 与因果对齐**（上面的 $t_{\text{effective}}$、以及它带来的 lead/lag）、**事件型 vs 周期型**（slip 触发本质上是 sparse event、塞进均匀分布 buffer 事件密度就丢了）。**判断标准**：**把时间常数与延迟差异写成建模假设、不要靠降采样掩盖**。这条与 9/11 §4.1 是同一个判断。
+而 **timestamp synchronization $\neq$ causal synchronization**：把 camera timestamp 对齐到 tactile timestamp、不代表两者描述的是同一个 physical state 时刻——中间那段 processing / transport 延迟才是真正决定"这条观测对应哪一刻世界状态"的东西。三个必须写进接口层的时间细节：**时间戳语义**（sensor / arrival / host timestamp、三者差 5–20 ms 就足以让"抓杯子的接触瞬间"被错位到"合指之前"）、**latency 与因果对齐**（上面的 $t_{\text{effective}}$、以及它带来的 lead/lag）、**事件型 vs 周期型**（slip 触发本质上是 sparse event、塞进均匀分布 buffer 事件密度就丢了）。**判断标准**：**把时间常数与延迟差异写成建模假设、不要靠降采样掩盖**。这条与 《触觉·力控》 §4.1 是同一个判断。
 
 ### 2.2 Spatial registration（空间配准）
 
@@ -156,7 +158,7 @@ F/T        → external wrench
 (q, q̇)     → kinematic state
 ```
 
-9/11 §2.1 里把 signal → meaning 分成九层（Sensor → Calibration → Raw obs → Contact perception → Contact geometry & wrench → Contact mode & physical state → Task-relevant belief → Policy / controller → Action → New contact）。**多模态融合的关键问题就是：到底在哪一层做 composition？** 常见错误是在 raw 层就 composition（把四路 tensor 拼起来喂进网络）——这相当于强迫 policy 自己学完 §2.1 / §2.2 / §2.3 全部、代价极高、样本效率极低。相对合理的做法是**让每一路各自走完 raw → perception → contact geometry 这几层、然后在"接触事件、力旋量、机器人状态、任务 belief"这四个语义已经收敛的位置上做 composition**、也就是本文后面 §6 的 structured state contract。
+《触觉·力控》 §2.1 里把 signal → meaning 分成九层（Sensor → Calibration → Raw obs → Contact perception → Contact geometry & wrench → Contact mode & physical state → Task-relevant belief → Policy / controller → Action → New contact）。**多模态融合的关键问题就是：到底在哪一层做 composition？** 常见错误是在 raw 层就 composition（把四路 tensor 拼起来喂进网络）——这相当于强迫 policy 自己学完 §2.1 / §2.2 / §2.3 全部、代价极高、样本效率极低。相对合理的做法是**让每一路各自走完 raw → perception → contact geometry 这几层、然后在"接触事件、力旋量、机器人状态、任务 belief"这四个语义已经收敛的位置上做 composition**、也就是本文后面 §6 的 structured state contract。
 
 **这一节的落点**：temporal / spatial 两小段 registration 是 measurement-layer 的显式变量（Layer 1）、semantic projection 是 perception 与 state estimation 的分工（Layer 2）。三件事任何一件糊过去、后面的 fusion architecture 再华丽也是在补前面的锅。
 
@@ -181,7 +183,7 @@ Baltrusaitis 等的经典综述 [arXiv:1705.09406](https://arxiv.org/abs/1705.09
 
 **Cross-attention / Transformer fusion**：把每一路当作 token 序列、上层跑 self / cross-attention。Tsai 等的 Multimodal Transformer [arXiv:1906.00295](https://arxiv.org/abs/1906.00295) 是这条路线的经典起点、显式处理"不同模态时间粒度不一致"。现代 multi-modal transformer 完全可以搭配 timestamp / positional embedding、relative temporal encoding、modality embedding、frame-aware features、modality-specific encoder、modality dropout / masking、auxiliary per-modality loss、attention masks——**真正的问题不是"attention 会翻车"、而是如果没有把这些当接口契约写清楚、attention 会顺手把配准也"学"掉、结果学到的是数据分布里的巧合、不是可移植的接口**。成熟系统里、cross-attention 更适合在 **perception 与 registration 已经把输入送到 Layer 3 / 4 之后、围绕 state contract 做 composition**（但这不是唯一合法用法、见 §6.5）。
 
-**Late / decision-level fusion**：每一路各出一个子 policy、决策层再加权投票或按 confidence gating。更接近传统 robotics——视觉给粗调、F/T 给细调、触觉给 slip recovery、proprioception 给 nominal trajectory tracking。**一个常见的工程 pattern** 是——任何一路掉线只是掉一个 proposal、不会全局崩、容易加 safety layer。缺点是底层耦合信息丢了（"从触觉和 F/T 合起来看、这个接触是稳定滑动还是 stick-slip"这类跨模态联合信息、分开提 proposal 之后在决策层很难重建）；weighting 规则要么手写不可扩展、要么学又回到 early concat 的问题。9/11 里阻抗控制 + 视觉粗定位 + 触觉滑移检测的组合、本质就是这种 late fusion。
+**Late / decision-level fusion**：每一路各出一个子 policy、决策层再加权投票或按 confidence gating。更接近传统 robotics——视觉给粗调、F/T 给细调、触觉给 slip recovery、proprioception 给 nominal trajectory tracking。**一个常见的工程 pattern** 是——任何一路掉线只是掉一个 proposal、不会全局崩、容易加 safety layer。缺点是底层耦合信息丢了（"从触觉和 F/T 合起来看、这个接触是稳定滑动还是 stick-slip"这类跨模态联合信息、分开提 proposal 之后在决策层很难重建）；weighting 规则要么手写不可扩展、要么学又回到 early concat 的问题。《触觉·力控》 里阻抗控制 + 视觉粗定位 + 触觉滑移检测的组合、本质就是这种 late fusion。
 
 **Shared latent / VLT-style alignment**：用对比学习 / 蒸馏 / CLIP-style 目标、把不同模态的表示拉进同一 latent 空间。代表工作：**TVL / Binding Touch to Everything** [arXiv:2402.13232](https://arxiv.org/abs/2402.13232)（Zhao 等, ICML 2024）用约 44K vision-touch pairs 通过语言建立跨模态 alignment；**AnyTouch** [arXiv:2502.12191](https://arxiv.org/abs/2502.12191)（Feng 等, 2025）针对 heterogeneous visuo-tactile sensors 学统一的 static-dynamic 表示；**3D-ViTac** [arXiv:2410.24091](https://arxiv.org/abs/2410.24091)（Huang 等, CoRL 2024）在该论文的实验中报告 visuo-tactile representation 相对 vision-only 的显著增益；**Lee 等 Making Sense of Vision and Touch** [arXiv:1810.10191](https://arxiv.org/abs/1810.10191)（ICRA 2019）是这条路线最早的自监督锚点。缺点：**训练监督信号哪里来？** 视觉-语言的对比学习能吃海量网络图文对、四元组对齐没有天然监督源；目前主要靠 (a) 遥操作日志把四路强行同采（Calandra 等 *More Than a Feeling* [arXiv:1805.11085](https://arxiv.org/abs/1805.11085) 是这条思路在触觉抓取上的早期实证）、或 (b) 用语言 / 视觉作为桥梁把触觉拉进 V-L 空间（TVL 走的就是这条）。
 
@@ -290,7 +292,7 @@ $$
 
 Proprio 是四路里默认时间常数最快的、也**通常在常规刚性机器人上是最容易获得的高速率内部参考**——这一句需要限定、"完整通道 / 天然主时钟"是不准确的：很多机器人没有直接 torque sensing、$\dot q$ 往往是数值微分、EE pose 往往是 FK 估计、motor current 与 joint torque 之间有摩擦 / 齿隙 / 传动比映射、某些软体机器人、分布式架构或网络化平台甚至有多个 control clock、proprio 也可能被 delay / estimate / filter 过。更稳的表述是——**proprioceptive state is often the most readily available high-rate internal reference on conventional rigid robots**、它是**最容易标准化、也最常拿来当作坐标系与时间基 anchor 的一路**、而不是"天然的全系统主时钟"。
 
-Proprio 在融合里通常有两个作用：**作为 contact hypothesis 的输入**——给定期望末端轨迹 + 关节力矩反馈、可以按 §5.2 的 joint-side chain 反推 external wrench hypothesis（contact inference、Hogan 早年阻抗控制一脉的经典工具）；**作为时间基与坐标系的锚**——融合层需要一个稳定的 frame、proprio 通常跑在硬件 servo 允许的高速率、EE pose 也常当作其他坐标系的 anchor。**融合难点**：proprio 的信息量太"干净"——它是机器人自己测自己的状态、没有外部世界的不确定性、模型很容易**过度依赖 proprio**、把它当作 shortcut、结果在没有接触的场景表现好、有接触的场景反而没学会用触觉 / F/T。这一条正是 9/11 §5.2.1 feedback-value ablation 想避免的。
+Proprio 在融合里通常有两个作用：**作为 contact hypothesis 的输入**——给定期望末端轨迹 + 关节力矩反馈、可以按 §5.2 的 joint-side chain 反推 external wrench hypothesis（contact inference、Hogan 早年阻抗控制一脉的经典工具）；**作为时间基与坐标系的锚**——融合层需要一个稳定的 frame、proprio 通常跑在硬件 servo 允许的高速率、EE pose 也常当作其他坐标系的 anchor。**融合难点**：proprio 的信息量太"干净"——它是机器人自己测自己的状态、没有外部世界的不确定性、模型很容易**过度依赖 proprio**、把它当作 shortcut、结果在没有接触的场景表现好、有接触的场景反而没学会用触觉 / F/T。这一条正是 《触觉·力控》 §5.2.1 feedback-value ablation 想避免的。
 
 ### 5.4 时间常数差异本身就是建模假设
 
@@ -627,7 +629,7 @@ reviewer 视角、下面这五类失败在机器人多模态工作里最常见�
 - **Failure mode**：某些模态在训练里被边缘化、变成事实上的 dead input。
 - **Observable symptom**：训练 loss 与 validation success rate 都正常；一旦评测遮住视觉、policy 表现几乎不变。
 - **Diagnostic test**：主指标 **modality marginal contribution**（§8.4）——若 $\Delta_{\text{mod}} \approx 0$、说明这一路在 policy 里其实没被消费。3D-ViTac [arXiv:2410.24091](https://arxiv.org/abs/2410.24091) 的 ablation 之所以重要、就是给这个指标提供了一个明确的参照（**该论文实验中报告的 visuo-tactile > vision-only 增益、是这种贡献存在性的证据、不是普遍定律**）。Attention 权重可视化只能算 **辅助 diagnostic visualization**、不能拿来判断 modality contribution——**attention ≠ causal importance**、一个模态 attention 权重低不代表它没有贡献、一个模态 attention 高也不代表去掉它性能一定下降；这是经典 interpretability 陷阱。
-- **Mitigation**：(a) 训练时显式跑 modality dropout、见 §7.5；(b) 每个模态加 auxiliary supervision（例如 tactile encoder 除了给 policy 用、还得独立预测 slip 事件）；(c) 用 9/11 §5.2.1 的 feedback-value benchmark 而不是纯 success rate 逼出真实贡献。
+- **Mitigation**：(a) 训练时显式跑 modality dropout、见 §7.5；(b) 每个模态加 auxiliary supervision（例如 tactile encoder 除了给 policy 用、还得独立预测 slip 事件）；(c) 用 《触觉·力控》 §5.2.1 的 feedback-value benchmark 而不是纯 success rate 逼出真实贡献。
 
 ### 7.2 Temporal smearing：所有信号被强行插值到 30 Hz
 
@@ -648,7 +650,7 @@ reviewer 视角、下面这五类失败在机器人多模态工作里最常见�
 - **Failure mode**：接触状态的定义被未约束的视觉 latent 悄悄改写。
 - **Observable symptom**：slot 明明定义成"接触几何"、但 policy 表现严重依赖视觉外观（同一个物体的照片换背景就掉点）。
 - **Diagnostic test**：把 slot 里的视觉贡献换成一个"最小充分"的合成 slot（例如把预测 contact 用真值 contact 替）、看性能变化。
-- **Mitigation**：本文**不是**主张"raw pixel 不允许直接进 policy"（现代 VLA 本来就是 image → vision encoder → token representation → policy、raw visual latent 进 policy 是常规操作）；本文主张的是——**对于由 state contract 定义的 contact-related state、不应存在一条绕过 slot encoder、且不可诊断的 raw-visual shortcut**。也就是说"contact 语义的规范通路是 slot encoder"、而不是"视觉特征不许进 policy"。这条与 9/11 §3.5 一致、也更可实施。
+- **Mitigation**：本文**不是**主张"raw pixel 不允许直接进 policy"（现代 VLA 本来就是 image → vision encoder → token representation → policy、raw visual latent 进 policy 是常规操作）；本文主张的是——**对于由 state contract 定义的 contact-related state、不应存在一条绕过 slot encoder、且不可诊断的 raw-visual shortcut**。也就是说"contact 语义的规范通路是 slot encoder"、而不是"视觉特征不许进 policy"。这条与 《触觉·力控》 §3.5 一致、也更可实施。
 
 ### 7.5 Missing / degraded modalities：一坏就崩、或者悄悄退化没报警
 
@@ -659,7 +661,7 @@ reviewer 视角、下面这五类失败在机器人多模态工作里最常见�
 
 ## 8. Interface Property Benchmark 与评估
 
-这一节把 §7 里散在各处的诊断指标整合成一个可执行的 benchmark 骨架。本文把它命名为 **Interface Property Benchmark**——因为它测的不是"这个 fusion 模型成功率多高"、而是"这份接口作为抽象边界成立不成立"。整体思路沿用 9/11 §5.2.1 的 feedback-value 主张：**benchmark 应该测接口是不是真的抽象边界、模态是否真的不可替代、系统能否正确处理 disagreement、不是"这个模型能不能记住训练分布"**。
+这一节把 §7 里散在各处的诊断指标整合成一个可执行的 benchmark 骨架。本文把它命名为 **Interface Property Benchmark**——因为它测的不是"这个 fusion 模型成功率多高"、而是"这份接口作为抽象边界成立不成立"。整体思路沿用 《触觉·力控》 §5.2.1 的 feedback-value 主张：**benchmark 应该测接口是不是真的抽象边界、模态是否真的不可替代、系统能否正确处理 disagreement、不是"这个模型能不能记住训练分布"**。
 
 一个贯穿本节的方法学立场要放在最前面：**接口价值的证据不应只是 task success**。$\Delta_m$、success rate 这些只能说明"某个模态有用 / 某个 pipeline 跑得动"；真正证明"这是一份接口、不是命名游戏"的、是 **interchangeability（可替换）、degradation（可退化表达）、diagnostics（可诊断）、cross-consumer reuse（可复用）** 这四类属性。下面 §8.1 / §8.2 分别对应这些属性。
 
@@ -808,7 +810,7 @@ Registration robustness
 
 ### 8.10 现有 benchmark 的适配度
 
-RoboCasa / LIBERO / ManiSkill3 / BEHAVIOR 这一批主流 manipulation benchmark **大多以视觉为主、触觉缺席**。这一节不下结论、但**建议**：把上面九类指标做成一个可选插件、给现有 benchmark 加一层 "feedback-value + interface quality" 视角；9/11 §5.2.1 的 A/B/C/D 四臂消融可以直接借用。
+RoboCasa / LIBERO / ManiSkill3 / BEHAVIOR 这一批主流 manipulation benchmark **大多以视觉为主、触觉缺席**。这一节不下结论、但**建议**：把上面九类指标做成一个可选插件、给现有 benchmark 加一层 "feedback-value + interface quality" 视角；《触觉·力控》 §5.2.1 的 A/B/C/D 四臂消融可以直接借用。
 
 ## 9. 与 VLA、世界模型的关系
 
@@ -824,7 +826,7 @@ RoboCasa / LIBERO / ManiSkill3 / BEHAVIOR 这一批主流 manipulation benchmark
 
 ### 9.2 世界模型：不批评 latent world model、只建议 contact-rich 动力学保留一个可辨识的 event / mode channel
 
-RSSM / DreamerV3 [arXiv:2301.04104](https://arxiv.org/abs/2301.04104) 一脉的 latent dynamics 通常假设 state transition 相对平滑、梯度可导。9/11 §5.1 讨论过、接触事件本质上是 hybrid dynamics 的 mode switch。
+RSSM / DreamerV3 [arXiv:2301.04104](https://arxiv.org/abs/2301.04104) 一脉的 latent dynamics 通常假设 state transition 相对平滑、梯度可导。《触觉·力控》 §5.1 讨论过、接触事件本质上是 hybrid dynamics 的 mode switch。
 
 **本文不是批评 latent world model、也不是说 "continuous latent 会把 contact 平滑掉"**——现代 latent dynamics 完全可以用 discrete latent / stochastic latent / event latent / hierarchical latent / latent mode switching / multiple heads 来表示、这些都能承载事件与 mode。本文的表述收敛成一条**很窄、因此也很难被反驳**的建议：
 
@@ -866,7 +868,7 @@ $$
 \boxed{\;\text{A good multimodal system must represent disagreement, not merely resolve it.}\;}
 $$
 
-下一篇（9/13）打算从"接口"往下游走一步：**灵巧手与 in-hand manipulation**——把这一篇的 state contract 放到 T-Dex / DextrAH / LEAP 这一批近期工作的具体场景里、看它能不能撑起这些系统的架构、以及为什么"能装手的机器人很多、真正在做 dexterous 的少"这个反差背后的成本结构。
+下一篇讲灵巧手与 in-hand manipulation打算从"接口"往下游走一步：**灵巧手与 in-hand manipulation**——把这一篇的 state contract 放到 T-Dex / DextrAH / LEAP 这一批近期工作的具体场景里、看它能不能撑起这些系统的架构、以及为什么"能装手的机器人很多、真正在做 dexterous 的少"这个反差背后的成本结构。
 
 ## Sources
 
@@ -906,15 +908,15 @@ $$
 
 - Tobin et al., *Domain Randomization for Transferring Deep Neural Networks from Simulation to the Real World*, IROS 2017 · [arXiv:1703.06907](https://arxiv.org/abs/1703.06907)（把坐标系扰动当 domain randomization 一部分的经典做法）
 
-### G · 承接 9/11 · Contact state 与 impedance（背景）
+### G · 承接 《触觉·力控》 · Contact state 与 impedance（背景）
 
-- 9/11 那篇里已经引用过、这一篇继续沿用的：Hogan 阻抗控制三部曲、Posa-Cantu-Tedrake IJRR 2014（hybrid contact-mode trajectory optimization）、Lee 1810.10191、Qi 2309.09979、Huang 2410.24091、Zhao 2402.13232、Feng 2502.12191。这一篇不重复贴链接、需要精确出处请直接看 9/11 的 Sources 部分。
+- 《触觉·力控》 那篇里已经引用过、这一篇继续沿用的：Hogan 阻抗控制三部曲、Posa-Cantu-Tedrake IJRR 2014（hybrid contact-mode trajectory optimization）、Lee 1810.10191、Qi 2309.09979、Huang 2410.24091、Zhao 2402.13232、Feng 2502.12191。这一篇不重复贴链接、需要精确出处请直接看 《触觉·力控》 的 Sources 部分。
 
 ---
 
 > **相关阅读**
 >
-> - [只会看、不会摸：机器人为什么缺一双"手感"的手](/zh/articles/2026-09-11-tactile-force-sensing/)——这一篇的前作、把触觉与力控单独拆开讲
+> - [只会看、不会摸：机器人为什么缺一双"手感"的手](/zh/articles/2026-09-13-tactile-force-sensing/)——这一篇的前作、把触觉与力控单独拆开讲
 > - [Sim-to-Real 方法论](/zh/articles/2026-09-10-sim-to-real-methodology/)——§7.3 坐标系扰动、§8.9 registration perturbation 都可以借用它的 domain randomization 视角
 > - [机器人数据为什么比大模型数据更难](/zh/articles/2026-09-09-robot-data-scaling/)——§3 shared latent 路线的"监督信号哪里来"问题、其实是数据 scaling 问题
 > - [VLA 与世界模型](/zh/articles/2026-09-07-vla-world-models/)——§9 那一节是它的一个具体侧面：VLA 尚缺跨 sensor family / embodiment / consumer 的稳定 state contract；世界模型在 contact-rich 任务上建议保留一个可辨识的 event / mode channel
