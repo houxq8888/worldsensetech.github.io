@@ -66,6 +66,16 @@ $$\boxed{\;\mathcal C\;\longrightarrow\;(\mathcal C_\pi,\,Q_{\mathcal C_\pi})\;\
 
 一旦 policy 输入端接了 前篇 §4 的 primitives、训练目标、augmentation、safety filter、evaluation 四处都要跟着改。**接口不是免费的**——但改动是**局部的、可控的**。
 
+> **§1 与 前篇 §4 的桥接（v6 显式化）**：前篇 §4 的三族 primitives 是**读出侧**的契约不变性——"contract 语义在 $\Pi_\pi$ 层不被无声破坏"；本文 §1 的三处改动是**训练侧**的对应物——"policy 在 contract 变换下的响应满足同一族 $\mathcal C_\pi$ 声明过的 relation"。**契约不变性 = 增广不变性的对偶**、二者是同一件事在 reader 与 trainer 两侧的两次翻译、不是两件独立工程。
+
+| 前篇 §4 primitive | 读出侧的 contract 不变性 | §1 训练侧的对应 |
+|---|---|---|
+| `mode_select`（§4.1） | hypothesis permutation invariance / equivariance | §1.1 类别 B **Type I**（exact invariance）+ §1.2 $T^{\mathrm{hyp}}$ collapse aug |
+| `age_gate`（§4.2） | order-constrained staleness response（consumer-declared order）| §1.1 类别 B **Type II**（order-constrained）+ §1.2 $T^{\mathrm{stale}} / T^{\mathrm{latency}}$ aug |
+| `provenance_harden` / `dependency_aware_fusion` / `negative_evidence_read`（§4.3） | 不预设响应方向、只要求"removed evidence 若 decision-relevant 则 utility 应降" + safety 三态 | §1.1 类别 B **Type III**（unconstrained、交给 §2.5 CAG 测）+ §1.2 $T^{\mathrm{missing}} / T^{\mathrm{bias}}$ + §1.3 三态 certification |
+
+一句话读法：§1 不是"给训练加约束"、是"把 前篇 §4 的读法在 loss / aug / filter 三处**翻译成工程实现**"、每一行三列都是同一件事的三种写法。**Type I/II/III 与 §4.1/§4.2/§4.3 的对应关系是本文全篇最硬的一条设计约束**——它保证 §1.1 不是随意选的三档、而是被 前篇 §4 primitives 逼出来的三档；也保证 §2 的 evaluation 不会测到训练没做过的东西。
+
 ### 1.1 两类训练约束：representation-side probe + 三类 intervention consistency
 
 一个自然的错误是：**为了"让 policy 用 contract"、要求 policy 输出 validity / hypothesis 的预测头**——这实际上是把"用 contract"偷换成了"复制 contract"、方向不对。**policy 完全可以只吃 contract、不吐 contract**——auxiliary prediction head 不是必要条件。

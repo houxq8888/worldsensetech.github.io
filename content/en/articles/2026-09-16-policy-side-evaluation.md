@@ -66,6 +66,16 @@ Here $\mathcal C_\pi=(Q_\pi,\mathcal O_\pi,V_\pi)$ is the Consumer Contract trip
 
 Once the upper-half §4 primitives are on the input side, four downstream things must be adjusted — training objective, augmentation, safety filter, evaluation. **Interfaces are not free** — but the changes are **local and bounded**.
 
+> **Bridge between §1 and upper-half §4 (v6 explicit)**: upper-half §4's three families of primitives are the **read-side** contract invariances — "contract semantics is not silently broken at $\Pi_\pi$". This §1's three knock-ons are the **train-side** counterparts — "the policy's response to a contract transformation satisfies a $\mathcal{C}_\pi$-declared relation from the same family". **Contract invariance and augmentation invariance are duals of the same property**, translated twice — once on the reader side, once on the trainer side — not two independent engineering efforts.
+
+| Upper-half §4 primitive | Read-side contract invariance | §1 train-side counterpart |
+|---|---|---|
+| `mode_select` (§4.1) | hypothesis permutation invariance / equivariance | §1.1 Class B **Type I** (exact invariance) + §1.2 $T^{\mathrm{hyp}}$ collapse aug |
+| `age_gate` (§4.2) | order-constrained staleness response (consumer-declared order) | §1.1 Class B **Type II** (order-constrained) + §1.2 $T^{\mathrm{stale}} / T^{\mathrm{latency}}$ aug |
+| `provenance_harden` / `dependency_aware_fusion` / `negative_evidence_read` (§4.3) | no response direction is prescribed; only "if removed evidence was decision-relevant, utility should drop" + three-state safety | §1.1 Class B **Type III** (unconstrained; measured by §2.5 CAG) + §1.2 $T^{\mathrm{missing}} / T^{\mathrm{bias}}$ + §1.3 three-state certification |
+
+How to read the table: §1 is not "adding constraints to training" — it is "translating upper-half §4's read-side contracts into loss / augmentation / filter implementations"; every row is the same property written three ways. **The Type I / II / III-to-§4.1 / §4.2 / §4.3 correspondence is the hardest design constraint in this piece** — it ensures §1.1's three tiers are not arbitrarily chosen but are forced by upper-half §4's primitives, and it ensures §2's evaluation never tests something training did not implement.
+
 ### 1.1 Two classes of training constraint: representation-side probe + three tiers of intervention consistency
 
 A natural mistake is: **to make the policy "use the contract", require it to output validity / hypothesis predictions** — this actually sneaks "use the contract" into "copy the contract", which is the wrong direction. **A policy is entirely allowed to only eat the contract and never spit it back out**; auxiliary prediction heads are not a necessary condition.
