@@ -290,7 +290,7 @@ $D_{\mathcal{A}}$ is the same family used by upper-half §0.2.2's $L_{\mathrm{de
 
 $$\boxed{\;\mathrm{HPC} \;=\; \frac{1}{K} \sum_{k=1}^{K} U\!\big(\pi_\theta(T_k^{\mathrm{world}}(\hat S, O)),\;\mathcal{A}^{*}_k\big),\qquad U(\pi, \mathcal{A}^*_k) = \Pr_{a \sim \pi}\!\big[a \in \mathcal{A}^{*}_k\big].\;}$$
 
-HPC **only makes sense under $T_k^{\mathrm{world}}$** — it measures "policy's decision competence under a different real-world hypothesis", not "policy's response to a contract change". The two roles are now carried by two different metrics; when reporting, a benchmark **must present $E_{\mathrm{contract}}$ and HPC side by side, never merged into a single composite**. This split is exactly aligned with the piece-wide philosophy "contract change ≠ world change".
+HPC **only makes sense under $T_k^{\mathrm{world}}$** — it measures "policy's decision competence under a different real-world hypothesis", not "policy's response to a contract change". The two roles are now carried by two different metrics; when reporting, a benchmark **must present $E_{\mathrm{contract}}$ and HPC side by side, never merged into a single composite**. This split is exactly aligned with the piece-wide philosophy "contract change ≠ world change". **Note**: this section's HPC $\mathcal{A}^*_k$ (**world-$k$ action set**) and §2.5's oracle baseline $\pi^*_{\mathrm{oracle}}$ (**a policy reading the privileged state**) are two orthogonal oracle objects and should not be merged — see the closing note of §2.5 for the full disambiguation.
 
 **Hypothesis Separation Score (HSS)** — **must be averaged only over action-relevant hypothesis pairs**; the reviewer caught gaming: if $\mathcal A^*(H_1) = \mathcal A^*(H_2)$, different outputs are not a virtue, **they are noise**. Define the action-relevant pair set (using upper-half §0.2.1's $\sim_{\pi,\mathcal D}$, not "raw representation differs"):
 
@@ -441,6 +441,19 @@ $$\boxed{\;\mathrm{CAG} \;\neq\; \text{contract understanding}.\;}$$
 $$\boxed{\;\mathrm{CAG} \;=\; \text{task-conditional utility sensitivity}.\;}$$
 
 **CAG is a decision-layer aggregate; it must be viewed jointly with $E_{\mathrm{semantic}}$ (invariance / equivariance) + $E_{\mathrm{representation}}$ (conditional probe + HPC/HSS) + §1.1 Type I/II controlled response** — only the conjunction is evidence of semantic use. This version demotes CAG from "the aggregate" back to "decision-layer aggregate", so the four compliance evidence types stay complete.
+
+**§2.5 closer · Note: this section's oracle and §2.2 HPC's $\mathcal{A}^*_k$ are two distinct oracle objects** (the reviewer asked for one explicit sentence so that a benchmark report does not merge the two "oracles" into a single total).
+
+| | §2.2 HPC's $\mathcal{A}^*_k$ | This section's oracle $\pi^*_{\mathrm{oracle}}$ |
+|---|---|---|
+| **Object type** | **action set** — the optimal / admissible action set in world $k$ | **policy** — a policy allowed to read the privileged state $s^{\mathrm{priv}}$ directly |
+| **Defined by** | Simulator world $k$'s ground-truth state + reward | A planner / expert run on the simulator's privileged state, producing $\pi^*_{\mathrm{oracle}}$ |
+| **What it measures** | $U(\pi_\theta, \mathcal{A}^*_k) = \Pr_{a \sim \pi_\theta}[a \in \mathcal{A}^*_k]$ — the probability that policy outputs fall inside world $k$'s optimal action set under a **counterfactual world** | $J_{\mathrm{oracle}} = J(\pi^*_{\mathrm{oracle}} \mid s^{\mathrm{priv}})$ — the **task-utility upper bound on the same eval distribution** when all state is visible |
+| **Which evaluation layer (Table 2 in §2.0)** | Behavioral use + Utility (response legality, capability under counterfactual worlds) | Utility-layer upper bound ($\mathrm{Gap}_{\mathrm{oracle}} = J_{\mathrm{oracle}} - J_{\mathrm{full}}$ scales "how much contract information the policy is not using") |
+| **Requires counterfactual rollout?** | **Yes** — joint re-render of $(O_k, \hat S_k)$, i.e. $T_k^{\mathrm{world}}$ | **No** — original eval distribution with privileged input |
+| **Can the two be merged into one number?** | **No** | **No** |
+
+One-line summary: **HPC's $\mathcal{A}^*_k$ is a set; the oracle baseline's $\pi^*_{\mathrm{oracle}}$ is a policy; they are two orthogonal oracles** — one attacks "policy just dislikes format change", the other attacks "policy learned an age↔difficulty shortcut" — and both are needed to peel those alternative hypotheses off CAG. **Benchmark reports must present them side-by-side, not combined into a single score**: collapsing them would simultaneously lose HPC's counterfactual-world capability signal and the oracle gap's current-eval upper-bound signal, which in §2.0 Table 2 live on different evaluation layers and answer different questions.
 
 ### 2.6 Safety evidence $E_{\mathrm{safety}}$: Constraint certification intervention (v5 three-state)
 

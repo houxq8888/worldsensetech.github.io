@@ -290,7 +290,7 @@ $D_{\mathcal{A}}$ 与 前篇 §0.2.2 的 $L_{\mathrm{decision}}$、§2.2 HSS 用
 
 $$\boxed{\;\mathrm{HPC} \;=\; \frac{1}{K} \sum_{k=1}^{K} U\!\big(\pi_\theta(T_k^{\mathrm{world}}(\hat S, O)),\;\mathcal{A}^{*}_k\big),\qquad U(\pi, \mathcal{A}^*_k) = \Pr_{a \sim \pi}\!\big[a \in \mathcal{A}^{*}_k\big].\;}$$
 
-HPC **只在 $T_k^{\mathrm{world}}$ 下有意义**——它测的是"policy 在另一个真实世界 hypothesis 下的 decision competence"、而不是"policy 会不会响应 contract 变化"。两件事由两个不同的 metric 承担、benchmark 报告时**必须并列 $E_{\mathrm{contract}}$ 与 HPC**、不能合并成一个总分。这一拆分正好与本文全篇"contract 变化 ≠ world 变化"的哲学一致。
+HPC **只在 $T_k^{\mathrm{world}}$ 下有意义**——它测的是"policy 在另一个真实世界 hypothesis 下的 decision competence"、而不是"policy 会不会响应 contract 变化"。两件事由两个不同的 metric 承担、benchmark 报告时**必须并列 $E_{\mathrm{contract}}$ 与 HPC**、不能合并成一个总分。这一拆分正好与本文全篇"contract 变化 ≠ world 变化"的哲学一致。**注意**：本节 HPC 的 $\mathcal{A}^*_k$（**world-$k$ 的 action 集合**）与 §2.5 oracle baseline 的 $\pi^*_{\mathrm{oracle}}$（**能读 privileged state 的一份 policy**）是两个正交的 oracle 对象、不要合并、详见 §2.5 收尾注。
 
 **Hypothesis Separation Score (HSS)**——**必须只在 action-relevant hypothesis pairs 上平均**、reviewer 抓到了 gaming：如果 $\mathcal A^*(H_1) = \mathcal A^*(H_2)$、policy 输出不同不是优点、**是 noise**。定义 action-relevant pair set（走 前篇 §0.2.1 已经定义的 $\sim_{\pi,\mathcal D}$、不是"raw representation 不同"）：
 
@@ -441,6 +441,19 @@ $$\boxed{\;\mathrm{CAG} \;\neq\; \text{contract understanding}.\;}$$
 $$\boxed{\;\mathrm{CAG} \;=\; \text{task-conditional utility sensitivity}.\;}$$
 
 **CAG 是 decision 层的聚合、必须与 $E_{\mathrm{semantic}}$（invariance / equivariance）+ $E_{\mathrm{representation}}$（conditional probe + HPC/HSS）+ §1.1 Type I/II controlled response 联合看**、才能构成 semantic use 的证据。这一版把 CAG 从"总指标"降回"decision 层聚合"、四种 compliance evidence 才完整。
+
+**§2.5 收尾·注：本节 oracle 与 §2.2 HPC 的 $\mathcal{A}^*_k$ 是两个不同的 oracle 对象**（reviewer 建议显式写一句、避免 benchmark 报告时把两个"oracle"合并成一个总分）。
+
+| | §2.2 HPC 的 $\mathcal{A}^*_k$ | 本节 oracle baseline 的 $\pi^*_{\mathrm{oracle}}$ |
+|---|---|---|
+| **对象类型** | **action-set**——世界 $k$ 里的 optimal / admissible action 集合 | **policy**——允许直接读 privileged state $s^{\mathrm{priv}}$ 的一份策略 |
+| **定义来源** | simulator 世界 $k$ 的 ground-truth state + reward | 在 simulator privileged state 上跑 planner / expert 得到的 $\pi^*_{\mathrm{oracle}}$ |
+| **测什么** | $U(\pi_\theta, \mathcal{A}^*_k) = \Pr_{a \sim \pi_\theta}[a \in \mathcal{A}^*_k]$——**counterfactual world 下** policy 输出 action 落在该世界最优集合的概率 | $J_{\mathrm{oracle}} = J(\pi^*_{\mathrm{oracle}} \mid s^{\mathrm{priv}})$——**同一份 eval 分布**上、看得见全部 state 时的 task-utility upper bound |
+| **落到哪一层**（§2.0 表 2） | Behavioral use + Utility（响应是否合法、counterfactual 世界下的能力） | Utility 层的 upper bound（$\mathrm{Gap}_{\mathrm{oracle}} = J_{\mathrm{oracle}} - J_{\mathrm{full}}$ 给"contract 里有多少信息 policy 没用"定 scale） |
+| **需要 counterfactual rollout 吗** | **需要**（$(O_k, \hat S_k)$ 联合 re-render、$T_k^{\mathrm{world}}$） | **不需要**（就是原始 eval 分布 + privileged 输入） |
+| **能否合并成一个总分** | **不能** | **不能** |
+
+一句话收束：**HPC 的 $\mathcal{A}^*_k$ 是"action 集合"、oracle baseline 的 $\pi^*_{\mathrm{oracle}}$ 是"policy 对象"、二者是两种正交的 oracle**——一个从"world-consistent 下 admissible action 集合"侧、一个从"privileged-state 上 utility 上界"侧、共同把 CAG 从"policy 只是讨厌格式变化 / 学到 age↔difficulty shortcut"这两个 alternative hypothesis 里剥出来。**benchmark 报告时二者必须并列、不可合并**：合并成一个数会同时丢掉"HPC 关心的 counterfactual-world capability"与"oracle gap 关心的 current-eval upper bound"、而这两件事在 §2.0 表 2 里落到的评估层与回答的问题都不同。
 
 ### 2.6 Safety evidence $E_{\mathrm{safety}}$：Constraint certification intervention（v5 三态）
 
