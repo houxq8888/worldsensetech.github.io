@@ -46,6 +46,7 @@
 
     {{ with .Permalink }}<link rel="canonical" href="{{ . }}">{{ end }}
     {{ if .IsTranslated }}
+    <link rel="alternate" hreflang="{{ .Language.Locale }}" href="{{ .Permalink }}">
     {{ range .Translations }}
     <link rel="alternate" hreflang="{{ .Language.Locale }}" href="{{ .Permalink }}">
     {{ end }}
@@ -214,7 +215,7 @@
     {{ block "main" . }}{{ end }}
 
     <footer>
-        <p>&copy; 2026 WorldSense · <a href="https://www.worldsensetech.com">www.worldsensetech.com</a></p>
+        <p>&copy; 2026 WorldSense · <a href="https://worldsensetech.com">worldsensetech.com</a></p>
         {{ if eq .Site.Language.Lang "zh" }}
         <p style="font-size:0.8rem;color:#999;margin:4px 0;">
             <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener" style="color:#999;">沪ICP备2026041639号-1</a>

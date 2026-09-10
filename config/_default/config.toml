@@ -1,7 +1,11 @@
-baseURL = "https://www.worldsensetech.com/"
+baseURL = "https://worldsensetech.com/"
 title = "WorldSense 技术笔记"
 theme = "worldsense"
-enableRobotsTXT = true
+# 注意：enableRobotsTXT 置为 false —— 站点已用 static/robots.txt 提供完整的具名爬虫清单。
+# 若同时开着 enableRobotsTXT，Hugo 会用内置默认模板再生成一个极简 robots.txt 覆盖到站点根，
+# 与 static/robots.txt 冲突并把完整清单冲掉（线上此前正是被替换成了只有 "User-agent: *" 的版本）。
+# 关闭后由 static/robots.txt 单一来源输出，避免部署漂移。
+enableRobotsTXT = false
 enableEmoji = true
 paginate = 10
 summaryLength = 70

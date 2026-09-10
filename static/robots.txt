@@ -68,7 +68,7 @@ Allow: /
 User-agent: Alibababot
 Allow: /
 
-# Zhipu AI (ChatGLM)
+# Zhihu (知乎)
 User-agent: ZhihuSpider
 Allow: /
 
@@ -77,4 +77,4 @@ User-agent: Moonshot
 Allow: /
 
 # Sitemap
-Sitemap: https://www.worldsensetech.com/sitemap.xml
+Sitemap: https://worldsensetech.com/sitemap.xml

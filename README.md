@@ -1,9 +1,9 @@
 # WorldSense Blog (Hugo)
 
-🌐 **[在线访问 → worldsensetech.com](https://www.worldsensetech.com)** ·
-[English](https://www.worldsensetech.com/en/) ·
-[中文](https://www.worldsensetech.com/zh/) ·
-[RSS](https://www.worldsensetech.com/index.xml)
+🌐 **[在线访问 → worldsensetech.com](https://worldsensetech.com)** ·
+[English](https://worldsensetech.com/en/) ·
+[中文](https://worldsensetech.com/zh/) ·
+[RSS](https://worldsensetech.com/index.xml)
 
 > 世界模型 · 具身智能 · Sim-to-Real · VLA · 触觉与力控 —— 中英双语原创技术内容。
 > 作者是 [侯晓琴](https://github.com/houxq8888)，具身智能方向研究者。欢迎在 [Issues](https://github.com/houxq8888/worldsensetech.github.io/issues) 里指出错漏。
@@ -152,7 +152,7 @@ rsync -avz public/ user@server:/path/to/webroot/
 
 ## 关于本站
 
-- **域名** · [worldsensetech.com](https://www.worldsensetech.com)
+- **域名** · [worldsensetech.com](https://worldsensetech.com)
 - **作者** · [侯晓琴 · Hou Xiaoqin](https://github.com/houxq8888)
 - **微信公众号** · houxq8888
 - **构建工具** · Hugo 0.164 extended + 自定义 `worldsense` 主题
@@ -161,11 +161,11 @@ rsync -avz public/ user@server:/path/to/webroot/
 
 ## 精选文章
 
-- [世界模型风口被放大了：技术辨析与冷思考](https://www.worldsensetech.com/zh/articles/2026-08-18-world-model-ai-trend/)
-- [从代码理解 RSSM（二）：先验/后验、straight-through 采样与 unimix](https://www.worldsensetech.com/zh/articles/2026-08-20-rssm-stochastic-state/)
-- [DreamerV3 训练工程实践：从 GPU 配置到超参调优](https://www.worldsensetech.com/zh/articles/2026-08-28-dreamerv3-training-tips/)
-- [VLA 深度解读（下）：VLA 与世界模型、开放问题与三个判断](https://www.worldsensetech.com/zh/articles/2026-09-07-vla-world-models/)
-- [强化学习应该怎么入门？写给有编程基础的工程师](https://www.worldsensetech.com/zh/articles/reinforcement-learning-how-to-start/)
+- [世界模型风口被放大了：技术辨析与冷思考](https://worldsensetech.com/zh/articles/2026-08-18-world-model-ai-trend/)
+- [从代码理解 RSSM（二）：先验/后验、straight-through 采样与 unimix](https://worldsensetech.com/zh/articles/2026-08-20-rssm-stochastic-state/)
+- [DreamerV3 训练工程实践：从 GPU 配置到超参调优](https://worldsensetech.com/zh/articles/2026-08-28-dreamerv3-training-tips/)
+- [VLA 深度解读（下）：VLA 与世界模型、开放问题与三个判断](https://worldsensetech.com/zh/articles/2026-09-07-vla-world-models/)
+- [强化学习应该怎么入门？写给有编程基础的工程师](https://worldsensetech.com/zh/articles/reinforcement-learning-how-to-start/)
 
 ## 许可证
 
