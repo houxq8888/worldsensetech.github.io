@@ -16,6 +16,12 @@ on:
 permissions:
   contents: write
 
+# 部署互斥：本 workflow 同时被"每天 08:00 cron"和"push main"触发，
+# 两者可能并发跑并互相打架（尤其 ECS 侧同步）。排队、不取消进行中的那次。
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
@@ -28,7 +34,7 @@ jobs:
       - name: Setup Hugo
         uses: peaceiris/actions-hugo@v3
         with:
-          hugo-version: '0.164.0'
+          hugo-version: '0.165.0'
           extended: true
       
       - name: Build Hugo site
@@ -45,38 +51,55 @@ jobs:
           commit_message: "Deploy: ${{ github.sha }}"
           force_orphan: true
       
-      - name: Clean old files on Aliyun Server
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.ALIYUN_SERVER_IP }}
-          username: ${{ secrets.ALIYUN_SERVER_USER }}
-          key: ${{ secrets.ALIYUN_SSH_KEY }}
-          port: 22
-          script: |
-            rm -rf /var/www/worldsense/*
-      
-      - name: Sync to Aliyun Server
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.ALIYUN_SERVER_IP }}
-          username: ${{ secrets.ALIYUN_SERVER_USER }}
-          key: ${{ secrets.ALIYUN_SSH_KEY }}
-          port: 22
-          source: "./public/*"
-          target: "/var/www/worldsense"
-          strip_components: 1
-          overwrite: true
-      
-      - name: Fix server permissions
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.ALIYUN_SERVER_IP }}
-          username: ${{ secrets.ALIYUN_SERVER_USER }}
-          key: ${{ secrets.ALIYUN_SSH_KEY }}
-          port: 22
-          script: |
-            chown -R www-data:www-data /var/www/worldsense
-            chmod -R 755 /var/www/worldsense
+      - name: Deploy to Aliyun ECS (backup + atomic rsync sync)
+        env:
+          SSH_KEY: ${{ secrets.ALIYUN_SSH_KEY }}
+          ECS_IP: ${{ secrets.ALIYUN_SERVER_IP }}
+          ECS_USER: ${{ secrets.ALIYUN_SERVER_USER }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          SSH_OPTS="-p 22 -i $HOME/.ssh/deploy_key -o StrictHostKeyChecking=accept-new"
+          # 预检：确保服务端有 rsync（以 root 登录，缺则装）
+          ssh $SSH_OPTS "$ECS_USER@$ECS_IP" 'command -v rsync >/dev/null 2>&1 || { apt-get update -qq && apt-get install -y -qq rsync; }'
+          # 1) 备份当前线上站供回滚，保留最近 5 份（.tgz 放在 worldsense 同级，rsync 不碰）
+          ssh $SSH_OPTS "$ECS_USER@$ECS_IP" 'mkdir -p /var/www/worldsense; [ -n "$(ls -A /var/www/worldsense 2>/dev/null)" ] && tar czf "/var/www/worldsense.bak.$(date +%Y%m%d%H%M%S).tgz" -C /var/www/worldsense . || true; ls -1t /var/www/worldsense.bak.*.tgz 2>/dev/null | tail -n +6 | xargs -r rm -f'
+          # 2) rsync --delete：逐文件增量替换，没有"先删空"的窗口；--delete 清掉线上多余旧文件
+          rsync -az --delete -e "ssh $SSH_OPTS" ./public/ "$ECS_USER@$ECS_IP:/var/www/worldsense/"
+          # 3) 权限：目录 755 / 文件 644，属主 www-data
+          ssh $SSH_OPTS "$ECS_USER@$ECS_IP" 'chown -R www-data:www-data /var/www/worldsense; find /var/www/worldsense -type d -exec chmod 755 {} +; find /var/www/worldsense -type f -exec chmod 644 {} +'
+
+      - name: Verify deploy (gate the search-engine push)
+        env:
+          ECS_IP: ${{ secrets.ALIYUN_SERVER_IP }}
+        run: |
+          set -euo pipefail
+          fail(){ echo "[verify][FAIL] $*"; exit 1; }
+          # -L：ECS 根 / 会 301→/zh/，GH Pages 根是 200 的 meta-refresh 桩，跟随后都应 200
+          codeGH(){ curl -sL -o /dev/null -w '%{http_code}' "$@"; }
+          codeECS(){ curl -sL -o /dev/null -w '%{http_code}' --resolve "worldsensetech.com:443:$ECS_IP" "$@"; }
+          # GH Pages 腿：轮询等新构建传播（runner 默认解析即命中 GitHub Pages）
+          ok=0
+          for i in $(seq 1 10); do
+            if [ "$(codeGH https://worldsensetech.com/)" = "200" ]; then ok=1; break; fi
+            echo "[verify] GH 首页未就绪，重试 $i/10"; sleep 15
+          done
+          [ "$ok" = "1" ] || fail "GH Pages 首页始终非 200"
+          [ "$(codeGH https://worldsensetech.com/robots.txt)" = "200" ] || fail "GH robots.txt 非 200"
+          [ "$(codeGH https://worldsensetech.com/sitemap.xml)" = "200" ] || fail "GH sitemap.xml 非 200"
+          # ECS 腿：强制解析到 ECS IP 验同一组
+          [ "$(codeECS https://worldsensetech.com/)" = "200" ] || fail "ECS 首页非 200"
+          [ "$(codeECS https://worldsensetech.com/robots.txt)" = "200" ] || fail "ECS robots.txt 非 200"
+          [ "$(codeECS https://worldsensetech.com/sitemap.xml)" = "200" ] || fail "ECS sitemap.xml 非 200"
+          # robots 逐字节比对：线上 vs 构建产物——直接堵死"robots 漂移"这类事故
+          GH_ROBOTS="$(curl -sL --compressed https://worldsensetech.com/robots.txt)"
+          ECS_ROBOTS="$(curl -sL --compressed --resolve "worldsensetech.com:443:$ECS_IP" https://worldsensetech.com/robots.txt)"
+          BUILD_ROBOTS="$(cat public/robots.txt)"
+          [ "$GH_ROBOTS" = "$BUILD_ROBOTS" ] || fail "GH robots 与构建不一致"
+          [ "$ECS_ROBOTS" = "$BUILD_ROBOTS" ] || fail "ECS robots 与构建不一致"
+          echo "[verify] OK — 双侧首页/robots/sitemap 均 200 且 robots 与构建一致，放行搜索引擎推送"
 
       # ------------------------------------------------------------------
       # IndexNow：Bing / Yandex / Seznam / Naver 共享队列，一次提交覆盖多家
