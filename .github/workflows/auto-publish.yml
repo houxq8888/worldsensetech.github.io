@@ -97,10 +97,10 @@ jobs:
               print("[skip] INDEXNOW_KEY secret 未配置，跳过 IndexNow 推送")
               raise SystemExit(0)
 
-          HOST = "www.worldsensetech.com"
+          HOST = "worldsensetech.com"
           KEY_LOCATION = f"https://{HOST}/{KEY}.txt"
           ENDPOINT = "https://api.indexnow.org/indexnow"
-          ALLOWED = (f"https://{HOST}/", "https://worldsensetech.com/")
+          ALLOWED = (f"https://{HOST}/", "https://www.worldsensetech.com/")
 
           loc_re = re.compile(r"<loc>(.*?)</loc>")
           urls = []
@@ -183,8 +183,8 @@ jobs:
           STATE_DIR = Path(".baidu-state")
           STATE_FILE = STATE_DIR / "pushed.json"
           DAILY_BATCH = 10
-          SITE = "https://www.worldsensetech.com"
-          ALLOWED = (f"{SITE}/", "https://worldsensetech.com/")
+          SITE = "https://worldsensetech.com"  # 站点已规范化裸域；BAIDU_PUSH_TOKEN 须为后台裸域站点的 token
+          ALLOWED = (f"{SITE}/", "https://www.worldsensetech.com/")
 
           if not TOKEN:
               print("[Baidu][skip] BAIDU_PUSH_TOKEN 未配置")
