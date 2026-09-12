@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>页面未找到 - WorldSense 技术笔记</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+            max-width: 680px;
+            margin: 0 auto;
+            padding: 4rem 2rem;
+            line-height: 1.8;
+            color: #1a1a2e;
+        }
+        h1 { font-size: 2rem; margin-bottom: 1rem; }
+        p { margin-bottom: 1rem; color: #64748b; }
+        a { color: #2563eb; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .redirect-notice {
+            background: #f0f9ff;
+            border: 1px solid #bae6fd;
+            border-radius: 8px;
+            padding: 1rem 1.5rem;
+            margin: 2rem 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>页面未找到</h1>
+    <p>你访问的页面不存在或已移动。</p>
+    
+    <div class="redirect-notice" id="redirect-notice" style="display: none;">
+        <p>正在跳转到新地址：<a id="redirect-link" href="#">...</a></p>
+    </div>
+
+    <p>如果没有自动跳转，你可以：</p>
+    <ul>
+        <li><a href="/zh/">返回首页</a></li>
+        <li><a href="/zh/articles/">浏览所有文章</a></li>
+        <li><a href="/zh/archive/">查看文章归档</a></li>
+    </ul>
+
+    <script>
+    (function() {
+        var path = window.location.pathname;
+        var newUrl = null;
+
+        // 旧博客文章 URL 重定向规则
+        // /articles/xxx.html -> /zh/articles/xxx/
+        var articleMatch = path.match(/^\/articles\/(.+)\.html$/);
+        if (articleMatch) {
+            newUrl = '/zh/articles/' + articleMatch[1] + '/';
+        }
+
+        // /en/articles/xxx.html -> /en/articles/xxx/
+        var enArticleMatch = path.match(/^\/en\/articles\/(.+)\.html$/);
+        if (enArticleMatch) {
+            newUrl = '/en/articles/' + enArticleMatch[1] + '/';
+        }
+
+        // 旧页面重定向
+        var pageRedirects = {
+            '/about.html': '/zh/about/',
+            '/archive.html': '/zh/archive/',
+            '/categories.html': '/zh/categories/',
+            '/en/about.html': '/en/about/',
+            '/en/archive.html': '/en/archive/',
+            '/en/categories.html': '/en/categories/'
+        };
+
+        if (pageRedirects[path]) {
+            newUrl = pageRedirects[path];
+        }
+
+        // 执行重定向
+        if (newUrl) {
+            document.getElementById('redirect-notice').style.display = 'block';
+            document.getElementById('redirect-link').href = newUrl;
+            document.getElementById('redirect-link').textContent = newUrl;
+            
+            // 3秒后自动跳转
+            setTimeout(function() {
+                window.location.href = newUrl;
+            }, 3000);
+        }
+    })();
+    </script>
+</body>
+</html>

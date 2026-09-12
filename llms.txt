@@ -1,0 +1,62 @@
+# WorldSense 技术笔记
+
+> 侯晓琴的个人技术博客，专注世界模型（World Models）与具身智能（Embodied AI）领域，从论文解读到代码实现，覆盖 DreamerV3/RSSM、Sim-to-Real、强化学习与机器人仿真，用中文把这个领域讲清楚，中英双语发布。
+> Official website: https://worldsensetech.com/
+> Last reviewed: 2026-08-18.
+
+## Core entity and service pages
+- 首页（中文）: https://worldsensetech.com/zh/
+- 文章列表（中文）: https://worldsensetech.com/zh/articles/
+- 分类（中文）: https://worldsensetech.com/zh/categories/
+- 关于（中文）: https://worldsensetech.com/zh/about/
+- English Home: https://worldsensetech.com/en/
+- English Articles: https://worldsensetech.com/en/articles/
+- RSS（中文）: https://worldsensetech.com/zh/index.xml
+
+## 作者与博客定位（About the author & blog）
+- 作者：侯晓琴，西北工业大学硕士，自动化与 AI 领域十余年工程经验
+- 早年出版《Visual C++入门很容易》《C++程序设计经典300例》两本技术书籍
+- 当前方向：世界模型（DreamerV3/RSSM）与 Sim-to-Real 迁移的研究与实践
+- 博客使命：从论文解读到代码实现，用中文把世界模型与具身智能讲清楚
+
+## 世界模型与 RSSM（World Models & RSSM）
+- 从代码理解 RSSM（一）：RSSM 在 DreamerV3 中的位置与 stochastic 状态: https://worldsensetech.com/zh/articles/2026-08-19-rssm-code-walkthrough/
+- 从代码理解 RSSM（二）：先验/后验、straight-through 采样与 unimix: https://worldsensetech.com/zh/articles/2026-08-20-rssm-stochastic-state/
+- 从代码理解 RSSM（三）：确定性转移 _core()、deter=8192 与 Block GRU: https://worldsensetech.com/zh/articles/2026-08-21-rssm-deterministic-core/
+- 从代码理解 RSSM（四）：KL balancing、Free Nats 与最终 KL 组合: https://worldsensetech.com/zh/articles/2026-08-22-rssm-kl-balancing/
+- 从代码理解 RSSM（五）：Imagine、Observe/Imagine 区别、序列训练与 Reset: https://worldsensetech.com/zh/articles/2026-08-23-rssm-imagine-reset/
+- 从代码理解 RSSM（六）：默认配置、四条公式与代码↔数学↔语义对照: https://worldsensetech.com/zh/articles/2026-08-24-rssm-recap/
+- RSSM 状态空间模型详解：世界模型的核心引擎: https://worldsensetech.com/zh/articles/rssm-deep-dive/
+- TD-MPC：世界模型如何用于机器人控制？: https://worldsensetech.com/zh/articles/td-mpc-world-model-control/
+- 世界模型架构演进：RSSM、Transformer 与统一世界模型: https://worldsensetech.com/zh/articles/world-model-transformer/
+- 世界模型如何表示世界：四条表征路线与机器人适应能力: https://worldsensetech.com/zh/articles/world-model-representations/
+- 什么是机器人世界模型？一个工程师的深度解读: https://worldsensetech.com/zh/articles/world-model-intro/
+- 从零搭建世界模型实验环境：MuJoCo + DreamerV3 实战指南: https://worldsensetech.com/zh/articles/world-model-lab-setup/
+- 世界模型风口被放大了：技术辨析与冷思考: https://worldsensetech.com/zh/articles/2026-08-18-world-model-ai-trend/
+
+## 具身智能与 VLA（Embodied AI & VLA）
+- VLA vs 世界模型，谁主沉浮？: https://worldsensetech.com/zh/articles/vla-vs-world-model/
+- 世界模型 + VLA：用想象力训练机器人: https://worldsensetech.com/zh/articles/world-model-synthetic-data-for-vla/
+- 机器人数据为什么比大模型数据更难？具身智能的数据闭环挑战: https://worldsensetech.com/zh/articles/robot-data-challenge/
+- 从1分钟到24小时：ABot-World-0突破的核心意义: https://worldsensetech.com/zh/articles/abot-world-0-24h-inference/
+- 没有博士学位，也能进入具身智能领域吗？: https://worldsensetech.com/zh/articles/embodied-ai-guide/
+
+## 强化学习（Reinforcement Learning）
+- 强化学习应该怎么入门？: https://worldsensetech.com/zh/articles/reinforcement-learning-how-to-start/
+- DreamerV3 训练技巧：从踩坑到收敛的实战经验: https://worldsensetech.com/zh/articles/dreamerv3-training-tips/
+- 跑 DreamerV3 该租云 GPU 还是自建工作站？一个工程师的成本账: https://worldsensetech.com/zh/articles/2026-08-17-dreamerv3-gpu-infrastructure/
+
+## 仿真与 Sim-to-Real（Simulation & Sim-to-Real）
+- 域随机化（Domain Randomization）：机器人 Sim-to-Real 迁移的核心技术: https://worldsensetech.com/zh/articles/domain-randomization-sim-to-real/
+- Sim-to-Real太难？世界模型驱动的自适应迁移方法: https://worldsensetech.com/zh/articles/sim-to-real-transfer/
+- Isaac Lab 入门：面向具身智能的 GPU 加速机器人学习平台: https://worldsensetech.com/zh/articles/isaac-lab-robot-rl/
+- Isaac Lab 安装避坑指南：从零到跑通全流程: https://worldsensetech.com/zh/articles/isaac-lab-install-guide/
+- 机器人训练为什么需要虚拟世界？MuJoCo 和 Isaac Sim 全面对比: https://worldsensetech.com/zh/articles/mujoco-vs-isaac-sim/
+
+## 趋势与观点（Trends & Opinions / FAQ）
+- 世界模型（world model）当下是一个好的方向吗？: https://worldsensetech.com/zh/articles/world-model-good-direction/
+- 2026年，「世界模型」会是下一个AI风口么？: https://worldsensetech.com/zh/articles/world-model-2026-trend/
+- 回看世界模型8年进展，始终没突破的瓶颈是什么？: https://worldsensetech.com/zh/articles/world-model-8year-bottleneck/
+- 你认为具身智能领域在2026年会有什么突破性进展？: https://worldsensetech.com/zh/articles/embodied-ai-2026-breakthrough/
+- 具身智能、强化学习的前景如何？: https://worldsensetech.com/zh/articles/embodied-ai-rl-prospects/
+- 为什么说 2026 年，AI 在疯狂寻找物理外壳？: https://worldsensetech.com/zh/articles/2026-08-16-ai-physical-shell/
