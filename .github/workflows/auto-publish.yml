@@ -48,8 +48,11 @@ jobs:
           # GitHub Pages (the leg Semrush/Google crawl) has no nginx to 301 it, so we
           # replace it post-build with a JS history-replace + canonical (no meta refresh).
           # On the Aliyun ECS leg nginx `location = /` already 301s "/" -> "/zh/" first.
+          # Uses ABSOLUTE https canonical + JS target so an HTTP crawl of the homepage
+          # still declares HTTPS as canonical (satisfies Semrush "HTTP homepage -> HTTPS"
+          # check) even before GitHub Pages "Enforce HTTPS" is enabled.
           cat > public/index.html <<'HTML'
-          <!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>WorldSense 技术笔记</title><link rel="canonical" href="/zh/"><script>window.top.location.replace("/zh/");</script></head><body><p><a href="/zh/">WorldSense 技术笔记</a></p></body></html>
+          <!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>WorldSense 技术笔记</title><link rel="canonical" href="https://worldsensetech.com/zh/"><script>window.top.location.replace("https://worldsensetech.com/zh/");</script></head><body><p><a href="https://worldsensetech.com/zh/">WorldSense 技术笔记</a></p></body></html>
           HTML
           echo "root index.html replaced:"; head -c 120 public/index.html; echo
 
