@@ -1,8 +1,6 @@
 ---
 title: "你认为具身智能领域在2026年会有什么突破性进展？"
 slug: "embodied-ai-2026-breakthrough"
-aliases:
-  - /articles/embodied-ai-2026-breakthrough.html
 date: 2026-08-03
 draft: false
 categories: ["具身智能"]

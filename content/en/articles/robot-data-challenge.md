@@ -7,8 +7,6 @@ categories: ["Embodied AI"]
 tags: ["Robot Data", "Imitation Learning", "Simulation", "VLA", "World Models"]
 description: "LLMs have internet text data, but robots don't. The core data challenge in embodied AI: high collection costs, large distribution shifts, and the deep sim-to-real gap. Breaking down the data loop challenges and possible solutions."
 toc: true
-aliases:
-  - /en/articles/robot-data-challenge.html
 ---
 
 

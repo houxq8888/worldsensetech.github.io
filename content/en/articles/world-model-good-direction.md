@@ -14,8 +14,6 @@ related_articles:
   - embodied-ai-guide
   - world-model-intro
   - reinforcement-learning-how-to-start
-aliases:
-  - /en/articles/world-model-good-direction.html
 ---
 
 

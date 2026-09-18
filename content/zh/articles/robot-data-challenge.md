@@ -1,8 +1,6 @@
 ---
 title: "机器人数据为什么比大模型数据更难？具身智能的数据闭环挑战"
 slug: "robot-data-challenge"
-aliases:
-  - /articles/robot-data-challenge.html
 date: 2026-08-13
 draft: false
 categories: ["具身智能", "数据"]

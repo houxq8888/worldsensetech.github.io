@@ -1,8 +1,6 @@
 ---
 title: "世界模型架构演进：RSSM、Transformer 与统一世界模型"
 slug: "world-model-transformer"
-aliases:
-  - /articles/world-model-transformer.html
 date: 2026-08-12
 draft: false
 categories: ["世界模型"]

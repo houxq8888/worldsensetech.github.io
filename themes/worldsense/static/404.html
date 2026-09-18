@@ -43,46 +43,42 @@
 
     <script>
     (function() {
+        // Semrush-safe: this page returns HTTP 404 and only moves the browser
+        // via JS history replace (a real meta-refresh tag is NOT emitted). It
+        // catches the legacy URLs left behind after Hugo aliases were removed
+        // (GitHub Pages has no nginx to 301 them, unlike the Aliyun ECS leg).
         var path = window.location.pathname;
+
+        // 1) Collapse accidental double locale prefixes (the en/*.md `aliases`
+        //    bug deployed everything under /en/en/... — map it back to /en/...).
+        path = path.replace(/^\/en\/en\//, '/en/').replace(/^\/zh\/zh\//, '/zh/');
+
         var newUrl = null;
 
-        // 旧博客文章 URL 重定向规则
-        // /articles/xxx.html -> /zh/articles/xxx/
-        var articleMatch = path.match(/^\/articles\/(.+)\.html$/);
-        if (articleMatch) {
-            newUrl = '/zh/articles/' + articleMatch[1] + '/';
+        // 2) Articles: [/<locale>] /articles/<name>.html  ->  /<locale>/articles/<name>/
+        var art = path.match(/^(?:\/(zh|en))?\/articles\/(.+)\.html$/);
+        if (art) {
+            newUrl = '/' + (art[1] || 'zh') + '/articles/' + art[2] + '/';
         }
 
-        // /en/articles/xxx.html -> /en/articles/xxx/
-        var enArticleMatch = path.match(/^\/en\/articles\/(.+)\.html$/);
-        if (enArticleMatch) {
-            newUrl = '/en/articles/' + enArticleMatch[1] + '/';
+        // 3) Single top-level pages: [/<locale>] /<name>.html  ->  /<locale>/<name>/
+        if (!newUrl) {
+            var pg = path.match(/^(?:\/(zh|en))?\/([A-Za-z0-9_-]+)\.html$/);
+            if (pg) {
+                newUrl = '/' + (pg[1] || 'zh') + '/' + pg[2] + '/';
+            }
         }
 
-        // 旧页面重定向
-        var pageRedirects = {
-            '/about.html': '/zh/about/',
-            '/archive.html': '/zh/archive/',
-            '/categories.html': '/zh/categories/',
-            '/en/about.html': '/en/about/',
-            '/en/archive.html': '/en/archive/',
-            '/en/categories.html': '/en/categories/'
-        };
-
-        if (pageRedirects[path]) {
-            newUrl = pageRedirects[path];
-        }
-
-        // 执行重定向
+        // 4) Unknown path: stay a real 404 (do not fabricate a redirect).
         if (newUrl) {
-            document.getElementById('redirect-notice').style.display = 'block';
-            document.getElementById('redirect-link').href = newUrl;
-            document.getElementById('redirect-link').textContent = newUrl;
-            
-            // 3秒后自动跳转
-            setTimeout(function() {
-                window.location.href = newUrl;
-            }, 3000);
+            var notice = document.getElementById('redirect-notice');
+            var link = document.getElementById('redirect-link');
+            var full = window.location.origin + newUrl;
+            notice.style.display = 'block';
+            link.href = newUrl;
+            link.textContent = full;
+            // replace() so the dead URL is not pushed into browser history.
+            setTimeout(function() { window.location.replace(full); }, 3000);
         }
     })();
     </script>

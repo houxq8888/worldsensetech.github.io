@@ -1,8 +1,6 @@
 ---
 title: "什么是机器人世界模型？一个工程师的深度解读"
 slug: "world-model-intro"
-aliases:
-  - /articles/world-model-intro.html
 date: 2026-08-01
 draft: false
 categories: ["世界模型"]

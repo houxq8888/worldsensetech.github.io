@@ -14,8 +14,6 @@ related_articles:
   - 2026-08-25-dreamer-explained
   - vla-vs-world-model
   - td-mpc-world-model-control
-aliases:
-  - /en/articles/world-model-transformer.html
 ---
 
 

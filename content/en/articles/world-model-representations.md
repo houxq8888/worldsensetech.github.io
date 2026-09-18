@@ -14,8 +14,6 @@ related_articles:
   - 2026-08-31-world-model-future
   - vla-vs-world-model
   - mujoco-vs-isaac-sim
-aliases:
-  - /en/articles/world-model-representations.html
 ---
 
 

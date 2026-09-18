@@ -14,8 +14,6 @@ related_articles:
   - 2026-08-31-world-model-future
   - world-model-lab-setup
   - rssm-deep-dive
-aliases:
-  - /en/articles/world-model-synthetic-data-for-vla.html
 ---
 
 

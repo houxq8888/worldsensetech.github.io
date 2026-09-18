@@ -1,8 +1,6 @@
 ---
 title: "没有博士学位，也能进入具身智能领域吗？"
 slug: "embodied-ai-guide"
-aliases:
-  - /articles/embodied-ai-guide.html
 date: 2026-07-31
 draft: false
 categories: ["具身智能"]

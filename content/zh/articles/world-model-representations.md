@@ -1,8 +1,6 @@
 ---
 title: "世界模型如何表示世界：四条表征路线与机器人适应能力"
 slug: "world-model-representations"
-aliases:
-  - /articles/world-model-representations.html
 date: 2026-08-10
 draft: false
 categories: ["世界模型"]

@@ -7,8 +7,6 @@ categories: ["Embodied AI"]
 tags: ["Career", "RL", "Embodied AI", "Salary", "Job Market", "World Models", "Robot AI"]
 description: "Reinforcement learning and embodied AI are at a critical stage of moving from lab to industry. From technology maturity to job market demand to salary levels — is this direction worth going all-in?"
 toc: true
-aliases:
-  - /en/articles/embodied-ai-rl-prospects.html
 ---
 
 

@@ -1,8 +1,6 @@
 ---
 title: "世界模型（world model）当下是一个好的方向吗？"
 slug: "world-model-good-direction"
-aliases:
-  - /articles/world-model-good-direction.html
 date: 2026-08-03
 draft: false
 categories: ["世界模型"]

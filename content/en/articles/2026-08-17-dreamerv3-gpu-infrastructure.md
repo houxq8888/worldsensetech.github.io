@@ -7,8 +7,6 @@ categories: ["Infrastructure"]
 tags: ["GPU", "DreamerV3", "AutoDL", "RTX 5090D", "Cost Analysis", "Cloud GPU", "Workstation"]
 description: "Cloud GPU offers pay-per-hour flexibility but costs more long-term; a self-built workstation requires upfront investment but has unstable utilization. A real cost breakdown covering VRAM, training time, electricity, and networking."
 toc: true
-aliases:
-  - /en/articles/2026-08-17-dreamerv3-gpu-infrastructure.html
 ---
 
 

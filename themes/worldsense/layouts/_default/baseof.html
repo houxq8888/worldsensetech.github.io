@@ -9,6 +9,8 @@
   {{- $key = "home" -}}
 {{- else if eq .Kind "section" -}}
   {{- $key = .Section -}}
+{{- else if eq .Kind "taxonomy" -}}
+  {{- $key = .Data.Plural -}}
 {{- else if and .File (eq .Kind "page") (not .Section) -}}
   {{- $key = .File.ContentBaseName -}}
 {{- end -}}
@@ -19,18 +21,50 @@
   {{- end -}}
 {{- end -}}
 {{- $suffix := $meta.titleSuffix | default "" -}}
+{{- if and (eq .Kind "term") (not $suffix) -}}
+  {{- if eq .Data.Singular "tag" -}}
+    {{- if eq .Site.Language.Lang "zh" -}}{{- $suffix = "· 标签" -}}{{- else -}}{{- $suffix = "· Tag" -}}{{- end -}}
+  {{- else -}}
+    {{- if eq .Site.Language.Lang "zh" -}}{{- $suffix = "· 分类" -}}{{- else -}}{{- $suffix = "· Category" -}}{{- end -}}
+  {{- end -}}
+{{- end -}}
 {{- $desc := "" -}}
 {{- if .Description -}}
   {{- $desc = .Description -}}
 {{- else if $meta.description -}}
   {{- $desc = $meta.description -}}
+{{- else if eq .Kind "term" -}}
+  {{- if eq .Site.Language.Lang "zh" -}}
+    {{- if eq .Data.Singular "tag" -}}
+      {{- $desc = printf "带「%s」标签的 WorldSense 技术笔记文章列表，跨分类聚合相关主题的作者研究笔记与工程实践记录。" .Title -}}
+    {{- else -}}
+      {{- $desc = printf "「%s」分类下 WorldSense 技术笔记收录的全部文章，覆盖具身智能、世界模型、VLA、Sim-to-Real 等主题的作者研究笔记与工程实践记录。" .Title -}}
+    {{- end -}}
+  {{- else -}}
+    {{- if eq .Data.Singular "tag" -}}
+      {{- $desc = printf "Posts on WorldSense Tech Blog tagged with \"%s\" — a cross-category view of related notes and engineering write-ups by author Hou Xiaoqin." .Title -}}
+    {{- else -}}
+      {{- $desc = printf "Every post on WorldSense Tech Blog filed under the \"%s\" category — research notes and engineering practice on Embodied AI, World Models, VLA, Sim-to-Real and adjacent topics by author Hou Xiaoqin." .Title -}}
+    {{- end -}}
+  {{- end -}}
 {{- else -}}
   {{- $desc = .Site.Params.description -}}
 {{- end -}}
-    <title>{{ if .IsHome }}{{ .Site.Title }}{{ with $suffix }} {{ . }}{{ end }}{{ else }}{{ .Title }}{{ with $suffix }} {{ . }}{{ end }} - {{ .Site.Title }}{{ end }}</title>
+{{- /* Bounded <title> to clear Semrush "title too long": brand suffix kept whole, only the page-title part is ellipsized. og/twitter/h1/jsonld keep the FULL title. */ -}}
+{{- $isZh := (eq .Site.Language.Lang "zh") -}}
+{{- $brand := cond $isZh " - WorldSense 技术笔记" " - WorldSense" -}}
+{{- $tBudget := cond $isZh 40 45 -}}
+{{- if .IsHome -}}
+    <title>{{ (printf "%s%s" .Site.Title (cond (ne $suffix "") (printf " %s" $suffix) "")) | truncate 60 }}</title>
+{{- else -}}
+    {{- $tm := .Title -}}
+    {{- with $suffix -}}{{- $tm = printf "%s %s" $tm . -}}{{- end -}}
+    <title>{{ $tm | truncate $tBudget }}{{ $brand }}</title>
+{{- end -}}
     <meta name="description" content="{{ $desc }}">
     <meta name="baidu-site-verification" content="codeva-RcngxmWb36">
-    <link rel="stylesheet" href="{{ "css/style.css" | relURL }}?v=20260815">
+{{- $styleCSS := resources.Get "css/style.css" | minify | fingerprint -}}
+    <link rel="stylesheet" href="{{ $styleCSS.RelPermalink }}">
 
 <!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-6EQ7ZKS9L8"></script>
@@ -61,7 +95,18 @@
     {{ range .Translations }}
     <link rel="alternate" hreflang="{{ .Language.Locale }}" href="{{ .Permalink }}">
     {{ end }}
-    <link rel="alternate" hreflang="x-default" href="{{ .Permalink }}">
+    {{- /* x-default 必须在同一语言簇内指向同一 URL：统一指向 en 版本；若簇内无 en 则整体省略 x-default，避免冲突。 */ -}}
+    {{- $enPage := false -}}
+    {{- if eq .Language.Lang "en" -}}
+      {{- $enPage = . -}}
+    {{- else -}}
+      {{- range .Translations -}}
+        {{- if eq .Language.Lang "en" -}}{{- $enPage = . -}}{{- end -}}
+      {{- end -}}
+    {{- end -}}
+    {{- if $enPage }}
+    <link rel="alternate" hreflang="x-default" href="{{ $enPage.Permalink }}">
+    {{- end }}
     {{ end }}
     {{ range .AlternativeOutputFormats }}
     {{ printf `<link rel="%s" type="%s" href="%s" title="%s" />` .Rel .MediaType.Type .Permalink $.Site.Title | safeHTML }}
@@ -301,6 +346,7 @@
         {{ end }}
     </footer>
 
-    <script src="{{ "js/ga4-tracker.js" | relURL }}?v=20260828"></script>
+{{- $gaJS := resources.Get "js/ga4-tracker.js" | minify | fingerprint -}}
+    <script src="{{ $gaJS.RelPermalink }}"></script>
 </body>
 </html>

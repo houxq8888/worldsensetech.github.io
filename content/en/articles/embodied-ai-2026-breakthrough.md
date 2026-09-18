@@ -7,8 +7,6 @@ categories: ["Embodied AI"]
 tags: ["Embodied AI", "2026 Trends", "World Models", "Sim-to-Real", "Humanoid", "VLA", "DreamerV3"]
 description: "From world models to VLA, from dexterous manipulation to whole-body control — where are the most likely breakthroughs in embodied AI in 2026? Combining latest papers and industry signals."
 toc: true
-aliases:
-  - /en/articles/embodied-ai-2026-breakthrough.html
 ---
 
 

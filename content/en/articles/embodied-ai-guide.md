@@ -1,8 +1,6 @@
 ---
 title: "Can You Break Into Embodied AI Without a PhD?"
 slug: "embodied-ai-guide"
-aliases:
-  - /en/articles/embodied-ai-guide.html
 date: 2026-07-31
 draft: false
 categories: ["Embodied AI"]

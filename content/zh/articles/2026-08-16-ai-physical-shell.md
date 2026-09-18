@@ -1,8 +1,6 @@
 ---
 title: "为什么说 2026 年，AI 在疯狂寻找物理外壳？"
 slug: "2026-08-16-ai-physical-shell"
-aliases:
-  - /articles/2026-08-16-ai-physical-shell.html
 date: 2026-08-16
 draft: false
 categories: ["具身智能"]

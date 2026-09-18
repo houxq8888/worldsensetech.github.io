@@ -14,8 +14,6 @@ related_articles:
   - world-model-intro
   - embodied-ai-guide
   - 2026-08-31-world-model-future
-aliases:
-  - /en/articles/world-model-2026-trend.html
 ---
 
 

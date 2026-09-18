@@ -1,8 +1,6 @@
 ---
 title: "Sim-to-Real太难？世界模型驱动的自适应迁移方法"
 slug: "sim-to-real-transfer"
-aliases:
-  - /articles/sim-to-real-transfer.html
 date: 2026-08-05
 draft: false
 categories: ["世界模型", "Sim-to-Real"]

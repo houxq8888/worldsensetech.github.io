@@ -1,8 +1,6 @@
 ---
 title: "What Is a Robot World Model? An Engineer's Deep Dive"
 slug: "world-model-intro"
-aliases:
-  - /en/articles/world-model-intro.html
 date: 2026-08-01
 draft: false
 categories: ["World Models"]

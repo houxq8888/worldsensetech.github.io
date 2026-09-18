@@ -1,8 +1,6 @@
 ---
 title: "域随机化（Domain Randomization）：机器人 Sim-to-Real 迁移的核心技术"
 slug: "domain-randomization-sim-to-real"
-aliases:
-  - /articles/domain-randomization-sim-to-real.html
 date: 2026-08-08
 draft: false
 categories: ["Sim-to-Real"]

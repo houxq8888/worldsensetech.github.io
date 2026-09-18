@@ -14,8 +14,6 @@ related_articles:
   - domain-randomization-sim-to-real
   - embodied-ai-guide
   - 2026-08-30-dreamer-applications
-aliases:
-  - /en/articles/isaac-lab-robot-rl.html
 ---
 
 

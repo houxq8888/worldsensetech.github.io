@@ -1,8 +1,6 @@
 ---
 title: "跑 DreamerV3 该租云 GPU 还是自建工作站？一个工程师的成本账"
 slug: "2026-08-17-dreamerv3-gpu-infrastructure"
-aliases:
-  - /articles/2026-08-17-dreamerv3-gpu-infrastructure.html
 date: 2026-08-17
 draft: false
 categories: ["世界模型"]

@@ -1,8 +1,6 @@
 ---
 title: "Isaac Lab 入门：面向具身智能的 GPU 加速机器人学习平台"
 slug: "isaac-lab-robot-rl"
-aliases:
-  - /articles/isaac-lab-robot-rl.html
 date: 2026-08-14
 draft: false
 categories: ["具身智能", "仿真"]

@@ -1,8 +1,6 @@
 ---
 title: "具身智能、强化学习的前景如何？"
 slug: "embodied-ai-rl-prospects"
-aliases:
-  - /articles/embodied-ai-rl-prospects.html
 date: 2026-08-04
 draft: false
 categories: ["强化学习", "具身智能"]

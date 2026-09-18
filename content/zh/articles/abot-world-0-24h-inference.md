@@ -1,8 +1,6 @@
 ---
 title: "从1分钟到24小时：ABot-World-0突破的核心意义"
 slug: "abot-world-0-24h-inference"
-aliases:
-  - /articles/abot-world-0-24h-inference.html
 date: 2026-08-05
 draft: false
 categories: ["世界模型"]

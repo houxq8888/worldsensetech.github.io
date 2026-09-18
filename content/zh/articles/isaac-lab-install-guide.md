@@ -1,8 +1,6 @@
 ---
 title: "Isaac Lab 安装避坑指南：从零到跑通全流程"
 slug: "isaac-lab-install-guide"
-aliases:
-  - /articles/isaac-lab-install-guide.html
 date: 2026-08-15
 draft: false
 categories: ["仿真"]

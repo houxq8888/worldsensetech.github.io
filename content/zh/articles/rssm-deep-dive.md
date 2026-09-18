@@ -1,8 +1,6 @@
 ---
 title: "RSSM状态空间模型详解：世界模型的核心引擎"
 slug: "rssm-deep-dive"
-aliases:
-  - /articles/rssm-deep-dive.html
 date: 2026-08-02
 draft: false
 categories: ["世界模型"]

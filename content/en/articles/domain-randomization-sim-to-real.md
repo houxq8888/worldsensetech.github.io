@@ -14,8 +14,6 @@ related_articles:
   - isaac-lab-install-guide
   - 2026-08-30-dreamer-applications
   - world-model-intro
-aliases:
-  - /en/articles/domain-randomization-sim-to-real.html
 ---
 
 

@@ -14,8 +14,6 @@ related_articles:
   - rssm-deep-dive
   - world-model-intro
   - 2026-08-31-world-model-future
-aliases:
-  - /en/articles/world-model-8year-bottleneck.html
 ---
 
 

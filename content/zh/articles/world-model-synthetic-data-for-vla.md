@@ -1,8 +1,6 @@
 ---
 title: "世界模型 + VLA：用想象力训练机器人"
 slug: "world-model-synthetic-data-for-vla"
-aliases:
-  - /articles/world-model-synthetic-data-for-vla.html
 date: 2026-08-06
 draft: false
 categories: ["世界模型", "具身智能", "数据"]

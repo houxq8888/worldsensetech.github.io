@@ -7,8 +7,6 @@ categories: ["World Models"]
 tags: ["ABot", "World Models", "Interactive Inference", "Video Generation", "Long-horizon", "Autonomous Driving"]
 description: "Gaode's ABot-World-0 extends interactive world model inference from 1 minute to 24 hours. What does this mean? From technical breakthroughs to industry impact — analyzing this milestone."
 toc: true
-aliases:
-  - /en/articles/abot-world-0-24h-inference.html
 ---
 
 

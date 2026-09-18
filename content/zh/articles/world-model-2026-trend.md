@@ -1,8 +1,6 @@
 ---
 title: "2026年，「世界模型」会是下一个AI风口么？"
 slug: "world-model-2026-trend"
-aliases:
-  - /articles/world-model-2026-trend.html
 date: 2026-08-03
 draft: false
 categories: ["世界模型"]

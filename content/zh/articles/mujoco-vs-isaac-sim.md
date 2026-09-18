@@ -1,8 +1,6 @@
 ---
 title: "机器人训练为什么需要虚拟世界？MuJoCo 和 Isaac Sim 全面对比"
 slug: "mujoco-vs-isaac-sim"
-aliases:
-  - /articles/mujoco-vs-isaac-sim.html
 date: 2026-08-09
 draft: false
 categories: ["仿真"]

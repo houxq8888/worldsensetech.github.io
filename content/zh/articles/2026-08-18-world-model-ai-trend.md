@@ -1,8 +1,6 @@
 ---
 title: "世界模型风口被放大了：技术辨析与冷思考"
 slug: "2026-08-18-world-model-ai-trend"
-aliases:
-  - /articles/2026-08-18-world-model-ai-trend.html
 date: 2026-08-18
 draft: false
 categories: ["世界模型"]

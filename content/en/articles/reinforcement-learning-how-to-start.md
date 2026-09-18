@@ -14,8 +14,6 @@ related_articles:
   - td-mpc-world-model-control
   - 2026-08-25-dreamer-explained
   - mujoco-vs-isaac-sim
-aliases:
-  - /en/articles/reinforcement-learning-how-to-start.html
 ---
 
 

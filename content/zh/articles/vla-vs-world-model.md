@@ -1,8 +1,6 @@
 ---
 title: "VLA vs 世界模型，谁主沉浮？"
 slug: "vla-vs-world-model"
-aliases:
-  - /articles/vla-vs-world-model.html
 date: 2026-08-04
 draft: false
 categories: ["世界模型", "具身智能"]

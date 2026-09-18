@@ -1,8 +1,6 @@
 ---
 title: "TD-MPC：世界模型如何用于机器人控制？"
 slug: "td-mpc-world-model-control"
-aliases:
-  - /articles/td-mpc-world-model-control.html
 date: 2026-08-07
 draft: false
 categories: ["世界模型"]
@@ -223,4 +221,4 @@ TD-MPC 的核心贡献在于：它证明了不需要重建像素，也能学到�
 对于机器人控制来说，TD-MPC 的"规划即控制"范式有一个直观的优势：你可以在规划时加入约束（比如关节限位、碰撞避免），这些约束在策略网络中很难显式表达。
  
 
-如果你对 TD-MPC 的实现感兴趣，TD-MPC2 官方实现已在 GitHub 开源：[GitHub/nicklash/td-mpc2](https://github.com/nicklash/td-mpc2)，代码结构清晰，适合作为学习 model-based RL 和机器人控制的入口。下一篇我们聊 Sim-to-Real 迁移中最核心的技术：域随机化。
+如果你对 TD-MPC 的实现感兴趣，TD-MPC2 官方实现已在 GitHub 开源：[GitHub/nicklashansen/tdmpc2](https://github.com/nicklashansen/tdmpc2)，代码结构清晰，适合作为学习 model-based RL 和机器人控制的入口。下一篇我们聊 Sim-to-Real 迁移中最核心的技术：域随机化。

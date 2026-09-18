@@ -1,8 +1,6 @@
 ---
 title: "从零搭建世界模型实验环境：MuJoCo + DreamerV3 实战指南"
 slug: "world-model-lab-setup"
-aliases:
-  - /articles/world-model-lab-setup.html
 date: 2026-08-05
 draft: false
 categories: ["世界模型", "教程"]

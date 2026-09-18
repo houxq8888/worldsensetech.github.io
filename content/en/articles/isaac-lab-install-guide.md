@@ -14,8 +14,6 @@ related_articles:
   - world-model-lab-setup
   - 2026-08-30-dreamer-applications
   - embodied-ai-guide
-aliases:
-  - /en/articles/isaac-lab-install-guide.html
 ---
 
 

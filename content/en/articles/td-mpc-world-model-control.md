@@ -14,8 +14,6 @@ related_articles:
   - world-model-intro
   - mujoco-vs-isaac-sim
   - sim-to-real-transfer
-aliases:
-  - /en/articles/td-mpc-world-model-control.html
 ---
 
 
@@ -222,4 +220,4 @@ The core contribution of TD-MPC is demonstrating that you don't need to reconstr
 For robot control, TD-MPC's "planning as control" paradigm has an intuitive advantage: you can inject constraints during planning (such as joint limits and collision avoidance), constraints that are difficult to express explicitly in a policy network.
  
 
-If you're interested in implementing TD-MPC, the official TD-MPC2 implementation is open-sourced on GitHub: [GitHub/nicklash/td-mpc2](https://github.com/nicklash/td-mpc2). The code is well-structured and serves as a great entry point for learning model-based RL and robot control. In the next article, we'll discuss the most critical technology in Sim-to-Real transfer: domain randomization.
+If you're interested in implementing TD-MPC, the official TD-MPC2 implementation is open-sourced on GitHub: [GitHub/nicklashansen/tdmpc2](https://github.com/nicklashansen/tdmpc2). The code is well-structured and serves as a great entry point for learning model-based RL and robot control. In the next article, we'll discuss the most critical technology in Sim-to-Real transfer: domain randomization.

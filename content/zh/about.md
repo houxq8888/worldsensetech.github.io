@@ -2,8 +2,6 @@
 title: "关于"
 date: 2026-08-15
 draft: false
-aliases:
-  - /about.html
 ---
 
 ## 关于 WorldSense

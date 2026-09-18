@@ -83,5 +83,6 @@
         </div>
     </div>
 
-    <script src="{{ "js/blog-interactions.js" | relURL }}"></script>
+{{- $interJS := resources.Get "js/blog-interactions.js" | minify | fingerprint -}}
+    <script src="{{ $interJS.RelPermalink }}"></script>
 {{ end }}

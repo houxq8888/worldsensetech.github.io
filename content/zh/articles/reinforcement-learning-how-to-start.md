@@ -1,8 +1,6 @@
 ---
 title: "强化学习应该怎么入门？写给有编程基础的工程师"
 slug: "reinforcement-learning-how-to-start"
-aliases:
-  - /articles/reinforcement-learning-how-to-start.html
 date: 2026-08-03
 draft: false
 categories: ["强化学习"]

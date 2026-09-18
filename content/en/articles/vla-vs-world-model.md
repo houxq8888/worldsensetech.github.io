@@ -1,8 +1,6 @@
 ---
 title: "VLA vs World Models: Which Will Prevail?"
 slug: "vla-vs-world-model"
-aliases:
-  - /en/articles/vla-vs-world-model.html
 date: 2026-08-04
 draft: false
 categories: ["World Models", "Embodied AI"]

@@ -1,8 +1,6 @@
 ---
 title: "回看世界模型8年进展，始终没突破的瓶颈是什么？"
 slug: "world-model-8year-bottleneck"
-aliases:
-  - /articles/world-model-8year-bottleneck.html
 date: 2026-08-03
 draft: false
 categories: ["世界模型"]

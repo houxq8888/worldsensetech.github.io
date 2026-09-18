@@ -1,8 +1,6 @@
 ---
 title: "DreamerV3 训练技巧：从踩坑到收敛的实战经验"
 slug: "dreamerv3-training-tips"
-aliases:
-  - /articles/dreamerv3-training-tips.html
 date: 2026-08-11
 draft: false
 categories: ["世界模型", "教程"]

@@ -7,8 +7,6 @@ categories: ["Embodied AI"]
 tags: ["AI Hardware", "Smart Glasses", "Wearable", "Meta Ray-Ban", "AI Pin", "Humanoid Robot", "Embodied AI"]
 description: "From Ray-Ban Meta and PLAUD to Rabbit R1 and humanoid robots — in 2026, AI companies are racing to give algorithms physical bodies. Analyzing the technology drivers and industry logic behind this trend."
 toc: true
-aliases:
-  - /en/articles/2026-08-16-ai-physical-shell.html
 ---
 
 

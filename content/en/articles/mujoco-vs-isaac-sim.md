@@ -14,8 +14,6 @@ related_articles:
   - domain-randomization-sim-to-real
   - 2026-08-30-dreamer-applications
   - world-model-lab-setup
-aliases:
-  - /en/articles/mujoco-vs-isaac-sim.html
 ---
 
 

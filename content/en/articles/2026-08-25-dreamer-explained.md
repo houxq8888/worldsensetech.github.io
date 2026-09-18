@@ -14,8 +14,6 @@ related_articles:
   - world-model-intro
   - vla-vs-world-model
   - td-mpc-world-model-control
-aliases:
-  - /en/articles/2026-08-25-dreamer-explained.html
 ---
 
 > **Dreamer Series · Part 1**
