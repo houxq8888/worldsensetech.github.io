@@ -5,9 +5,10 @@ date: 2026-09-22
 draft: false
 categories: ["Embodied AI", "Tutorial"]
 tags: ["Embodied AI", "Software Architecture", "Robotics", "Deployment", "VLA", "Python", "System Design", "Engineering Architecture", "Sim-to-Real"]
-description: "The 9/17 piece gave a skeleton that runs, tests, and swaps components; this one answers the next question: what catches you the instant a component comes out. A web service rollback is an undo, but a robot rollback disenfranchises old decisions. It covers release identity (a layered manifest plus signature semantics), a code x schema x config compatibility grid built on containment rather than intersection, a five-dimensional shadow divergence ledger with clamping differences, canary with promotion gates, a five-step rollback backed by the epoch barrier, fail-before-motion hot config reload, and a pure-stdlib minimal release state machine pinned by fifteen invariants."
+description: "The 9/17 piece gave a skeleton that runs, tests, and swaps components; this one answers the next question: what catches you the instant a component comes out. A web service rollback is an undo, but a robot rollback disenfranchises old decisions. It covers release identity (a layered manifest plus signature semantics), a runtime schema x config x obs-fingerprint compatibility grid built on containment rather than intersection, a five-dimensional shadow divergence ledger with clamping differences, canary with promotion gates, a five-step rollback backed by the epoch barrier, a single command-admission gate that folds the authority/epoch/release gates into one place (release identity is a required input, active and async late results enter through the same door, and there is no admission/rollback race window), fail-before-activation hot config reload, and a pure-stdlib minimal release state machine pinned by seventeen invariants."
 toc: true
 related_articles:
+  - 2026-09-23-agent-release-state-machine-runnable
   - 2026-09-19-embodied-agent-architecture
   - 2026-09-16-policy-side-evaluation
   - 2026-09-12-sim-to-real-evaluation-protocol
@@ -19,7 +20,7 @@ A web service rollback is an undo -- route the traffic back to the old version a
 
 The previous article stood the skeleton up: [the six-layer runtime stack, the three core contracts, and a minimal closed loop that runs and tests](/en/articles/2026-09-19-embodied-agent-architecture/), with the conclusion that "swapping the route, the sensor, or the robot is demoted from open surgery to plugging in a component." But between "it can be plugged and unplugged" and "you dare to pull it out and plug it back in" there is still a whole unwritten layer -- **the moment it comes out, who catches you?**
 
-Swap a board and a bad solder joint can be reworked; swap a set of policy weights while the robot is carrying a glass across the room. It is told in the same style as 9/17 -- get the concepts to a discussable state first, then at the end actually run the release state machine with a pure-stdlib fake implementation (fifteen invariants; run before this piece went to print: 15 passed). What sets this apart from ordinary DevOps can be said in one line: **it treats deployment as part of the robot's control safety boundary**, so the whole article is really one chain --
+Swap a board and a bad solder joint can be reworked; swap a set of policy weights while the robot is carrying a glass across the room. It is told in the same style as 9/17 -- get the concepts to a discussable state first, then a sister piece actually runs the release state machine with a pure-stdlib fake implementation (seventeen invariants; 17 passed) -- see [Running the Release State Machine](/en/articles/2026-09-23-agent-release-state-machine-runnable/). What sets this apart from ordinary DevOps can be said in one line: **it treats deployment as part of the robot's control safety boundary**, so the whole article is really one chain --
 
 ```text
 release_id -> compatibility -> shadow evidence -> canary -> epoch barrier -> rollback
@@ -27,6 +28,8 @@ release_id -> compatibility -> shadow evidence -> canary -> epoch barrier -> rol
 ```
 
 If identity doesn't line up, there is no reviewable ledger behind it; if compatibility is never tested, installing is running with a fault; without a shadow ledger, promotion runs on nerve; without the epoch barrier, a rollback is the old and new versions fighting over the same robot. Each section takes one link.
+
+One word-discipline that runs through the whole piece -- set the ruler up front, because this article keeps crossing three layers. I split every claim into three strengths: **what the demo implementation guarantees** (behavior actually produced by this stdlib state machine's current code path), **what the architecture requires** (must hold by design, not necessarily realized in this version), and **what production must enforce** (only holds once you cross into the registry / type system / concurrency). The seventeen pytest going green in the sister piece prove local invariants are self-consistent on this minimal model -- **it does not mean production deployment safety has been established**. Reading "design intent" as "code guarantee" is the easiest trap in this kind of article, so I keep them apart wherever I can.
 
 ## Set One Principle First: Deployment Is Not an Action, It Is a State Machine with Evidence
 
@@ -41,7 +44,7 @@ So the correct model of deployment is not an action but a **state machine plus a
 ```yaml
 # deploy/release_manifest.yaml -- the ops-hardened form of artifact_manifest
 release:
-  release_id: 2026.09-r7        # monotonic release sequence: all event streams align on it (see below)
+  release_id: 2026.09-r7        # release-event identity: the alignment axis of the event stream (monotonicity enforced by the registry/CI issuer, not validated on this box)
   checkpoint: ckpt/diffusion_v17.pt
   artifact_sha256: 9b41...      # weight hash: tags change, hashes don't
   code_commit: 8f3a2c1
@@ -49,8 +52,8 @@ release:
 compat:
   state_schema: [v3, v4]        # declared supported schema interval: must lie entirely within the runtime's accepted range (containment, not intersection)
   action_schema: [v2]
-  obs_fingerprint: fp-v7        # combined hash of the semantic fingerprint + golden vectors (9/17)
-  config_range: [3.1.0, 3.2.0]  # forward + backward compatibility interval: both min/max take a stance, too-old can also be incompatible
+  obs_fingerprint: fp-v7        # combined hash of the semantic fingerprint + golden vectors (9/17): an evidence identifier, not a correctness proof
+  config_range: [3.1.0, 3.2.0]  # a version-level compatibility gate: both min/max take a stance, too-old can also be incompatible; field-level schema/semantics is the config validator's job
 runtime:
   container_digest: sha256:71c0...
   python: "3.11"
@@ -62,30 +65,41 @@ policy:                          # release policy enters the manifest: promotion
 
 In code this manifest is not one flat pile of fields but **split into three layers, a one-to-one match with the YAML's three sections**: `ArtifactIdentity` (hash + signature) handles "which part is this and who built it", `CompatibilityContract` (schema range + config range + obs fingerprint) handles "can it run together with the current runtime", and `ReleasePolicy` (min_ticks + divergence_budget) handles "how much evidence must accumulate before promotion is allowed." The layering is not fastidiousness -- it lets `boot_check`, `promote_allowed`, and `rollback` each read only the section they should, and the promotion gates are taken from the manifest's policy fields rather than three magic constants scattered through the state machine.
 
-The three identity fields each block a different class of accident, and it matters to see that they are **not the same thing**. `artifact_sha256` is the **content identity**, guarding against "right name, wrong thing": `diffusion_v17.pt` is a name, not an identity, and same-name-different-content ckpts are a regular at every "what on earth, the behavior is different" crime scene. `signature` is the **provenance identity** (authenticity / provenance), guarding against "the content wasn't swapped, but it's unclear who signed it" -- the key point is that what the signature should cover is the entire canonical byte string `canonical(manifest - signature)`, not merely the artifact's hash; otherwise you get the bypass where "the hash didn't change, but someone quietly edited the schema range in compat." `release_id` is the **release-event identity**, guarding against misaligned event streams: operational events (deployment, comparison, canary, rollback) span three clock domains -- CI, the registry, and every robot -- and without a monotonic sequence number there is no reviewable ledger. `obs_fingerprint` guards against definition drift: in 9/17 it watches train/serve skew, and here it watches release/serve skew -- a new ckpt wired to old preprocessing, not one field missing yet the whole behavior inverted, is caught on the spot by per-element numerical comparison. The traceability requirement of the evaluation protocol ([9/12](/en/articles/2026-09-12-sim-to-real-evaluation-protocol/)), when it lands in the deployment layer, looks exactly like this one manifest plus these gates.
+The three identity fields each block a different class of accident, and it matters to see that they are **not the same thing**. `artifact_sha256` is the **content identity**, guarding against "right name, wrong thing": `diffusion_v17.pt` is a name, not an identity, and same-name-different-content ckpts are a regular at every "what on earth, the behavior is different" crime scene. `signature` is the **provenance identity** (authenticity / provenance), guarding against "the content wasn't swapped, but it's unclear who signed it" -- the key point is that what the signature should cover is the entire canonical byte string `canonical(manifest - signature)`, not merely the artifact's hash; otherwise you get the bypass where "the hash didn't change, but someone quietly edited the schema range in compat." `release_id` is the **release-event identity**, guarding against misaligned event streams: operational events (deployment, comparison, canary, rollback) span three clock domains -- CI, the registry, and every robot -- and without a monotonic sequence number there is no reviewable ledger. `obs_fingerprint` guards against definition drift: in 9/17 it watches train/serve skew, and here it watches release/serve skew -- a new ckpt wired to old preprocessing, not one field missing yet the whole behavior inverted, is caught on the spot by per-element numerical comparison. The traceability requirement of the evaluation protocol ([9/12](/en/articles/2026-09-12-sim-to-real-evaluation-protocol/)), when it lands in the deployment layer, looks exactly like this one manifest plus these gates. One sentence nails the boundary: what is described above is **what the architecture requires the gate to look like**; in the demo state machine in the sister piece, `artifact_sha256` and `signature` are only **carried manifest metadata** -- `boot_check` neither recomputes `sha256(actual artifact bytes)` to re-verify the hash nor does canonicalization + signature verification. In production both of those must happen **before** the manifest enters the state machine, at the registry / artifact-loader boundary, not inside this machine. `release_id`'s "monotonic" is the same story: it is an **external ordering key** for aligning event streams, monotonicity enforced by the registry/CI issuer -- this state machine does not even check `r7 > r6`.
 
-There is another set of easily-confused identity scales worth nailing down once here, because each solves a different alignment problem: `release_id` (which release), `robot_id` (which machine), `episode_id` (which job), `epoch` (which barrier-delimited segment of this job's lifecycle), `sequence_id` (which decision within the segment). In particular, be clear that **`release_id != epoch`**: one release can span many episodes, and a single episode may bump the epoch several times because of a rollback. During an incident review they are nested coordinates -- `release r7 / episode 42 / epoch 8 / sequence 183` -- and once you roll back it jumps to `release r6 / episode 43 / epoch 9 / sequence 0`. Miss any one layer and you cannot precisely point in the logs at "which decision knocked the glass off."
+There is another set of easily-confused identity scales worth nailing down once here, because each solves a different alignment problem: `release_id` (which release), `robot_id` (which machine), `episode_id` (which job), `epoch` (which barrier-delimited segment of this job's lifecycle), `sequence_id` (which decision within the segment). In particular, be clear that **`release_id != epoch`**: one release can span many episodes, and a single episode may bump the epoch several times because of a rollback. During an incident review they are nested coordinates -- `release r7 / episode 42 / epoch 8 / sequence 183` -- and once you roll back it jumps to `release r6 / episode 43 / epoch 9 / sequence 0`. Miss any one layer and you cannot precisely point in the logs at "which decision knocked the glass off." Push one more step toward production and the event stream should also carry `config_version` and `policy_instance_id`: the same `release_id` may be running with different thresholds (thresholds are release artifacts too), and under shadow / async inference a single release may more likely hold several candidate policy processes at once -- `release r7 / epoch 8` cannot tell apart "was it instance A or instance B that made this decision." `release_id` is not enough to uniquely identify a running policy instance; if an incident review must pin down to the instance, these two fields have to enter the schema up front, not be bolted on after the fact.
+
+One more step: put the three scales the command admission actually reads side by side -- they are often lumped together as "just sequence numbers," but each minds a different job and none substitutes for another:
+
+| Field | Meaning | What it carries in command admission |
+| --- | --- | --- |
+| `release_id` | **who produced it** (provenance) | the release-identity barrier: a stale / missing release loses power |
+| `epoch` | **which lifecycle it belongs to** (authority generation) | the lifecycle barrier: an old epoch's in-flight decisions lose power |
+| `sequence_id` | **which decision within that lifecycle** (ordering) | an ordering constraint; compares ordering only within one segment |
+
+This answers a question reviewers keep asking: **why does admission key on `epoch + release` and not on `sequence`?** Because `sequence_id` is policy-local -- in a shadow comparison what you diff is `delta(sequence)`, not the absolute value, and after a rollback it restarts from 0. It only guarantees "decision #183 comes after #182 within the same segment"; it **does not authenticate cross-release provenance**: an old-release decision with a big sequence number whose epoch happens to line up is exactly the fish that gets in if you look only at the sequence (that is precisely what I16 plays out). So ordering belongs to sequence, provenance to release, lifecycle authority to epoch -- the three do not replace one another. And while we are at it, nail down what `epoch` actually is: it is a **lifecycle / authority generation**, not a version number. The schema-level invariant is that a `release_id` change does **not** force `epoch + 1` (one release spans many episodes, each with its own epoch), and `epoch + 1` does **not** force a release change (a single release may bump the epoch twice during a rollback). Coordinates like `r7 / epoch 8`, `r7 / epoch 9`, `r6 / epoch 10` are all legal; treat epoch as a version pointer and you will lose the entire class of history where "the same release rebuilt its lifecycle several times."
 
 ## The Compatibility Grid: Not Backward Compatibility, but "Which Cells Can Run Together"
 
-The most common wrong assumption in version management is linearity: new code is compatible with old data, old code with new data, backward all the way. An embodied system's versions move along at least three independent axes, and they are not orthogonal to each other:
+The most common wrong assumption in version management is linearity: new code is compatible with old data, old code with new data, backward all the way. What really moves independently and is not orthogonal to the rest is the **three runtime compatibility axes** -- `schema` (the state/action contract), `config` (thresholds/parameters), and, from 9/17's toolkit, `obs_fingerprint` (semantic fingerprint + golden vectors, guarding against the preprocessing definition quietly drifting). As for `code_version`: it moves too, of course, but it fits better as **release-artifact identity** (`artifact_sha256 + code_commit`) kept by the registry than as an axis judged on continuous intervals -- code compatibility is very rarely expressible as "fully compatible within some version range," so this article's `boot_check` **carries** code_version yet never compares on it (see the code in the sister piece). The grid below is spread out along those three axes:
 
 ```text
-            schema  v3      v4      v5
-code        ─────────────────────────────
-  1.4.x      ✓        ✓      ✗      ✗
-  1.5.x      ✗        ✓      ✓      ✗
-config      ─────────────────────────────
-  3.1        ✓        ✓      ✗      ✗
-  3.2        ✗        ✓      ✓      ✗
-             ↑ each cell = one real boot check that actually ran; an untested cell defaults to ✗
+        schema   v3      v4      v5
+runtime  ──────────────────────────────  ← each cell = one real boot check that actually ran
+  1.4.x    ✓      ✓      ✗      ✗
+  1.5.x    ✗      ✓      ✓      ✗
+config   ──────────────────────────────
+  3.1      ✓      ✓      ✗      ✗
+  3.2      ✗      ✓      ✓      ✗
+           ↑ an untested cell defaults to ✗
+           ↑ (this grid's "✓ + evidence reference" is held by the registry/pipeline; this minimal state machine does not persist it)
 ```
 
 Three disciplines. **One, the grid records only combinations that genuinely existed.** Teams that insist on maintaining a full compatibility matrix end up testing none of it. The typical truth of a robot fleet is: on any one machine, the runtime lagging the registry by a version is the norm -- so the compatibility interval must be modeled explicitly (the `[v3, v4]` under `compat`), not left to "should be fine, right?" **Two, an untested cell defaults to ✗.** Compatibility is a property you test into existence, not one you declare; behind every ✓ there must be a real `boot_check` that ran plus a round of shadow comparison. This sentence needs a follow-up about a real-world pit: **whose head does that ✓ actually sit on?** If the ✓ is just a boolean someone hand-typed into YAML in the registry, it will sooner or later drift from reality. The trustworthy approach is to have the ✓ carry an evidence reference (which CI run, which shadow round, which test suite ran), written by the pipeline and never edited by hand -- and this is exactly the interface the next article on fleet version governance will pick up. **Three, config too must be forward-compatible.** During a canary rollback, the old runtime often has to load config the new version already changed (episode 42); a field renamed or its semantics shifted crashes the old code on the spot -- the easiest path to patching in a second fault the very night you roll back. So config changes follow the standard expand-migrate-contract: only add, never delete; give new fields defaults; put deletion after every machine has upgraded; the `config_range` in the manifest, with both a min and a max, is the enforcing gate on this discipline -- too old and out of bounds are equally suspect.
 
-One modeling confession: `compat_within` treats versions as **monotonic continuous semantic intervals** and does a containment check (the entire declared range must lie within the runtime's accepted range), which holds when the schema really evolves linearly. But in the real world versions are often **discrete capabilities** -- supporting `{v3, v4}` does not mean supporting some pseudoversion in between with different fields. For that case you would swap this for an intersection over capability sets, not intervals. This article chose the interval model for a minimal closed loop and left that seam open in a code comment; if your schema is a set of discrete IDs, please replace "interval containment" with "set containment." Note that I deliberately used **containment, not intersection**: the manifest declares support for `[1.2, 2.0]`, the runtime only eats `[1.8, 3.0]`, they intersect but must never be judged compatible -- because the runtime doesn't recognize the `1.2~1.8` half the manifest promises, and an intersection test would let it through the gate.
+One modeling confession: `compat_within` treats versions as **monotonic continuous semantic intervals** and does a containment check (the entire declared range must lie within the runtime's accepted range), which holds when the schema really evolves linearly. But in the real world versions are often **discrete capabilities** -- supporting `{v3, v4}` does not mean supporting some pseudoversion in between with different fields. For that case you would swap this for an intersection over capability sets, not intervals. This article chose the interval model for a minimal closed loop and left that seam open in a code comment; if your schema is a set of discrete IDs, please replace "interval containment" with "set containment." Confess one layer deeper: this uses a **custom numeric-tuple version** (`int.int.int`) and deliberately does not call it SemVer -- `1.9 < 1.10` it can compare, and parsing **accepts 1~3 segments and right-pads to three**, so `"2.0"` equals `"2.0.0"` and `"1"`/`"1.2"` normalize to `1.0.0`/`1.2.0`; the ordering no longer scrambles when the segment count changes, so Python tuple comparison will not wrongly declare `"1.2" < "1.2.0"`. But it is **strict** about the format: the moment there are more than three segments (`"1.2.3.4"`) or any non-digit segment (`"-1.2.0"`, `"1.2.x"`), it raises `ValueError` -- the earlier `parts + [0]*(3-len(parts))` would silently let `"1.2.3.4"` through, because `[0]*negative == []` (this is exactly what review §3 fixed). It still does not handle `-rc1`/`+build7` pre-release/build metadata. To actually judge SemVer you must handle that metadata or hand it to a mature version library; the interval model here is only trustworthy when the "all versions are plain numeric and at most three segments" guarantee holds externally. Note that I deliberately used **containment, not intersection**: the manifest declares support for `[1.2, 2.0]`, the runtime only eats `[1.8, 3.0]`, they intersect but must never be judged compatible -- because the runtime doesn't recognize the `1.2~1.8` half the manifest promises, and an intersection test would let it through the gate.
 
-The startup validation order is also worth nailing down, from cheap to expensive: **first structure** -- are the manifest fields complete, is there a `release_id`, is the schema range fully covered by the runtime, does the config version cross the bounds; pure comparison, milliseconds. **Then numbers** -- re-run the shared `ObsTransform` on the golden vectors in the release manifest and compare semantic fingerprints (9/17's technique, reused at the deployment point). **Last, behavior** -- enter shadow mode for a head-to-head comparison (next section). Rather refuse to boot than run with a fault: fail-before-motion has been said ten thousand times, and every defeat comes down to "let's run it and see."
+The startup validation order is also worth nailing down, from cheap to expensive: **first structure** -- are the manifest fields complete, is there a `release_id`, is the schema range fully covered by the runtime, does the config version cross the bounds; pure comparison, milliseconds (note this layer does not even recompute the artifact hash, let alone verify a signature -- that is the loader's job before the manifest enters the machine). **Then the fingerprint** -- compare whether the `obs_fingerprint` matches. Say this one precisely: what it proves is only that "the release end and the runtime end are using the same fingerprint definition / the same evidence identifier" -- it is an **evidence identifier, not a correctness proof**; equal fingerprints do not mean `ObsTransform(x)` was actually computed right, only that both sides agree on "which hash represents the preprocessing." **Then the numbers** -- this is the real correctness gate: take the golden vectors in the release manifest and **actually run** the shared `ObsTransform` on them, comparing each real output against its expected output line by line (golden vectors -> actual transform -> expected output -> compare), and refuse on any mismatch. The fingerprint gate and the golden-vector gate are **two different gates** -- don't mistake the former for the latter. **Last, behavior** -- enter shadow mode for a head-to-head comparison (next section). Rather refuse to boot than run with a fault: **fail-before-activation** has been said ten thousand times, and every defeat comes down to "let's run it and see." What this article's fake can actually prove is only the "refuse to load" step (boot_check returns a reason and does not proceed); the production version must push the same discipline all the way to "refuse to take effect" -- an illegal config never takes over at a control boundary. (The earlier wording "fail-before-motion" I put too heavily on; strictly the evidence only reaches before activation -- see I13 in the sister piece.)
 
 ## Shadow Mode: Compare Decisions, Never Touch the Ground
 
@@ -98,7 +112,7 @@ StateContract stream ──→ active policy ──→ ActionBuffer → SafetyGa
 
 The implementation discipline of shadow mode is a reuse of two of 9/17's old rules. First, **authority is unique**: the candidate's output has no path to the RobotInterface -- precisely, under a dynamic type system like Python this is not "it can't get in at the type level" but "there is no such call path structurally": inside `ShadowRunner.tick()` the return value of `candidate.act()` flows only into the divergence ledger, and the only place that calls `sink.submit()` is fed the product of `active` through `safety.check()`. Type-level enforcement (splitting `CandidateAction` and `Action` into distinct types and letting the sink accept only the latter) is what the production version should add; we do not claim it is already done here. Second, **comparison must be same-state, same-clock**: both are fed the same state object from `latest_valid(now)` on the same tick, under the same injected clock; divergence computed by a shadow run on a stale state is all noise.
 
-The ledger should not record just one number. Divergence is a matter of more than one dimension: **identical numbers != identical behavior.** The real danger is often not `0.50` vs `0.52` (that may be noise) but the same action's `valid_from` being 100ms late -- that is **another chunk**, taking over at the wrong physical moment. So `Divergence` is split into five dimensions: `value` (numerical value over ε), `validity` (valid_from / chunk duration misaligned), `horizon` (chunk coverage inconsistent), `sequence` (takeover rhythm, whether the sequence_id step matches), and `safety` (clamping difference). The one most easily missed is the last, and the one most worth watching: the **clamping difference** -- for the same command, SafetyGate releases the old policy but clips the new one; even if the task success rate shows nothing yet, that is direct evidence the new policy is more aggressive. In implementation, both active and candidate pass through `safety.preview()` (judge only, don't send), and by comparing the two `clamped` flags `clamp_diffs` really counts; the candidate sees the safety gate's verdict yet still cannot reach the sink -- which demonstrates "can observe, cannot execute" at the same time. Divergence rate is the risk reading; a canary that ignores it is running bare.
+The ledger should not record just one number. Divergence is a matter of more than one dimension: **identical numbers != identical behavior.** The real danger is often not `0.50` vs `0.52` (that may be noise) but the same action's `valid_from` being 100ms late -- that is **another chunk**, taking over at the wrong physical moment. So `Divergence` is split into five **mutually independent** dimensions: `value` (numerical value over ε), `validity` (`valid_from` takeover-moment misaligned -- governs "when it starts to take over"), `horizon` (chunk coverage `horizon×dt` inconsistent -- governs "how far one action reaches"), `sequence` (takeover rhythm, whether the `sequence_id` step matches), and `safety` (clamping difference). validity and horizon are two different things -- do not merge them into one axis, or any horizon change will incidentally light up validity too and the dimensions collapse back to four. The `sequence` dimension has a contract to nail down first, too: this article picks a **policy-local sequence** -- active and candidate each hold their own `SequenceAllocator`, the absolute values naturally never align, so only the step delta is comparable; if your semantics is a globally shared sequence, the check should instead be an absolute `a.sequence_id != c.sequence_id`. The two contracts cannot be mixed -- prose and code must pick the same side. The one most easily missed is the last, and the one most worth watching: the **clamping difference** -- for the same command, SafetyGate releases the old policy but clips the new one; even if the task success rate shows nothing yet, that is direct evidence the new policy is more aggressive. In implementation, both active and candidate pass through `safety.preview()` (judge only, don't send), and by comparing the two `clamped` flags `clamp_diffs` really counts; the candidate sees the safety gate's verdict yet still cannot reach the sink -- which demonstrates "can observe, cannot execute" at the same time. This invariant can no longer be held by luck: the old writing had `preview()` directly reuse `check()`, and "shadow produces no side effect" only held **by accident**, because `check()` happened to be a pure function -- a real SafetyGate carries state mutation, counters, watchdogs, and rate-limit bookkeeping, and once `check()` has side effects a candidate's preview quietly mutates the gate's active-side state, breaking the authority boundary on the spot. The fix collapses the pure judgment into a single source `evaluate()`: `preview()` reads only `evaluate()` and never touches commit state, while `check()` = `evaluate()` then `commit` (writes `last_command`, bumps `clamp_count`). That is how "candidate never gets authority" is upgraded from a code-path property to an interface property -- the `PreviewSafety` in the sister piece is split exactly this way. Divergence rate is the risk reading; a canary that ignores it is running bare -- but say it clearly too: `divergence_rate` is an **aggregate count** (any of the five dims firing records one divergence), collapsing "one clamp" and "one 1e-5 numeric difference" into an equal-weight vote loses risk weighting; a production criterion should at least split safety/clamp into a hard gate and numeric into a soft gate, or better still compute a rate per dimension.
 
 The shadow stage has two failure conditions to guard against in advance as well. **The candidate must not touch state**: the shadow policy is forbidden from writing anything back to the estimator / StateBuffer, otherwise "observe only" becomes co-decision. **Comparison must pick the boundary cases**: on a uniform timeline the two policies agree most of the time, of course -- the divergence ledger must be stratified by the task labels declared in the manifest (contact, occlusion, calibration drift); a comparison window that fails to cover the boundary cases is a comparison that didn't happen.
 
@@ -106,715 +120,90 @@ The shadow stage has two failure conditions to guard against in advance as well.
 
 Only after the head-to-head comparison passes does real execution come into play. A canary in the robotics setting is a different thing from a percentage of web traffic -- **the natural slices of traffic are not users but tasks, robots, and time windows**: shadow first, then a single task on a single machine, then a same-model fleet, then cross-model; every step is "real execution + a fault budget," differing only in blast radius.
 
-The rules of promotion must be set up front: **the gate is data, not courage.** The two fields in `release_manifest.yaml` -- `min_ticks` and `divergence_budget` -- are the hinge of the promotion gate: not enough samples, no promotion (even if the divergence rate is zero); divergence over budget, no promotion (even if the sample is large enough). The most taboo shape is "let's keep watching": observation without a quantified gate always slides toward Friday-afternoon "looks fine, ship it." The rollback criterion works the same way, and moreover must be graded by hardness: frequent safety-gate intervention, divergence crossing a hard threshold, is **immediate rollback**, no discussion; slowly degrading coverage or success rate is **in-budget rollback**, counted per window. Both kinds of criterion must be written as computable expressions before the release, not arrived at by meeting for consensus afterward.
+The rules of promotion must be set up front: **the gate is data, not courage.** The two fields in `release_manifest.yaml` -- `min_ticks` and `divergence_budget` -- are the hinge of the promotion gate: not enough samples, no promotion (even if the divergence rate is zero); divergence over budget, no promotion (even if the sample is large enough). The most taboo shape is "let's keep watching": observation without a quantified gate always slides toward Friday-afternoon "looks fine, ship it." The rollback criterion works the same way, and moreover must be graded by hardness: frequent safety-gate intervention, divergence crossing a hard threshold, is **immediate rollback**, no discussion; slowly degrading coverage or success rate is **in-budget rollback**, counted per window. Both kinds of criterion must be written as computable expressions before the release, not arrived at by meeting for consensus afterward. Another class easily lumped into one pot is "observability failure" -- this article's `Fault.OBSERVABILITY` keeps only one cell for the minimal closed loop, but production should split it into at least two: a **metrics gap** (`OBSERVABILITY_DEGRADED`: the eyes are temporarily blind, the control loop is still running safely, freezing promotion suffices) and a **ledger write failure** (`EVIDENCE_LOSS`: the system loses the ability to prove itself safe, the promotion evidence is broken, "freeze promotion" alone may not be enough -- the candidate might have to be quarantined outright). The two are not the same severity; folding ledger-write-failure into "observability" is a simplification of this article's fake, worth nailing down explicitly in a real deployment policy.
 
-One scope note, so readers aren't misled: the pytest suite in this article verifies the **phase constraints and evidence structure of the release state machine** -- which states may legally transition between, whether promotion requires enough evidence, whether rollback must pass the gate again. It does **not simulate a fleet-level canary scheduler**: machine selection, task mix, and auto-promotion at the end of an observation window are the domain of the fleet registry and belong to the next article. The `CANARY` that appears here is only a phase name guarded by the state machine, not a scheduler.
+One scope note, so readers aren't misled: the pytest suite in this article verifies the **phase constraints and evidence structure of the release state machine** -- which states may legally transition between, whether promotion requires enough evidence, whether rollback must pass the gate again. It does **not simulate a fleet-level canary scheduler**: machine selection, task mix, and auto-promotion at the end of an observation window are the domain of the fleet registry and belong to the next article. The `CANARY` that appears here is only a phase name guarded by the state machine, not a scheduler. Likewise, do not overestimate `promote_allowed()`: it implements only two minimal gates -- `min_ticks` (sample size) plus an `divergence_budget` over the **aggregate** divergence rate; the safety hard gate (clamping / e-stop frequency), task-stratified coverage, success-rate and P95 degradation, and fleet-level policy evaluation named in the body are all outside this demo, the work of the next scheduler layer. What this article can hold for you is the discipline that "promotion needs a computable gate"; as for which dimensions the gate should read, the code only opens a head.
+
+Following this "a legal edge ≠ clearance" line, let me once and for all decompose the act of "**returning to ACTIVE**." There are actually three "come-back" edges in the state machine; they look similar but eat entirely different evidence -- and this is exactly the root cause for splitting **`ReleaseStateMachine` (judges topological legality)** from **`PromotionController` (judges evidence)** into two layers. In the demo `request_transition()` only looks at edges and `promote_allowed()` only looks at gates, and **the two are currently unwired** (the state-machine docstring earlier flags this clearly as option A, "keeping the model minimal"); a production implementation must have the PromotionController wire the evidence gate onto state transitions first, and callers **must never bypass the gate to call `request_transition("ACTIVE", "promote")` directly**. The three edges' semantics and strictness increase in order:
+
+| Source state | To return to ACTIVE / continue, what it needs | Where this article's demo pins it |
+| --- | --- | --- |
+| `CANARY` | **promotion evidence**: enough samples + divergence within budget | `promote_allowed()`'s two minimal gates (I6); but **not** wired into the state transition |
+| `DEGRADED` | **recovery evidence**: health back, divergence back within budget, shadow evidence fresh | only the `DEGRADED → ACTIVE` legal edge; the recovery condition is **not implemented**, it is an architecture requirement |
+| `SAFE_STOP` | **full re-verification**: no going straight back to ACTIVE, must return to `VERIFYING` and rewalk from the start of the evidence chain | `SAFE_STOP → VERIFYING`, the sole out-edge (I4) -- the strictest of the three |
+
+To align the three in one sentence: canary is promoted by **data**, degraded comes back by **recovery evidence**, and after SAFE_STOP there simply is no "straight back to ACTIVE" path. Writing these three as layered guards (`promote_allowed` / `recover_allowed` / `SAFE_STOP→VERIFYING`), rather than a single `if state_ok: go ACTIVE`, is what actually honors the phrase "order is semantics."
 
 ## Rollback: 9/17's Epoch Barrier Goes On Duty a Second Time
 
 Rollback is hard, and not because of switching the config. The config flips in a second; what floats out afterward is the real trouble -- **in-flight things**: chunks produced by the old version still in the ActionBuffer (a copy still lying in the scheduled slot), an async inference queued in the policy service, a trajectory segment mid-execution, and the policy's hidden state. A rollback that only flips the manifest pointer is equivalent to letting the old and new versions co-drive the same robot -- the old version's last decision is still queuing in the buffer while the new version's first decision has already entered, and their sequence_ids are each counting on their own.
 
-So rollback is not a one-line assignment but a small transaction in which **order is semantics**, and not one of the five steps may be swapped: ① stop sending new commands, close command authority; ② `epoch + 1`, which **structurally disenfranchises** the old version's in-flight decisions -- without waiting for "them to finish," and without letting them override the post-rollback version; ③ enter `SAFE_STOP`, so the robot is not left hanging in a middle state; ④ the old manifest **must pass `boot_check` once more**; ⑤ only then flip the pointer + run a full `reset_episode` (clear the policy's hidden state, filters, and tracking), and go back to `VERIFYING` to rewalk the evidence chain. The epoch barrier 9/17 designed was prepared for step ②: after the epoch is incremented and synced to both the policy and the ActionBuffer, every in-flight decision of the old version -- however large its sequence_id, however far from taking effect -- is rejected uniformly at the `put()` epoch barrier; the sequence space restarts, so there is no cross-version sequence entanglement. "Wait for the old chunk to finish, then switch" is neither needed nor allowed: the barrier disenfranchises the old version, and this is not about being fast, it is about being clean.
+So rollback is not a one-line assignment but a small transaction in which **order is semantics**, and not one of the five steps may be swapped: ① stop sending new commands, close command authority; ② `epoch + 1`, which **structurally disenfranchises** the old version's in-flight decisions -- without waiting for "them to finish," and without letting them override the post-rollback version; ③ enter `SAFE_STOP`, issuing a safe-stop command so the robot is never left in an undefined intermediate software state (note this is only **software issuing a stop order**, not "the physics has actually come to rest" -- requested / acknowledged / physically-confirmed are three different things; see the "Three Boundaries" subsection below); ④ the old manifest **must pass `boot_check` once more**; ⑤ only then flip the pointer + run a full `reset_episode`, and go back to `VERIFYING` to rewalk the evidence chain. On step ⑤ let me be honest: the demo's `reset_episode()` does only two things -- set an assertable `reset_called` flag, and via `sync_epoch` clear the ActionBuffer's active/scheduled slots together with the sequence numbers (I8 uses exactly these two to verify "a full reset" is not empty talk); the production version must additionally clear, inside it, the policy's hidden state, the estimator filters, controller tracking, and the random seed -- these the fake does not implement, and that is an explicitly stated boundary, so do not read "cleared the buffer" as "cleared the whole state." The epoch barrier 9/17 designed was prepared for step ②: after the epoch is incremented and synced to both the policy and the ActionBuffer, every in-flight decision of the old version -- however large its sequence_id, however far from taking effect, **including the one already queued in the buffer but not yet dispatched** -- is rejected uniformly at `put()`'s barrier and cannot be retrieved at `current()` dispatch either; the sequence space restarts, so there is no cross-version sequence entanglement. "Wait for the old chunk to finish, then switch" is neither needed nor allowed: the barrier disenfranchises the old version, and this is not about being fast, it is about being clean.
 
 Step ④ is the single most easily missed and most lethal line in the article: **"an old version" is not "a rollback-able version."** The release you roll back to -- its schema, config, and obs_fingerprint may no longer be compatible with the **current** runtime, especially if you already upgraded the runtime first. Re-run a compatibility check against the old manifest before going back; if it fails, stop in `SAFE_STOP` and ask for help, never hard-flip: force-switching to an incompatible old version is just replacing an old bug with a new one. In the code this step raises `RollbackRejected` on failure, the state machine rests firmly in `SAFE_STOP`, and the pointer does not move a single word.
 
-This also draws out an architectural rule running through both articles: **the sole publisher of epoch is RuntimeCore.** The supervisor, policy, and ActionBuffer only **accept** epoch and sync a mirror; no one may do `epoch += 1` themselves. Otherwise you get the half-synchronized hell where the supervisor sees 7, the policy is still at 7, and the buffer is at 6 -- and rollback is precisely the moment most prone to crash inside such inconsistency. In `rollback()` the only thing that increments epoch is `runtime_core`; the supervisor takes a mirror afterward via `note_epoch()` and writes it into the event, which is this single-owner discipline made concrete.
+This also draws out an architectural rule running through both articles: **the sole publisher of epoch is RuntimeCore.** The supervisor, policy, and ActionBuffer only **accept** epoch and sync a mirror; no one may do `epoch += 1` themselves. Otherwise you get the half-synchronized hell where the supervisor sees 7, the policy is still at 7, and the buffer is at 6 -- and rollback is precisely the moment most prone to crash inside such inconsistency. In `rollback()` the only thing that increments epoch is `runtime_core`; the supervisor takes a mirror afterward via `note_epoch()` and writes it into the event, which is this single-owner discipline made concrete. Along the way, a detail easily mistaken for a slip of the hand: in one rollback the epoch goes `+2`, and that is not a repeated increment. This article defines epoch at **each lifecycle boundary**, and a rollback happens to cross two of them -- `epoch N -> N+1` is the **invalidation barrier** (step ② bump, disenfranchising the old world), `epoch N+1 -> N+2` is the **new-world start barrier** (step ⑤, at install, bumps once more so the sequence restarts from 0). A production event log had better mark the two bumps with different reasons (say `rollback_invalidate` / `rollback_install`), or a review will wrongly assume someone pushed one cell too many.
 
-For auditability, I also added a `ROLLING_BACK` state to the machine: `ACTIVE -> SAFE_STOP` alone cannot tell apart "a real fault," "a manual E-stop," "a rollback," "a watchdog," and "a controller timeout." With an explicit rollback state (and a mid-way failure that can fall back to `SAFE_STOP`), plus an event on every transition carrying a `reason`, you can afterward ask "what exactly did this machine go through last night." And the counterintuitive discipline that **the rollback path itself must be tested** -- a release plan whose rollback has never been executed is equivalent to having no rollback -- is, at the end of the article, just one line of pytest.
+For auditability, I also added a `ROLLING_BACK` state to the machine: `ACTIVE -> SAFE_STOP` alone cannot tell apart "a real fault," "a manual E-stop," "a rollback," "a watchdog," and "a controller timeout." With an explicit rollback state (and a mid-way failure that can fall back to `SAFE_STOP`), plus an event on every transition carrying a `reason`, you can afterward ask "what exactly did this machine go through last night." And the counterintuitive discipline that **the rollback path itself must be tested** -- a release plan whose rollback has never been executed is equivalent to having no rollback -- is, in the sister piece, just one line of pytest. Here too I owe a correction to myself: in a few places in the body I casually said "evidence chain," but the sister piece's `supervisor.events` is, strictly speaking, only an **append-only event log** -- each record carries an **evidence reference** (which CI run, which shadow round, which `reason`), not the evidence itself. A real tamper-evident evidence chain has four segments -- `event log → evidence references → external evidence store → tamper-evident audit (hash chain / signature / WORM storage)` -- and the last three all live on the registry side, not in this stdlib state machine; the demo neither signs nor hashes, and anyone can mutate the in-memory `events`. So when you read "evidence chain," please understand it as "event log + evidence references" and reserve "tamper-evident" for the hardened version -- this is one more self-audit of the article's three-layer word discipline.
+
+### After Rollback: Three Boundaries People Keep Missing
+
+Those five steps round out "rollback," but if you really want them to catch you, there are three boundaries that are easy to mistake "the code has no such path" for "structurally impossible" -- and a demo is exactly where the latter should be made explicit.
+
+**Boundary one: the command-admission gate -- the door every safety invariant hangs on.** Rollback step ① says "stop sending new commands" and step ② says "old-epoch decisions are disenfranchised," yet if the authority check, the epoch check, the release check, and the sequence check are scattered across several `if`s before and after `put()`, then any future path (an async callback, a candidate promoted to active, a debug backdoor) that skips one of those `if`s leaks the barrier. So collapse them into a **single entry point**: decisions no longer call `buffer.put()` directly but first pass an admission gate, and only a fully green verdict lets them into the buffer. There is a trade-off here that is easy to overlook: release identity must be a **required admission input**, not optional metadata -- if the gate reads `release = getattr(action, "release_id", current_version)`, then an old command that carries **no `release_id`** gets silently relabeled as "the current release" and slips through the identity gate. So this version pulls the identity into an explicit `ActionContext(release_id, epoch, sequence_id)` that enters the door alongside the decision; a missing release is rejected outright, with no fallback. And it is exactly the **"sync active, async late arrival, and candidate-promoted-to-active -- all three kinds of decision admit through the same gate"** model -- active no longer shortcuts straight to `sink.submit` either; it passes the same barrier a late result does.
+
+```text
+   active, produced sync by Policy   ┐
+   async late-arriving inference     ├──► Command Admission   ← single entry; three kinds of decision admit through the same gate
+   candidate's first run after promote ┘      │   admission input = ActionContext(release_id, epoch, sequence_id)
+                                              │   release required: missing release is rejected outright, no getattr fallback to "current version"
+                                              ▼
+                                     authority_open ?    rollback ① close the gate: stop new commands
+                                     release   match ?   release-identity barrier: old / missing release disenfranchised
+                                     epoch     match ?   rollback ② lifecycle barrier: old epoch disenfranchised
+                                     ctx ↔ action consistent ?   sequence / time window handed to the ActionBuffer
+                                              │  prepare() checks the gates → commit() re-checks generation, then put()
+                                              │  between the two steps it does not pretend "check == commit" is atomic; the generation barrier closes TOCTOU
+                                              ▼
+                                     ActionBuffer
+                                              ▼
+                                     SafetyGate (evaluate = pure judgement / check = evaluate + commit)
+                                              ▼
+                                     CommandSink → real robot
+
+   ── in shadow, a candidate only calls preview(): it enters neither admission nor sink
+      (not having authority before promotion is an interface property, not "there just happens to be no such call path")
+```
+
+In the sister piece this gate lands as a `CommandAdmission` **shared** by `RollbackCore` and `ShadowRunner`: the admission input is an explicit `ActionContext(release_id, epoch, sequence_id)`, a missing release is rejected outright with no fallback; after the four steps `authority_open → release → epoch → ctx↔action consistent`, `prepare()` only checks the gates and `commit()` re-checks the generation before it finally calls `action_buffer.put()`. The key point is that **even active landing now enters through this door** -- the active decision in shadow now goes through `admission.admit()` and only then `sink.submit`, no longer taking a `safety.check → sink` shortcut. So "a candidate can't reach the sink" no longer leans on "there just happens to be no such call path," and "no side door other than active" is no longer a documentation promise either -- both become an interface property: you get gated the moment you try the door.
+
+**Boundary two: async late arrivals -- the epoch barrier holds, but you still need release.** The policy service is asynchronous: an inference request can go out at r7 / epoch 1 and only return after the whole rollback has run and the robot has moved to r6 / epoch 3. Is the epoch barrier alone enough? Mostly yes -- an old epoch won't match the new epoch, so it is rejected outright. But there is one fish that slips through: a late result whose epoch **happens** to equal the current epoch (queue skew, or a rollback that bumped back to the same number). Only the **release-identity barrier** can stop it -- so a decision must carry a `release_id` alongside its `epoch` and be compared to the current authoritative release at the door. **epoch is the lifecycle barrier, release is the release-identity barrier; their duties do not overlap, and neither can be dropped.** The I16 in the sister piece demonstrates exactly this: in the `ActionContext` that a late decision carries into the door, one whose epoch matches but whose `release_id` is still r7 is firmly rejected by the release-identity gate; add a decision whose `release_id` is empty (no identity, hoping `getattr` falls it back to "the current version") -- it too is rejected, because this version has no such fallback at all. This is where the earlier "identity scales" paragraph's insistence that `release_id` belongs in the action schema up front finally gets cashed.
+
+**Boundary three: the physical boundary -- software disenfranchisement != the world has stopped.** The epoch barrier governs three kinds of software-side in-flight: queued (not yet in the buffer), buffered (in the buffer but not dispatched), late-produced (async late arrivals) -- it can void all three. But it cannot reach the one already **dispatched into the physical actuator**: once a command has been accepted by the MCU and a joint is already moving, that is history software cannot "undo." To actually stop you need controller-level **cancel / brake / hold / trajectory abort** -- an extension of 9/17's "safety is a separate layer, hardware is the backstop." Likewise, step ③'s `SAFE_STOP` means software **issued a stop order**; keep the three moments `requested / acknowledged / physically-confirmed` apart -- `supervisor.state == SAFE_STOP` only means the command channel is closed, not that the glass has been set safely back on the table. **This boundary is not an epoch bug, it is physics**: it is precisely why "robot rollback != web rollback" holds -- web undoes traffic, but a robot, after disenfranchisement, still has to wait for the world to genuinely come to rest. The sister piece takes all three boundaries only as far as "state it clearly and pin one assertion each" (I8 pins authority + dispatch-disenfranchisement, I16 pins async late arrival, I17 pins that there is no race window between admission and rollback -- using the deterministic `prepare()` → `rollback()` → `commit()` interleave to prove that an old action which passed the gate before the barrier but only tries to commit afterward is turned back by the generation barrier); the physically-confirmed closed loop, concurrent hardening of the admission gate, and passing the release barrier across processes are all explicitly declared production debt.
 
 ## Hot Reload of Config and Thresholds: Changing a Threshold Is Not Changing Code, but It's More Dangerous Than Changing Code
 
-Deployment swaps artifacts; what operations swap is often just thresholds: velocity ceilings, validity windows, control frequency. Hot config reload is tempting because it bypasses the entire release channel; it is dangerous because **the thresholds are the safety parameters.** Three rules: the config version goes into the manifest, and changing a threshold counts as a release too (through the same state machine, no shortcuts); hot reload goes through **prepare -> validate -> commit**, and on validation failure keeps the old value and records an event -- a half-new, half-old state must never be read by the control loop; every threshold is annotated with its effective point (next tick / next episode), and a parameter switch mid-control must happen only at a boundary, like an ActionBuffer takeover. The words "small change" show up absurdly often in incident postmortems. This one, too, is turned into a runnable assertion at the end of the article with a `ConfigManager`: after an illegal threshold's commit, `current` must stay byte-for-byte unchanged.
+Deployment swaps artifacts; what operations swap is often just thresholds: velocity ceilings, validity windows, control frequency. Hot config reload is tempting because it bypasses the entire release channel; it is dangerous because **the thresholds are the safety parameters.** Three rules: the config version goes into the manifest, and changing a threshold counts as a release too (through the same state machine, no shortcuts); hot reload goes through **prepare -> validate -> commit**, and on validation failure keeps the old value and records an event -- a half-new, half-old state must never be read by the control loop; every threshold is annotated with its effective point (next tick / next episode), and a parameter switch mid-control must happen only at a boundary, like an ActionBuffer takeover. The words "small change" show up absurdly often in incident postmortems. This one, too, is turned into a runnable assertion in the sister piece with a `ConfigManager`: after an illegal threshold's commit, `current` must stay byte-for-byte unchanged. But to be fair -- the line `self.current = staged` inside `commit()` is, in this demo, only **a single-threaded object reference swap**. What it demonstrates is the **commit discipline** of "if validation fails, don't touch current," not concurrency atomicity. To truly deliver "the control loop never reads a half-new, half-old state," production needs an **immutable snapshot + atomic pointer swap / generation number / control-boundary latch** (or to directly reuse the article's epoch barrier) so that read and write cannot each catch it halfway -- that is architecture-required, and this stdlib fake neither proves it nor pretends to.
 
-## Patch It Up to Runnable: A Minimal Closed Loop for a Release State Machine
+## Patch It Up to Runnable: A Minimal Closed Loop for a Release State Machine (moved to the sister piece)
 
-Everything above is design. This section turns the release channel into its minimal runnable-and-testable form -- still no torch, no GPU, reusing 9/17's fakes (injected clock, deterministic policy, epoch barrier, CommandSink single-writer all present, unchanged) and adding only a few things: the layered `Manifest` / `RuntimeVersion` (release identity and compatibility ranges), a `ReleaseSupervisor` with an evidence chain (the sole writer, every transition landing as one `ReleaseEvent` line), `Fault`s routed by nature, a `ShadowRunner` that compares on the same state across five dimensions with observable clamping, and `boot_check` / `promote_allowed` / `ConfigManager` / `rollback` (the four gates from install to retreat). First the skeleton code:
-
-```python
-# tests/deploy_fakes.py -- the minimal closed loop for deployment and ops: pure stdlib, runs directly under pytest
-# Same discipline as 9/17's fakes.py: injected clock, deterministic policy, epoch barrier, single-writer state machine.
-# Scope note: this file verifies only the phase constraints and evidence structure of the release state machine;
-# it does not simulate a fleet-level canary scheduler (machine selection, task mix, observation-window auto-promotion are all fleet registry concerns; see the end of the article).
-from dataclasses import dataclass, field
-from typing import Optional, Tuple
-
-
-def parse_version(s: str) -> Tuple[int, ...]:
-    """Minimal int.int.int version parsing: deliberately not called semver -- it does not handle -rc1 / +build7
-    prerelease metadata. Name the thing right; don't cargo-cult the spec."""
-    return tuple(int(x) for x in s.split("."))
-
-
-def compat_within(declared: Tuple[str, str], accepted: Tuple[str, str]) -> bool:
-    """Containment, not intersection: the entire declared range an artifact supports must lie fully within the runtime's accepted range.
-    Intersection would wrongly pass the half-segment the manifest claims to support but the runtime never accepts (e.g. in
-    manifest [1.2,2.0] ∩ runtime [1.8,3.0], the 1.2~1.8 part). The continuous semantic-version assumption is discussed in the body:
-    versions are modeled here as monotonic continuous intervals -- real discrete capability negotiation should be swapped for a frozenset intersection (see the body)."""
-    return (parse_version(accepted[0]) <= parse_version(declared[0])
-            and parse_version(declared[1]) <= parse_version(accepted[1]))
-
-
-# ---------------------------------------------------------------- Release identity and manifest
-
-@dataclass(frozen=True)
-class ArtifactIdentity:
-    artifact_hash: str           # content identity: catches same-name, different-thing
-    signature: str               # provenance identity: the signature covers canonical(manifest - signature),
-                                 # guarding against "hash unchanged, compat tampered" -- hash trusts content, signature trusts the publisher
-
-
-@dataclass(frozen=True)
-class CompatibilityContract:
-    schema_range: Tuple[str, str]    # must lie entirely within the runtime's accepts_schema (containment, not intersection)
-    config_range: Tuple[str, str]    # both min and max take a stance: too-old config can equally be incompatible
-    obs_fingerprint: str             # combined hash of the semantic fingerprint + golden vectors (9/17)
-
-
-@dataclass(frozen=True)
-class ReleasePolicy:
-    min_ticks: int                   # promotion gate ①: sample size
-    divergence_budget: float         # promotion gate ②: upper bound on divergence rate
-
-
-@dataclass(frozen=True)
-class Manifest:
-    """The in-memory form of deploy/release_manifest.yaml: a one-to-one match with the YAML's release/compat/policy sections.
-    The manifest is the input to the release state machine -- promotion gates are read from the policy fields, not constants scattered in code."""
-    release_id: str                  # monotonic release sequence: the alignment axis of the event stream
-    code_version: str
-    artifact: ArtifactIdentity
-    compat: CompatibilityContract
-    policy: ReleasePolicy
-
-
-@dataclass(frozen=True)
-class RuntimeVersion:
-    """Say clearly what this runtime version on the robot will accept."""
-    code_version: str
-    accepts_schema: Tuple[str, str]
-    accepts_config: Tuple[str, str]
-    expected_fingerprint: str
-
-
-def boot_check(manifest: Manifest, runtime: RuntimeVersion) -> Optional[str]:
-    """One gate shared by boot and rollback: returns a reason on failure, None on pass. Rather refuse than run with a fault."""
-    if not manifest.release_id:
-        return "missing_release_id"          # an identity-less event stream can't be reviewed; reject outright
-    if not compat_within(manifest.compat.schema_range, runtime.accepts_schema):
-        return "schema_incompatible"
-    if manifest.compat.obs_fingerprint != runtime.expected_fingerprint:
-        return "fingerprint_mismatch"
-    if not compat_within(manifest.compat.config_range, runtime.accepts_config):
-        return "config_incompatible"
-    return None
-
-
-# ---------------------------------------------------------------- Release state machine and evidence chain
-
-TRANSITIONS = {
-    "INSTALLED": {"VERIFYING"},
-    "VERIFYING": {"SHADOW", "SAFE_STOP"},
-    "SHADOW":    {"CANARY", "SAFE_STOP"},
-    "CANARY":    {"ACTIVE", "SAFE_STOP"},
-    "ACTIVE":    {"DEGRADED", "SAFE_STOP", "ROLLING_BACK"},
-    "DEGRADED":  {"ACTIVE", "SAFE_STOP", "ROLLING_BACK"},
-    "ROLLING_BACK": {"VERIFYING", "SAFE_STOP"},   # a mid-way failure may fall back to SAFE_STOP
-    "SAFE_STOP": {"VERIFYING"},         # after a fault/rollback, rewalk the evidence chain; no going straight back to ACTIVE
-}
-
-
-class Fault:
-    SAFETY = "safety"                  # over-limit / stale / controller timeout / e-stop -> SAFE_STOP
-    RELEASE = "release"                # divergence rate climbing / success rate slipping / P95 degrading -> DEGRADED + rollback budget
-    OBSERVABILITY = "observability"    # metrics gap / ledger write failure -> freeze promotion, leave the current execution state alone
-
-
-@dataclass(frozen=True)
-class ReleaseEvent:
-    """The smallest unit of the evidence chain: every transition carries identity, time, reason, and epoch --
-    when an audit asks "which version entered which state, when, and why," this line is the answer."""
-    release_id: str
-    timestamp: float                   # injected clock: the same clock discipline as 9/17
-    from_state: str
-    to_state: str
-    reason: str                        # operator intent or fault event: "rollback" / "policy_timeout"...
-    epoch: int                         # the runtime's epoch at the time: strings the action stream together in review
-    evidence_ref: Optional[str] = None # a credential reference to the comparison ledger / CI run
-
-
-class ReleaseSupervisor:
-    """The sole writer of the release state machine (the deployment form of 9/17's Supervisor discipline):
-    other components may only request_transition / report_fault, never change state themselves.
-    Every legal transition lands as one ReleaseEvent line; illegal transitions are rejected and not recorded."""
-
-    def __init__(self, clock, release_id, epoch=0):
-        self._clock = clock
-        self.release_id = release_id
-        self._epoch = epoch            # read-only mirror: the sole publisher of epoch is RuntimeCore (see rollback)
-        self.state = "INSTALLED"
-        self.events = []
-
-    def note_epoch(self, epoch):
-        self._epoch = epoch            # sync the mirror after RuntimeCore increments it, for the next event
-
-    def _move(self, to: str, reason: str, evidence_ref=None) -> bool:
-        if to not in TRANSITIONS[self.state]:
-            return False
-        self.events.append(ReleaseEvent(
-            self.release_id, self._clock.monotonic(), self.state, to,
-            reason, self._epoch, evidence_ref))
-        self.state = to
-        return True
-
-    def request_transition(self, to: str, reason: str, evidence_ref=None) -> bool:
-        return self._move(to, reason, evidence_ref)
-
-    def report_fault(self, kind: str, reason: str, evidence_ref=None) -> str:
-        """Faults are routed by nature, not all the way to SAFE_STOP:
-        safety touches physical limits and must stop; release is a quality reading, DEGRADED first then the rollback budget;
-        observability is just going blind -- freeze promotion, don't interrupt a safely-running control loop, but keep a trace."""
-        if kind == Fault.SAFETY:
-            self._move("SAFE_STOP", reason, evidence_ref)
-        elif kind == Fault.RELEASE:
-            self._move("DEGRADED", reason, evidence_ref)
-        else:                          # OBSERVABILITY: state unchanged, event still recorded
-            self.events.append(ReleaseEvent(
-                self.release_id, self._clock.monotonic(), self.state, self.state,
-                reason, self._epoch, evidence_ref))
-        return self.state
-
-
-# ---------------------------------------------------------------- Shadow comparison: the divergence ledger
-
-@dataclass
-class Divergence:
-    """Divergence is not one-dimensional: identical numbers != identical behavior.
-    0.50 vs 0.52 may be noise, but valid_from 100ms late is another chunk -- the danger hides in the time semantics."""
-    value: bool = False                    # action value exceeds epsilon
-    validity: bool = False                 # valid_from / chunk duration misaligned
-    horizon: bool = False                  # chunk duration (horizon*dt) inconsistent
-    sequence: bool = False                 # takeover rhythm (sequence_id step) inconsistent
-    safety: bool = False                   # clamping difference: active passes, candidate is clipped
-
-
-@dataclass
-class ShadowStats:
-    ticks: int = 0
-    divergences: int = 0
-    clamp_diffs: int = 0                 # count on the safety dimension: direct evidence the new policy is more aggressive
-    validity_diffs: int = 0
-    ledger: list = field(default_factory=list)   # per-tick (now, Divergence): the ledger precedes the aggregate
-
-    @property
-    def divergence_rate(self) -> float:
-        return self.divergences / self.ticks if self.ticks else 0.0
-
-
-class ShadowRunner:
-    """Feed the same state to two policies; the candidate's output never enters the sink -- the defining test of shadow mode:
-    bookkeeping only, no landing. The one path that does land goes safety.check -> sink.submit, the same authority path as production.
-    Note: Python's dynamic typing does not structurally bar the candidate from the sink; this implementation relies on the
-    "single call path" structure -- candidate.act()'s return value flows only to the ledger; type-level enforcement is left to the production version (see the body)."""
-
-    def __init__(self, active, candidate, safety, sink, divergence_eps=1e-6):
-        self.active = active
-        self.candidate = candidate
-        self.safety = safety
-        self.sink = sink
-        self.eps = divergence_eps
-        self.stats = ShadowStats()
-        self._last = None                # (active_seq, candidate_seq): baseline for the takeover-rhythm comparison
-
-    def tick(self, state, now) -> bool:
-        a = self.active.act(state, now)
-        c = self.candidate.act(state, now)
-        d = Divergence()
-        d.value = max(abs(x - y) for x, y in zip(a.values, c.values)) > self.eps
-        chunk_a, chunk_c = a.horizon * a.dt, c.horizon * c.dt
-        d.validity = abs(a.valid_from - c.valid_from) > self.eps or abs(chunk_a - chunk_c) > self.eps
-        d.horizon = abs(chunk_a - chunk_c) > self.eps
-        d.sequence = (self._last is not None
-                      and (a.sequence_id - self._last[0]) != (c.sequence_id - self._last[1]))
-        self._last = (a.sequence_id, c.sequence_id)
-        _, a_clamp = self.safety.preview(state, (a.values[0],))   # preview only judges, never sends
-        _, c_clamp = self.safety.preview(state, (c.values[0],))
-        d.safety = a_clamp != c_clamp
-        self.stats.ticks += 1
-        self.stats.ledger.append((now, d))
-        if any((d.value, d.validity, d.horizon, d.sequence, d.safety)):
-            self.stats.divergences += 1
-        if d.safety:
-            self.stats.clamp_diffs += 1
-        if d.validity:
-            self.stats.validity_diffs += 1
-        self.sink.submit(self.safety.check(state, (a.values[0],)))   # only active lands
-        return d.value
-
-
-def promote_allowed(stats: ShadowStats, policy: ReleasePolicy) -> bool:
-    """The promotion gate is data, not courage: the gate itself lives in the manifest's policy section."""
-    return stats.ticks >= policy.min_ticks and stats.divergence_rate <= policy.divergence_budget
-
-
-# ---------------------------------------------------------------- Config hot reload: prepare -> validate -> commit
-
-class ConfigRejected(Exception):
-    pass
-
-
-class ConfigManager:
-    """Thresholds are release artifacts too: changing one threshold walks the state machine; you may not bypass the release channel to write on-site parameters directly.
-    If validate fails, current stays byte-for-byte unchanged plus an event is kept; the effective point is marked as the next control boundary."""
-
-    def __init__(self, current, runtime: RuntimeVersion):
-        self.current = current
-        self.runtime = runtime
-        self._staged = None
-        self.events = []
-
-    def prepare(self, candidate):
-        if self._staged is not None:
-            raise ConfigRejected("already_staged")      # only one in-flight change at a time
-        self._staged = candidate
-
-    def validate(self) -> Optional[str]:
-        c = self._staged
-        if c is None:
-            return "nothing_staged"
-        v = parse_version(c["config_version"])
-        if v > parse_version(self.runtime.accepts_config[1]):
-            return "config_too_new"
-        if v < parse_version(self.runtime.accepts_config[0]):
-            return "config_too_old"                     # forward compatibility must be declared too, it is not assumed
-        if float(c["max_velocity"]) <= 0:               # a threshold must be a legal physical quantity
-            return "unsafe_threshold"
-        return None
-
-    def commit(self, now: float) -> bool:
-        reason = self.validate()
-        staged, self._staged = self._staged, None
-        if reason is not None:
-            self.events.append(("rejected", staged["config_version"], reason, now))
-            return False                                # on failure: current is unchanged, never half-new half-old
-        self.events.append(("committed", staged["config_version"], None, now))
-        self.current = staged                           # effective point: the next control tick reads the new value
-        return True
-
-
-# ---------------------------------------------------------------- Rollback: first disenfranchise, then flip the pointer, then re-verify
-
-class RollbackRejected(Exception):
-    pass
-
-
-def rollback(supervisor: ReleaseSupervisor, runtime_core) -> bool:
-    """Rollback is not flipping a pointer. Order is semantics; not one step may be swapped:
-    ① STOP: new commands stop being sent (authority closed)
-    ② invalidate: epoch+1 -- the old version's in-flight decisions are structurally disenfranchised, without waiting for them to "finish"
-    ③ SAFE_STOP: enter the safe state, the robot is not left hanging mid-air
-    ④ the old manifest must pass boot_check again -- "an old version" is not "a rollback-able version"
-    ⑤ flip the pointer + a full reset_episode (clear hidden state/filters/tracking), back to VERIFYING to rewalk the evidence chain
-    the sole publisher of epoch is RuntimeCore: the supervisor and ledger only consume the mirror, never increment it themselves."""
-    supervisor.request_transition("ROLLING_BACK", "rollback")
-    runtime_core.stop_new_commands()                    # ①
-    runtime_core.bump_epoch()                           # ②
-    supervisor.note_epoch(runtime_core.epoch)
-    supervisor.request_transition("SAFE_STOP", "rollback_safe")   # ③
-    reason = boot_check(runtime_core.previous_manifest, runtime_core.version)   # ④
-    if reason is not None:
-        raise RollbackRejected(reason)                  # old version incompatible: stay in SAFE_STOP and ask for help, never hard-flip
-    runtime_core.install_manifest(runtime_core.previous_manifest)  # ⑤ flip the pointer + a full reset
-    supervisor.note_epoch(runtime_core.epoch)
-    supervisor.request_transition("VERIFYING", "rollback_complete")
-    return True
-```
-
-Then come fifteen pytest, which I do not order by "which function they tested" but by the **invariant** each one pins -- so it matches 9/17's "contract + invariant" style:
-
-| # | Invariant | Test that pins it |
-| --- | --- | --- |
-| I1 | An incompatible / identity-less artifact must not enter the motion path | `test_i1_boot_rejects_identity_and_drift` |
-| I2 | Compatibility is a containment check, not an intersection check | `test_i2_compatibility_is_containment_not_intersection` |
-| I3 | The state machine must not skip evidence phases | `test_i3_state_machine_rejects_illegal_transition` |
-| I4 | After SAFE_STOP you must re-verify; no "just restart it" | `test_i4_safe_stop_forces_reverification` |
-| I5 | The candidate can never get command authority | `test_i5_shadow_never_lands_candidate` |
-| I6 | Promotion must satisfy the evidence budget | `test_i6_promotion_gate_requires_evidence` |
-| I7 | The epoch barrier rejects stale-epoch decisions (buffer primitive) | `test_i7_action_buffer_rejects_stale_epoch` |
-| I8 | After rollback runs, the old in-flight decisions are permanently disenfranchised | `test_i8_rollback_executes_and_invalidates_inflight` |
-| I9 | Clamping differences are observable and countable | `test_i9_clamp_divergence_detected` |
-| I10 | Value-identical but time-semantics divergence must be caught | `test_i10_temporal_divergence_without_value_divergence` |
-| I11 | Faults are routed by severity, not all e-stopped | `test_i11_fault_severity_routing` |
-| I12 | Every legal transition leaves complete evidence | `test_i12_events_form_evidence_chain` |
-| I13 | Config hot reload is fail-before-motion | `test_i13_config_reload_is_fail_before_motion` |
-| I14 | An old version != a rollback-able version: rollback must pass the gate again | `test_i14_rollback_must_reverify_old_manifest` |
-| I15 | Swapping the policy does not change the runtime seam | `test_i15_swap_policy_keeps_contract_shape` |
-
-```python
-# tests/test_deploy.py -- the minimal deployment-and-ops loop: pin each invariant from the 9/18 body into a runnable assertion
-# Same discipline as 9/17: injected clock, deterministic policy, epoch barrier, single-writer state machine.
-# Scope: these pytest verify the phase constraints + evidence structure of the release state machine; they do not simulate a fleet-level canary scheduler.
-import pytest
-
-from deploy_fakes import (ArtifactIdentity, CompatibilityContract, ConfigManager,
-                          ConfigRejected, Divergence, Fault, Manifest,
-                          ReleaseEvent, ReleasePolicy, ReleaseSupervisor,
-                          RollbackRejected, RuntimeVersion, ShadowRunner,
-                          ShadowStats, boot_check, compat_within, parse_version,
-                          promote_allowed, rollback)
-from fakes import (CHUNK_LEN, DT, Action, ActionBuffer, ControllerSink, FakeClock,
-                   FakeController, FakeSensor, NaiveEstimator, RuntimeCore,
-                   SafetyLimiter, SequenceAllocator, SinePolicy, SlowPolicy,
-                   StateBuffer, StateContract, Provenance, run_episode)
-
-
-# ---------------------------------------------------------------- construction helpers
-
-def _manifest(release_id="r7", code_version="1.4.0", **over):
-    art = over.pop("artifact", None) or ArtifactIdentity("sha256:aaa", "minisig:r7")
-    compat = over.pop("compat", None) or CompatibilityContract(
-        schema_range=("1.8", "2.0"), config_range=("3.1.0", "3.2.0"),
-        obs_fingerprint="fp-v7")
-    policy = over.pop("policy", None) or ReleasePolicy(min_ticks=100, divergence_budget=0.02)
-    return Manifest(release_id=release_id, code_version=code_version,
-                    artifact=art, compat=compat, policy=policy)
-
-
-def _runtime(**over):
-    base = dict(code_version="1.4.2", accepts_schema=("1.2", "3.0"),
-                accepts_config=("3.0.0", "4.0.0"), expected_fingerprint="fp-v7")
-    base.update(over)
-    return RuntimeVersion(**base)
-
-
-class OffsetPolicy(SinePolicy):
-    """A shadow candidate differing from SinePolicy by a constant offset: used to manufacture deterministic divergence."""
-
-    def __init__(self, offset):
-        self.offset = offset
-
-    def act(self, state, now):
-        a = super().act(state, now)
-        return Action(values=tuple(v + self.offset for v in a.values),
-                      dt=a.dt, horizon=a.horizon, generated_at=a.generated_at,
-                      valid_from=a.valid_from, valid_until=a.valid_until,
-                      state_stamp=a.state_stamp, epoch=a.epoch,
-                      sequence_id=a.sequence_id)
-
-
-class PreviewSafety(SafetyLimiter):
-    """Adds a preview to 9/17's SafetyLimiter: it only judges, never sends, so the shadow can observe clamping differences.
-    check() (which lands) is inherited from the parent; the sole deploy-side landing path still goes check->sink.submit."""
-
-    def preview(self, state, cmd):
-        approved = self.check(state, cmd)
-        return approved, approved != cmd
-
-
-# A minimal runtime stand-in only for wiring up rollback: in a real implementation RuntimeCore itself holds these references.
-class RollbackCore:
-    def __init__(self, active_manifest, previous_manifest, version, clock):
-        self._epoch = 1
-        self.active_manifest = active_manifest
-        self.previous_manifest = previous_manifest
-        self.version = version
-        self.action_buffer = ActionBuffer(epoch=self._epoch)
-        self.authority_open = True
-
-    @property
-    def epoch(self):
-        return self._epoch
-
-    def stop_new_commands(self):
-        self.authority_open = False          # ① stop sending new commands
-
-    def bump_epoch(self):
-        self._epoch += 1                     # ② old in-flight decisions structurally disenfranchised
-        self.action_buffer.sync_epoch(self._epoch)
-
-    def install_manifest(self, manifest):
-        self.active_manifest = manifest      # ⑤ flip the pointer
-        self._epoch += 1                     # full reset: epoch advances once more, hidden state cleared
-        self.action_buffer.sync_epoch(self._epoch)
-        self.authority_open = True
-
-
-# ================================================================ I1
-def test_i1_boot_rejects_identity_and_drift():
-    # everything conforms: pass
-    assert boot_check(_manifest(), _runtime()) is None
-    # missing release_id: the event stream can't be reviewed; reject outright
-    assert boot_check(_manifest(release_id=""), _runtime()) == "missing_release_id"
-    # obs semantic fingerprint drift: the most common silent bug when swapping a ckpt
-    bad_fp = _manifest(compat=CompatibilityContract(
-        schema_range=("1.8", "2.0"), config_range=("3.1.0", "3.2.0"),
-        obs_fingerprint="fp-v6"))
-    assert boot_check(bad_fp, _runtime()) == "fingerprint_mismatch"
-    # schema falls outside the runtime's accepted range
-    bad_schema = _manifest(compat=CompatibilityContract(
-        schema_range=("3.1", "4.0"), config_range=("3.1.0", "3.2.0"),
-        obs_fingerprint="fp-v7"))
-    assert boot_check(bad_schema, _runtime()) == "schema_incompatible"
-    # config too new
-    bad_cfg = _manifest(compat=CompatibilityContract(
-        schema_range=("1.8", "2.0"), config_range=("5.0.0", "6.0.0"),
-        obs_fingerprint="fp-v7"))
-    assert boot_check(bad_cfg, _runtime()) == "config_incompatible"
-
-
-# ================================================================ I2 (review #2: containment != intersection)
-def test_i2_compatibility_is_containment_not_intersection():
-    # manifest claims support 1.2~2.0, runtime only eats 1.8~3.0: they intersect but half the range isn't covered; must reject
-    partial = _manifest(compat=CompatibilityContract(
-        schema_range=("1.2", "2.0"), config_range=("3.1.0", "3.2.0"),
-        obs_fingerprint="fp-v7"))
-    narrow_runtime = _runtime(accepts_schema=("1.8", "3.0"))
-    assert boot_check(partial, narrow_runtime) == "schema_incompatible"
-    # pin the predicate directly: containment is true, intersection doesn't count
-    assert compat_within(("1.8", "2.0"), ("1.2", "3.0")) is True
-    assert compat_within(("1.2", "2.0"), ("1.8", "3.0")) is False
-    assert parse_version("1.4.0") == (1, 4, 0)
-
-
-# ================================================================ I3
-def test_i3_state_machine_rejects_illegal_transition():
-    sup = ReleaseSupervisor(FakeClock(), "r7")
-    assert sup.request_transition("VERIFYING", "boot")
-    assert sup.request_transition("SHADOW", "shadow_start")
-    assert not sup.request_transition("ACTIVE", "skip")     # skip-level promotion: illegal
-    assert sup.state == "SHADOW"
-    assert sup.request_transition("CANARY", "canary_start")
-    assert sup.request_transition("ACTIVE", "promote")
-    assert sup.request_transition("DEGRADED", "health_dip")
-    assert sup.request_transition("ACTIVE", "recover")      # recovery also takes a legal edge
-
-
-# ================================================================ I4
-def test_i4_safe_stop_forces_reverification():
-    sup = ReleaseSupervisor(FakeClock(), "r7")
-    sup.request_transition("VERIFYING", "boot")
-    sup.request_transition("SHADOW", "shadow_start")
-    assert sup.report_fault(Fault.SAFETY, "policy_timeout") == "SAFE_STOP"
-    assert not sup.request_transition("ACTIVE", "reboot_magic")  # "just restart it" is rejected
-    assert sup.request_transition("VERIFYING", "reverify")       # the only way out: return to the start of the evidence chain
-
-
-# ================================================================ I5 (review #1: candidate structurally cannot reach the sink)
-def test_i5_shadow_never_lands_candidate():
-    clock = FakeClock()
-    active, candidate = SinePolicy(), OffsetPolicy(0.5)
-    active.reset(1, SequenceAllocator())
-    candidate.reset(1, SequenceAllocator())
-    sink = ControllerSink(FakeController())
-    runner = ShadowRunner(active, candidate, PreviewSafety(), sink)
-    est, sensor = NaiveEstimator(), FakeSensor(clock)
-    for _ in range(20):
-        clock.advance(DT)
-        now = clock.monotonic()
-        state = est.estimate(sensor.latest(now), now)
-        runner.tick(state, now)          # landing happens only inside tick: active->safety.check->sink
-    assert runner.stats.ticks == 20
-    assert runner.stats.divergences == 20                    # constant offset: value divergence every tick
-    assert len(sink._controller.sent) == 20                  # every landed tick comes from the active branch
-    # the candidate's product never shows up in the sink: it only entered the ledger. The test never calls submit on the runner's behalf.
-
-
-# ================================================================ I6
-def test_i6_promotion_gate_requires_evidence():
-    policy = ReleasePolicy(min_ticks=100, divergence_budget=0.02)
-    few = ShadowStats(ticks=50)                              # not enough samples
-    assert promote_allowed(few, policy) is False
-    ok = ShadowStats(ticks=200, divergences=2)               # 1% < 2%
-    assert promote_allowed(ok, policy) is True
-    hot = ShadowStats(ticks=200, divergences=30)             # 15% > 2%
-    assert promote_allowed(hot, policy) is False
-
-
-# ================================================================ I7 (review #13: split the buffer primitive from the real rollback)
-def test_i7_action_buffer_rejects_stale_epoch():
-    buf = ActionBuffer(epoch=2)
-    stale = Action(values=(1.0,) * CHUNK_LEN, dt=DT, horizon=CHUNK_LEN,
-                   generated_at=0.2, valid_from=0.2, valid_until=0.52,
-                   state_stamp=0.2, epoch=1, sequence_id=99)
-    assert buf.put(stale, 0.2) is False                      # in-flight decision from epoch 1: the barrier rejects it
-    assert ("rejected_stale_epoch", 99) in buf.events
-
-
-# ================================================================ I8 (review #13: actually execute rollback)
-def test_i8_rollback_executes_and_invalidates_inflight():
-    clock = FakeClock()
-    core = RollbackCore(_manifest(release_id="r7"),
-                        _manifest(release_id="r6", code_version="1.3.9"),
-                        _runtime(), clock)
-    sup = ReleaseSupervisor(clock, "r7")
-    sup.request_transition("VERIFYING", "boot")
-    sup.request_transition("CANARY", "canary_start")
-    sup.note_epoch(core.epoch)
-    sup.request_transition("ACTIVE", "promote")
-    inflight = Action(values=(0.5,) * CHUNK_LEN, dt=DT, horizon=CHUNK_LEN,
-                      generated_at=0.0, valid_from=0.0, valid_until=0.32,
-                      state_stamp=0.0, epoch=core.epoch, sequence_id=1)
-    assert core.action_buffer.put(inflight, 0.0) is True     # before rollback: an old-epoch decision can be enqueued
-    assert rollback(sup, core) is True
-    assert sup.state == "VERIFYING"                          # stops at the start of the evidence chain, not straight back to ACTIVE
-    assert core.active_manifest.release_id == "r6"
-    assert core.epoch == 3                                   # 1 ->(bump) 2 ->(reset) 3
-    stale = Action(values=(0.5,) * CHUNK_LEN, dt=DT, horizon=CHUNK_LEN,
-                   generated_at=0.0, valid_from=0.0, valid_until=0.32,
-                   state_stamp=0.0, epoch=2, sequence_id=5)
-    assert core.action_buffer.put(stale, 0.0) is False       # in-flight decision from the rollback-era epoch: already disenfranchised
-
-
-# ================================================================ I9 (review #9: clamp_diffs really counts)
-def test_i9_clamp_divergence_detected():
-    clock = FakeClock()
-    active = OffsetPolicy(0.0)                               # ~0.02, does not trigger clamping
-    candidate = OffsetPolicy(6.0)                            # exceeds max_velocity*dt, gets clipped
-    active.reset(1, SequenceAllocator())
-    candidate.reset(1, SequenceAllocator())
-    safety = PreviewSafety(max_velocity=5.0, dt=DT)
-    sink = ControllerSink(FakeController())
-    runner = ShadowRunner(active, candidate, safety, sink)
-    est, sensor = NaiveEstimator(), FakeSensor(clock)
-    for _ in range(5):
-        clock.advance(DT)
-        now = clock.monotonic()
-        state = est.estimate(sensor.latest(now), now)
-        runner.tick(state, now)
-    assert runner.stats.clamp_diffs == 5                     # every tick active passes, candidate is clipped
-    assert all(d.safety for _, d in runner.stats.ledger)
-    # the candidate sees the clamping verdict, but its product never lands: what the sink receives is still active's approved value
-    assert all(cmd[0] <= 5.0 * DT + 1e-9 for cmd in sink._controller.sent)
-
-
-# ================================================================ I10 (review #8: time-semantics divergence)
-def test_i10_temporal_divergence_without_value_divergence():
-    clock = FakeClock()
-    active = SinePolicy()
-    candidate = SlowPolicy(latency=0.15)                     # same values, effective moment 0.15s later
-    active.reset(1, SequenceAllocator())
-    candidate.reset(1, SequenceAllocator())
-    sink = ControllerSink(FakeController())
-    runner = ShadowRunner(active, candidate, PreviewSafety(), sink)
-    est, sensor = NaiveEstimator(), FakeSensor(clock)
-    for _ in range(5):
-        clock.advance(DT)
-        now = clock.monotonic()
-        state = est.estimate(sensor.latest(now), now)
-        value_diverged = runner.tick(state, now)
-    assert value_diverged is False                           # value dimension: zero divergence
-    assert runner.stats.validity_diffs == 5                  # time-semantics dimension: diverges every tick
-    assert runner.stats.divergences == 5                     # if it only compared values, this state machine would go "all green" and miss it
-    assert all(d.validity and not d.value for _, d in runner.stats.ledger)
-
-
-# ================================================================ I11 (review #5: fault grading, not a blanket e-stop)
-def test_i11_fault_severity_routing():
-    clock = FakeClock()
-    sup = ReleaseSupervisor(clock, "r7")
-    sup.request_transition("VERIFYING", "boot")
-    sup.request_transition("SHADOW", "shadow_start")
-    sup.request_transition("CANARY", "canary_start")
-    sup.request_transition("ACTIVE", "promote")
-    # observability fault: metrics gap -- freeze promotion, don't interrupt a safely-running control loop, but keep a trace
-    assert sup.report_fault(Fault.OBSERVABILITY, "metrics_gap") == "ACTIVE"
-    assert sup.events[-1].to_state == "ACTIVE"
-    assert sup.events[-1].reason == "metrics_gap"
-    # release-health degradation: divergence rate climbing -- go to DEGRADED, not SAFE_STOP
-    assert sup.report_fault(Fault.RELEASE, "divergence_rise") == "DEGRADED"
-    # safety fault: touches physical limits -- must go SAFE_STOP
-    assert sup.report_fault(Fault.SAFETY, "command_over_limit") == "SAFE_STOP"
-
-
-# ================================================================ I12 (review #4/#17/#18: the evidence chain is complete)
-def test_i12_events_form_evidence_chain():
-    clock = FakeClock()
-    sup = ReleaseSupervisor(clock, "r7", epoch=4)
-    sup.request_transition("VERIFYING", "boot", evidence_ref="ci:1234")
-    clock.advance(1.0)
-    sup.request_transition("SHADOW", "shadow_start", evidence_ref="shadow:88")
-    assert sup.state == "SHADOW"
-    assert len(sup.events) == 2
-    e0, e1 = sup.events
-    assert isinstance(e0, ReleaseEvent)
-    assert e0.release_id == "r7" and e0.epoch == 4
-    assert e0.to_state == "VERIFYING" and e0.evidence_ref == "ci:1234"
-    assert e1.timestamp > e0.timestamp                       # injected clock: time is reviewable
-    assert e1.reason == "shadow_start" and e1.from_state == "VERIFYING"
-    # illegal transitions aren't recorded: the evidence chain records only moves that really happened
-    n_before = len(sup.events)
-    assert not sup.request_transition("ACTIVE", "illegal")
-    assert len(sup.events) == n_before
-
-
-# ================================================================ I13 (review #11: hot reload is fail-before-motion)
-def test_i13_config_reload_is_fail_before_motion():
-    runtime = _runtime()
-    cfg = ConfigManager({"config_version": "3.1.0", "max_velocity": 5.0}, runtime)
-    cfg.prepare({"config_version": "3.1.5", "max_velocity": 4.0})
-    assert cfg.validate() is None
-    assert cfg.commit(now=1.0) is True
-    assert cfg.current["config_version"] == "3.1.5"          # legal: the next tick reads the new value
-    # illegal threshold: prepare->validate fails -> current stays byte-for-byte unchanged
-    cfg.prepare({"config_version": "3.1.6", "max_velocity": -1.0})
-    assert cfg.commit(now=2.0) is False
-    assert cfg.current["max_velocity"] == 4.0                # never half-new half-old
-    assert ("rejected", "3.1.6", "unsafe_threshold", 2.0) in cfg.events
-    # forward compatibility must be declared too: too-old config is also rejected (not assumed fine)
-    cfg.prepare({"config_version": "2.0.0", "max_velocity": 3.0})
-    assert cfg.validate() == "config_too_old"
-    cfg.commit(now=3.0)
-    # only one in-flight change at a time
-    cfg2 = ConfigManager({"config_version": "3.1.0", "max_velocity": 5.0}, runtime)
-    cfg2.prepare({"config_version": "3.1.1", "max_velocity": 5.0})
-    with pytest.raises(ConfigRejected):
-        cfg2.prepare({"config_version": "3.1.2", "max_velocity": 5.0})
-
-
-# ================================================================ I14 (review #20: an old version != a rollback-able version)
-def test_i14_rollback_must_reverify_old_manifest():
-    clock = FakeClock()
-    # the previous release r6's obs fingerprint doesn't match the current runtime: no hard rollback
-    incompatible_old = _manifest(release_id="r6", compat=CompatibilityContract(
-        schema_range=("1.8", "2.0"), config_range=("3.1.0", "3.2.0"),
-        obs_fingerprint="fp-v5"))
-    core = RollbackCore(_manifest(release_id="r7"), incompatible_old, _runtime(), clock)
-    sup = ReleaseSupervisor(clock, "r7")
-    sup.request_transition("VERIFYING", "boot")
-    sup.request_transition("CANARY", "canary_start")
-    sup.request_transition("ACTIVE", "promote")
-    with pytest.raises(RollbackRejected) as ei:
-        rollback(sup, core)
-    assert ei.value.args[0] == "fingerprint_mismatch"
-    assert sup.state == "SAFE_STOP"                          # stays in the safe state asking for help, never flips back with a fault
-    assert core.active_manifest.release_id == "r7"           # the pointer wasn't polluted
-
-
-# ================================================================ I15 (review #12: compare A/B directly in the same episode)
-def test_i15_swap_policy_keeps_contract_shape():
-    # swap in an implementation that's numerically identical but a different class: the seam and the sent stream are pinned by the contract, replay is bit-for-bit identical
-    ctrl_a, safety_a = run_episode(FakeClock(), n_steps=20, policy=SinePolicy())
-    ctrl_b, safety_b = run_episode(FakeClock(), n_steps=20, policy=OffsetPolicy(0.0))
-    assert ctrl_a.sent == ctrl_b.sent                        # compare directly within the same episode, no extra run
-    assert safety_a.safe_entries == safety_b.safe_entries
-```
-
-`python -m pytest tests/test_deploy.py -q` passes directly (run before this piece went to print: 15 passed). What this version does beyond the first draft is precisely to fill in the "said but didn't do" that a review would catch at a glance: `clamp_diffs` really counts (I9), the candidate's zero-landing is guaranteed by a single internal path in the runner rather than the test calling `submit` for it (I5), rollback tests `rollback()` itself rather than the buffer primitive (I7/I8 split apart), config hot reload now has a runnable `ConfigManager` (I13), and `release_id` enters the events and the state machine (I12). The heart of this article is I4, I8, and I14: I4 rejects "just restart it" -- after SAFE_STOP the only way out is to return to the start of the evidence chain and walk it again; I8 turns rollback into a real disenfranchisement, with the old version's in-flight decisions structurally rejected by the epoch barrier rather than by "wait a moment and let it finish"; I14 adds the most counterintuitive cut -- the rollback target version must first pass the compatibility gate, "old" does not mean "rollback-able."
+Everything above is design. Turning it into a minimal runnable-and-testable form -- the full `deploy_fakes.py`, a `test_deploy.py` that pins I1-I17 one assertion at a time, and a real run (17 passed) -- is long enough to stand as its own piece, so I split it into the sister article [Running the Release State Machine: A Pure-stdlib Minimal Closed Loop and Seventeen Invariants](/en/articles/2026-09-23-agent-release-state-machine-runnable/). That piece reuses [9/19's fakes.py](/en/articles/2026-09-19-embodied-agent-architecture/) (ActionBuffer, the epoch barrier, injected clock, single-writer CommandSink all present and unchanged); this piece keeps only the design and boundaries, while the code and assertions live there. Want to see "which assertion pins each invariant, and how `CommandAdmission`'s `prepare/commit` actually drops the gate in code"? Jump straight to that piece; want to first be clear on "why there has to be a gate at all, and why robot rollback != web rollback"? Finish reading this one, then go.
 
 ## Six Anti-Patterns at the Deployment Layer
 
 Continuing 9/17's list, here only the pits on the release channel, still ordered by frequency of appearance:
 
-1. **Same-name, different-thing artifacts**: matching versions by filename; `v17_final_v2.pt`-style naming is the number-one breeding ground for skew. The fix: a hash for content identity, a signature for provenance identity (and the signature must cover the entire canonicalized manifest), a release_id for event identity -- do not conflate the three.
+1. **Same-name, different-thing artifacts**: matching versions by filename; `v17_final_v2.pt`-style naming is the number-one breeding ground for skew. The fix: a hash for content identity, a signature for provenance identity (and the signature must cover the entire canonicalized manifest), a release_id for event identity -- do not conflate the three. One more boundary: this article's demo only **carries** `artifact_sha256`/`signature` into the state machine as fields; the real hash recomputation, canonicalization + verification happen in the production registry / artifact-loader and never enter this state machine -- do not read "the field is present" as "verification done."
 2. **Rollback that only flips config**: the pointer flipped, but the old version's in-flight chunks and async inference are still in the air. The fix: rollback = stop commands + epoch disenfranchisement + pass boot_check again + flip the pointer + a full reset -- the five-step order is the semantics.
-3. **"Promote because it looks fine"**: observation without a quantified gate always slides toward luck. The fix: write `min_ticks` + `divergence_budget` into the manifest's policy section; the promotion gate recognizes only these two numbers.
+3. **"Promote because it looks fine"**: observation without a quantified gate always slides toward luck. The fix: write `min_ticks` + `divergence_budget` into the manifest's policy section; the promotion gate recognizes only these two numbers. Mark the boundary likewise: the demo's `promote_allowed` eats only these two numbers, and the divergence rate it reads is a one-dimensional **aggregate**; splitting rates per dimension, a hard gate on clamping/e-stop, and task-stratified coverage belong to production / the next scheduler layer -- this article only stands up the discipline that "promotion must have a computable gate."
 4. **The rollback path never tested, the rollback target never checked for compatibility**: running the rollback script for the first time on the night of the incident, only to find after switching back that the old version is incompatible with the current runtime. The fix: put the rollback drill in the pipeline, and re-run boot_check on the old manifest before rolling back -- an old version is not a rollback-able version.
 5. **Hot-changing thresholds by shortcut**: editing on-site parameters directly, bypassing the release channel. The fix: config version into the manifest, hot reload through prepare -> validate -> commit, old value stays byte-for-byte unchanged if validation fails, and changing a threshold counts as a release too.
 6. **A compatibility matrix built on declarations**: "supports v3 and above" with v5 never tested, and the ✓ hand-typed into YAML. The fix: a cell that has not run a boot check defaults to ✗, every ✓ carries an evidence reference and is written by the pipeline; compatibility is a property you test, not one you declare.
 
 ## Summary
 
-9/17 said the skeleton must "be able to swap components"; what this article adds is the layer for the swapping: **release identity** (a layered manifest -- content hash, provenance signature, event sequence, plus the identity scales of release_id and epoch), **the compatibility grid** (code × schema × config, containment rather than intersection, with untested cells defaulting to ✗ and every ✓ carrying evidence), **shadow comparison** (bookkeeping only, no landing; divergence split into the five dimensions of value/time/amplitude/sequence/safety, with clamping differences really counted), **canary promotion with gates** (data has the say, and it is made explicit that this article does not simulate a fleet scheduler), **rollback backed by the epoch barrier** (stop commands first, then disenfranchise the old decisions, pass the compatibility gate again, only then flip the pointer, and the rollback path itself must be drilled), and **fail-before-motion hot config reload**. Fifteen invariants pin this state machine to a runnable degree.
+9/17 said the skeleton must "be able to swap components"; what this article adds is the layer for the swapping: **release identity** (a layered manifest -- content hash, provenance signature, event sequence, plus the identity scales of release_id and epoch; in this demo the hash and signature are only carried metadata, verification/recomputation is the production loader's boundary), **the compatibility grid** (the runtime's schema × config × obs-fingerprint, containment rather than intersection, code as a release-artifact identity rather than a compatibility axis, with untested cells defaulting to ✗ and every ✓ carrying evidence held in the registry; the fingerprint gate and the golden-vector gate are two different gates), **shadow comparison** (bookkeeping only, no landing; divergence split into the five **independent** dimensions of value/time/amplitude/sequence/safety, with clamping differences really counted, and preview collapsed onto a pure `evaluate()` with side effects kept only in check's commit branch), **canary promotion with gates** (data has the say, and it is made explicit that this article does not simulate a fleet scheduler, that promotion eats only two gates, and that a legal edge is not the same as satisfying the promotion/recovery condition; the three "ways back" -- CANARY / DEGRADED / SAFE_STOP -- each eat different evidence: promotion / recovery / full re-verification), **rollback backed by the epoch barrier** (all decisions -- sync active, async late arrival, candidate-promoted -- admit through one shared `CommandAdmission`, with `release_id` in the `ActionContext` **required** and no getattr fallback; the authority / release / epoch gates are collapsed in one place; stop commands first, then disenfranchise the old decisions -- including those queued but not yet dispatched and async late arrivals of an old release or with no identity -- pass the compatibility gate again, only then flip the pointer, and the rollback path itself must be drilled; and between `prepare()` → `rollback()` → `commit()` a generation re-check blocks the TOCTOU window, while true concurrent linearization remains production debt), and **fail-before-activation hot config reload** (commit is atomic, an illegal candidate is rejected before it takes effect; it does not claim concurrency atomicity). Seventeen invariants pin this state machine to a "runs, and is locally self-consistent" degree -- but remember the whole article's three-layer word discipline: **what the demo implementation guarantees ≠ what the architecture requires ≠ what production must fill in**; the green lights only prove this minimal model is self-consistent, not that production deployment safety is established.
 
 Looking back at the division of labor in this series: the evaluation protocol (9/12) defined what counts as evidence, the architecture article (9/17) defined which seam the evidence grows out of, and this article defined how evidence gates the next release. Put the three layers together, and "swap the route, the sensor, the robot" for the first time becomes a sentence with engineering meaning -- pull it out and there is a ledger, plug it back and there is a barrier, every step with its evidence.
 
-For the next step I lean toward the second direction: **version governance for a multi-machine fleet**. Because this article has already naturally grown the basic primitives a fleet registry needs -- `release_id + compatibility matrix + evidence + epoch + rollback`. Promoting them into a registry / desired-state / reconciliation-loop (N robots × the three version axes of code/schema/config, how the registry records the evidence behind each ✓ and how it converges drift) closes the architectural line of the whole series. The first direction (expanding shadow into a full release pipeline: comparison sample mix, boundary cases, the ledger schema) is still on the candidate list. Whichever one you want, tell me in the comments.
+For the next step I lean toward the second direction: **version governance for a multi-machine fleet**. Because this article has already naturally grown the basic primitives a fleet registry needs -- `release_id + compatibility matrix + evidence + epoch + rollback`. Promoting them into a registry / desired-state / reconciliation-loop (N robots × the three axes of schema/config/obs-fingerprint, with code hanging on the edge as a release-artifact identity rather than a compatibility axis; how the registry records the evidence behind each ✓ and how it converges drift) closes the architectural line of the whole series. The first direction (expanding shadow into a full release pipeline: comparison sample mix, boundary cases, the ledger schema) is still on the candidate list. Whichever one you want, tell me in the comments.
