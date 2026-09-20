@@ -8,7 +8,7 @@ tags: ["具身智能", "软件架构", "机器人", "部署运维", "VLA", "Pyth
 description: "9/17 给出了能跑、能测、能换组件的 Agent 骨架，这篇回答下一问：换下去的那一瞬间靠什么兜底。Web 服务回滚是撤销，机器人回滚是让旧决策失权——发布身份（分层 manifest + 签名语义）、runtime 的 schema×config×观测指纹兼容性网格（包含而非相交）、shadow 五维分歧台账与限幅差异、带晋升门槛的 canary、先失权再切指针的 epoch 屏障回滚、收在唯一命令入口的 authority/epoch/release 三道闸（发布身份必填、active 与异步晚到结果同门准入、rollback 与准入无竞态窗口）、fail-before-activation 的配置热加载，附一个纯 stdlib、十七个 invariant 的发布状态机最小闭环。"
 toc: true
 related_articles:
-  - 2026-09-23-agent-release-state-machine-runnable
+  - 2026-09-25-agent-release-state-machine-runnable
   - 2026-09-19-embodied-agent-architecture
   - 2026-09-16-policy-side-evaluation
   - 2026-09-12-sim-to-real-evaluation-protocol
@@ -20,7 +20,7 @@ Web 服务的回滚是撤销——把流量指回旧版本，错误率掉下去�
 
 上一篇把骨架立起来了：[六层运行时栈、三条核心契约、能跑能测的最小闭环](/zh/articles/2026-09-19-embodied-agent-architecture/)，结论是"换路线、换传感器、换机器人从外科手术降级为换插件"。但"可以插拔"和"敢拔敢插"之间还隔着一整层没写出来的东西——**拔下去的那一刻，谁兜底？**
 
-换一块板子，焊错了可以返工；换一份 policy 权重，机器人正在端着一条玻璃杯。它和 9/17 是同一套写法——先把概念给到能讨论，代码落地与十七个 invariant 的实跑拆到了姊妹篇（[《把发布状态机跑起来》](/zh/articles/2026-09-23-agent-release-state-machine-runnable/)，纯 stdlib、17 passed）。这篇区别于普通 DevOps 的地方，一句话能说完：**它把 deployment 当作机器人控制安全边界的一部分**，所以整篇其实是一条链——
+换一块板子，焊错了可以返工；换一份 policy 权重，机器人正在端着一条玻璃杯。它和 9/17 是同一套写法——先把概念给到能讨论，代码落地与十七个 invariant 的实跑拆到了姊妹篇（[《把发布状态机跑起来》](/zh/articles/2026-09-25-agent-release-state-machine-runnable/)，纯 stdlib、17 passed）。这篇区别于普通 DevOps 的地方，一句话能说完：**它把 deployment 当作机器人控制安全边界的一部分**，所以整篇其实是一条链——
 
 ```text
 release_id -> compatibility -> shadow evidence -> canary -> epoch barrier -> rollback
@@ -187,7 +187,7 @@ shadow 阶段也有两个失效条件要提前防。**候选不能碰状态**：
 
 ## 补到能跑：一台发布状态机的最小闭环（挪到了姊妹篇）
 
-上面都是设计。真正把它落成能跑、能测的最小形态——完整 `deploy_fakes.py`、逐条钉住 I1–I17 的 `test_deploy.py`、以及一次实跑（17 passed）——篇幅足够独立成篇，我把它拆到了姊妹篇 [《把发布状态机跑起来：一台纯 stdlib 最小闭环与十七个 invariant》](/zh/articles/2026-09-23-agent-release-state-machine-runnable/)。那篇复用 [9/19 的 fakes.py](/zh/articles/2026-09-19-embodied-agent-architecture/)（`ActionBuffer`、epoch 屏障、时钟注入、单写者 CommandSink 全部原样在场），本篇只留设计与边界，代码与断言都在那篇里。想看"每条不变量到底被哪个断言钉住、`CommandAdmission` 的 `prepare/commit` 怎么在代码里落闸门"，直接跳到那篇；想先弄清"为什么要有这道闸、回滚为什么 ≠ web 回滚"，留在这篇读完再走也不迟。
+上面都是设计。真正把它落成能跑、能测的最小形态——完整 `deploy_fakes.py`、逐条钉住 I1–I17 的 `test_deploy.py`、以及一次实跑（17 passed）——篇幅足够独立成篇，我把它拆到了姊妹篇 [《把发布状态机跑起来：一台纯 stdlib 最小闭环与十七个 invariant》](/zh/articles/2026-09-25-agent-release-state-machine-runnable/)。那篇复用 [9/19 的 fakes.py](/zh/articles/2026-09-19-embodied-agent-architecture/)（`ActionBuffer`、epoch 屏障、时钟注入、单写者 CommandSink 全部原样在场），本篇只留设计与边界，代码与断言都在那篇里。想看"每条不变量到底被哪个断言钉住、`CommandAdmission` 的 `prepare/commit` 怎么在代码里落闸门"，直接跳到那篇；想先弄清"为什么要有这道闸、回滚为什么 ≠ web 回滚"，留在这篇读完再走也不迟。
 
 ## 部署层的六个反模式
 

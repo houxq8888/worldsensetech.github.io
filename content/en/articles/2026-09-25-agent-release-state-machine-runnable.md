@@ -1,7 +1,7 @@
 ---
 title: "Running the Release State Machine: A Pure-stdlib Minimal Closed Loop and Seventeen Invariants"
-slug: "2026-09-23-agent-release-state-machine-runnable"
-date: 2026-09-23
+slug: "2026-09-25-agent-release-state-machine-runnable"
+date: 2026-09-25
 draft: false
 categories: ["Embodied AI", "Tutorial"]
 tags: ["Embodied AI", "Software Architecture", "Robotics", "Deployment & Ops", "VLA", "Python", "System Design", "Engineering", "Testing"]

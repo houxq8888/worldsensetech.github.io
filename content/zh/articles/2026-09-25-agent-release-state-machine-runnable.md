@@ -1,7 +1,7 @@
 ---
 title: "把发布状态机跑起来：一台纯 stdlib 最小闭环与十七个 invariant"
-slug: "2026-09-23-agent-release-state-machine-runnable"
-date: 2026-09-23
+slug: "2026-09-25-agent-release-state-machine-runnable"
+date: 2026-09-25
 draft: false
 categories: ["具身智能", "教程"]
 tags: ["具身智能", "软件架构", "机器人", "部署运维", "VLA", "Python", "系统设计", "工程架构", "测试"]
