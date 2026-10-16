@@ -91,6 +91,11 @@
 <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
 
     {{ with .Permalink }}<link rel="canonical" href="{{ . }}">{{ end }}
+    {{- /* taxonomy 列表页（tags/categories）加 noindex：中英文标签页内容结构相似但无 hreflang 关联，
+         加 noindex 避免 Google 将其判为重复页。文章页不受影响。 */ -}}
+    {{ if or (eq .Kind "taxonomy") (eq .Kind "term") }}
+    <meta name="robots" content="noindex, follow">
+    {{ end }}
     {{ if .IsTranslated }}
     <link rel="alternate" hreflang="{{ .Language.Locale }}" href="{{ .Permalink }}">
     {{ range .Translations }}
